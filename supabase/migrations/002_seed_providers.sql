@@ -1,0 +1,21 @@
+-- Seed streaming providers catalog
+insert into public.streaming_providers (key, name, provider_type, ios_scheme, ios_app_store_url, android_package, web_url, active) values
+  ('espn_plus', 'ESPN+', 'streaming', 'sportscenter://', 'https://apps.apple.com/app/espn-live-sports-scores/id317469184', 'com.espn.score_center', 'https://plus.espn.com', true),
+  ('cbs_sports', 'CBS Sports', 'streaming', 'cbssports://', 'https://apps.apple.com/app/cbs-sports-app-scores-news/id307184893', 'com.handmark.sportcaster', 'https://www.cbssports.com', true),
+  ('paramount_plus', 'Paramount+', 'streaming', 'paramountplus://', 'https://apps.apple.com/app/paramount/id530168168', 'com.cbs.ott', 'https://www.paramountplus.com', true),
+  ('tnt_drama', 'TNT', 'streaming', 'tntdrama://', 'https://apps.apple.com/app/tnt-drama/id548885498', 'com.turner.tnt', 'https://www.tntdrama.com', true),
+  ('tbs', 'TBS', 'streaming', 'tbs://', 'https://apps.apple.com/app/tbs-watch-live-tv/id329547168', 'com.turner.tbs', 'https://www.tbs.com', true),
+  ('trutv', 'truTV', 'streaming', 'trutv://', 'https://apps.apple.com/app/trutv/id396825498', 'com.turner.trutv', 'https://www.trutv.com', true),
+  ('max', 'Max', 'streaming', 'hbomax://', 'https://apps.apple.com/app/max-stream-hbo-tv-movies/id1666653815', 'com.wbd.stream', 'https://www.max.com', true),
+  ('peacock', 'Peacock', 'streaming', 'peacocktv://', 'https://apps.apple.com/app/peacock-tv-stream-tv-movies/id1508186374', 'com.peacocktv.peacockandroid', 'https://www.peacocktv.com', true),
+  ('youtube_tv', 'YouTube TV', 'tv', 'youtube-tv://', 'https://apps.apple.com/app/youtube-tv/id1193350206', 'com.google.android.apps.youtube.unplugged', 'https://tv.youtube.com', true),
+  ('hulu_live', 'Hulu + Live TV', 'tv', 'hulu://', 'https://apps.apple.com/app/hulu-stream-shows-movies/id376510438', 'com.hulu.plus', 'https://www.hulu.com/live-tv', true),
+  ('fubo', 'Fubo', 'tv', 'fubo://', 'https://apps.apple.com/app/fubo-watch-live-tv-sports/id905401434', 'com.fubo.firetv', 'https://www.fubo.tv', true),
+  ('sling', 'Sling TV', 'tv', 'slingtv://', 'https://apps.apple.com/app/sling-live-tv-shows-movies/id945077360', 'com.sling', 'https://www.sling.com', true),
+  ('directv_stream', 'DIRECTV STREAM', 'tv', 'directvstream://', 'https://apps.apple.com/app/directv-stream/id1445054482', 'com.att.tv', 'https://stream.directv.com', true),
+  ('xfinity', 'Xfinity Stream', 'tv', 'xfinitystream://', 'https://apps.apple.com/app/xfinity-stream/id731629156', 'com.xfinity.digitalhome', 'https://www.xfinity.com/stream', true),
+  ('spectrum', 'Spectrum TV', 'tv', 'spectrumtv://', 'https://apps.apple.com/app/spectrum-tv/id420455498', 'com.charter.tveverywhere', 'https://watch.spectrum.net', true),
+  ('draftkings', 'DraftKings', 'sportsbook', 'draftkings://', 'https://apps.apple.com/app/draftkings-sportsbook-casino/id710535379', 'com.draftkings.sportsbook', 'https://www.draftkings.com', true),
+  ('fanduel', 'FanDuel', 'sportsbook', 'fanduel://', 'https://apps.apple.com/app/fanduel-sportsbook-casino/id885905002', 'com.fanduel.sportsbook', 'https://www.fanduel.com', true),
+  ('betmgm', 'BetMGM', 'sportsbook', 'betmgm://', 'https://apps.apple.com/app/betmgm-online-sports-betting/id1459416963', 'com.betmgm.sport', 'https://www.betmgm.com', true),
+  ('caesars', 'Caesars Sportsbook', 'sportsbook', 'caesarssportsbook://', 'https://apps.apple.com/app/caesars-sportsbook-casino/id1500474284', 'com.williamhill.us', 'https://www.caesars.com/sportsbook-and-casino', true);

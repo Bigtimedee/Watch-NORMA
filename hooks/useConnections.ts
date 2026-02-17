@@ -1,0 +1,106 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../lib/supabase";
+import type { Connection, StreamingProvider, ProviderType } from "../lib/types";
+
+/** Fetch all available streaming providers from the catalog */
+export function useStreamingProviders(type?: ProviderType) {
+  return useQuery<StreamingProvider[]>({
+    queryKey: ["streaming-providers", type],
+    queryFn: async () => {
+      let query = supabase
+        .from("streaming_providers")
+        .select("*")
+        .eq("active", true)
+        .order("name");
+
+      if (type) {
+        query = query.eq("provider_type", type);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as StreamingProvider[];
+    },
+    staleTime: 60 * 60 * 1000, // providers rarely change
+  });
+}
+
+/** Fetch user's connections */
+export function useConnections(type?: ProviderType) {
+  return useQuery<Connection[]>({
+    queryKey: ["connections", type],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      let query = supabase
+        .from("connections")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (type) {
+        query = query.eq("provider_type", type);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as Connection[];
+    },
+  });
+}
+
+/** Toggle a connection on/off */
+export function useToggleConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      provider,
+      currentConnection,
+    }: {
+      provider: StreamingProvider;
+      currentConnection?: Connection;
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      if (currentConnection) {
+        // Toggle existing connection
+        const { error } = await supabase
+          .from("connections")
+          .update({
+            connected: !currentConnection.connected,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", currentConnection.id);
+        if (error) throw error;
+      } else {
+        // Create new connection
+        const { error } = await supabase.from("connections").insert({
+          user_id: user.id,
+          provider_type: provider.provider_type,
+          provider_key: provider.key,
+          provider_name: provider.name,
+          connected: true,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
+    },
+  });
+}
+
+/** Get connected provider keys (for watch button logic) */
+export function useConnectedProviderKeys() {
+  const { data: connections } = useConnections();
+
+  return (connections ?? [])
+    .filter((c) => c.connected)
+    .map((c) => c.provider_key);
+}

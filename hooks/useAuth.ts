@@ -1,0 +1,132 @@
+import { useEffect, useState, useCallback } from "react";
+import { Alert, Platform } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
+import { supabase } from "../lib/supabase";
+import type { Profile } from "../lib/types";
+import type { Session } from "@supabase/supabase-js";
+
+export function useAuth() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (data) setProfile(data as Profile);
+    if (error) console.warn("Error fetching profile:", error.message);
+  };
+
+  const signUp = useCallback(
+    async (email: string, password: string, displayName?: string) => {
+      setLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: displayName },
+        },
+      });
+      setLoading(false);
+      if (error) throw error;
+    },
+    []
+  );
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setLoading(false);
+    if (error) throw error;
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    if (Platform.OS !== "ios") {
+      Alert.alert("Apple Sign-In is only available on iOS");
+      return;
+    }
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("No identity token received from Apple");
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+    } catch (e: any) {
+      if (e.code === "ERR_REQUEST_CANCELED") return; // User cancelled
+      throw e;
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  }, []);
+
+  const updateProfile = useCallback(
+    async (updates: Partial<Profile>) => {
+      if (!session) return;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", session.user.id);
+
+      if (error) throw error;
+      await fetchProfile(session.user.id);
+    },
+    [session]
+  );
+
+  return {
+    session,
+    profile,
+    loading,
+    signUp,
+    signIn,
+    signInWithApple,
+    signOut,
+    updateProfile,
+  };
+}
