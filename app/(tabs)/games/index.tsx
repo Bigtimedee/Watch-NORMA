@@ -2,11 +2,15 @@ import { useState } from "react";
 import {
   View,
   Text,
+  Image,
   FlatList,
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StyleSheet,
 } from "react-native";
+
+const normaLogo = require("../../../assets/norma-logo.png");
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useGames, useFollowedGames } from "../../../hooks/useGames";
 import { GameCard } from "../../../components/GameCard";
@@ -42,11 +46,11 @@ export default function GamesScreen() {
   ).length;
 
   return (
-    <SafeAreaView className="flex-1 bg-court-dark" edges={["top"]}>
+    <SafeAreaView style={s.container} edges={["top"]}>
       {/* Header */}
-      <View className="px-4 pt-4 pb-2">
-        <Text className="text-white text-2xl font-black">Games</Text>
-        <Text className="text-slate-400 text-sm mt-1">
+      <View style={s.header}>
+        <Image source={normaLogo} style={s.headerLogo} resizeMode="contain" />
+        <Text style={s.headerDate}>
           {new Date().toLocaleDateString("en-US", {
             weekday: "long",
             month: "long",
@@ -56,7 +60,7 @@ export default function GamesScreen() {
       </View>
 
       {/* Tabs */}
-      <View className="flex-row px-4 mb-4">
+      <View style={s.tabs}>
         {(
           [
             { key: "all", label: "All Games" },
@@ -69,15 +73,14 @@ export default function GamesScreen() {
         ).map((tab) => (
           <Pressable
             key={tab.key}
-            className={`mr-3 px-4 py-2 rounded-full ${
-              activeTab === tab.key ? "bg-brand-500" : "bg-court-card"
-            }`}
+            style={[s.tab, activeTab === tab.key ? s.tabActive : s.tabInactive]}
             onPress={() => setActiveTab(tab.key)}
           >
             <Text
-              className={`text-sm font-semibold ${
-                activeTab === tab.key ? "text-white" : "text-slate-400"
-              }`}
+              style={[
+                s.tabText,
+                activeTab === tab.key ? s.tabTextActive : s.tabTextInactive,
+              ]}
             >
               {tab.label}
             </Text>
@@ -87,9 +90,9 @@ export default function GamesScreen() {
 
       {/* Games list */}
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={s.loadingContainer}>
           <ActivityIndicator size="large" color="#f97316" />
-          <Text className="text-slate-400 mt-4">Loading games...</Text>
+          <Text style={s.loadingText}>Loading games...</Text>
         </View>
       ) : (
         <FlatList
@@ -104,8 +107,8 @@ export default function GamesScreen() {
             />
           }
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-20">
-              <Text className="text-slate-400 text-base text-center">
+            <View style={s.emptyContainer}>
+              <Text style={s.emptyText}>
                 {activeTab === "following"
                   ? "No followed games yet.\nTap a game to follow it!"
                   : activeTab === "live"
@@ -120,3 +123,21 @@ export default function GamesScreen() {
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  headerLogo: { width: 140, height: 47 },
+  headerDate: { color: "#94a3b8", fontSize: 14, marginTop: 4 },
+  tabs: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 16 },
+  tab: { marginRight: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9999 },
+  tabActive: { backgroundColor: "#f97316" },
+  tabInactive: { backgroundColor: "#1e293b" },
+  tabText: { fontSize: 14, fontWeight: "600" },
+  tabTextActive: { color: "#ffffff" },
+  tabTextInactive: { color: "#94a3b8" },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { color: "#94a3b8", marginTop: 16 },
+  emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
+  emptyText: { color: "#94a3b8", fontSize: 16, textAlign: "center" },
+});

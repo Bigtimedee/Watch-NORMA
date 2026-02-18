@@ -4,6 +4,7 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,17 +15,17 @@ export default function AlertsScreen() {
   const { data: alerts, isLoading, refetch, isRefetching } = useAlerts();
 
   return (
-    <SafeAreaView className="flex-1 bg-court-dark" edges={["top"]}>
+    <SafeAreaView style={s.container} edges={["top"]}>
       {/* Header */}
-      <View className="px-4 pt-4 pb-4">
-        <Text className="text-white text-2xl font-black">Alerts</Text>
-        <Text className="text-slate-400 text-sm mt-1">
+      <View style={s.header}>
+        <Text style={s.headerTitle}>Alerts</Text>
+        <Text style={s.headerSubtitle}>
           Key moments from your followed games
         </Text>
       </View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={s.loadingContainer}>
           <ActivityIndicator size="large" color="#f97316" />
         </View>
       ) : (
@@ -40,16 +41,14 @@ export default function AlertsScreen() {
             />
           }
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-20 px-8">
+            <View style={s.emptyContainer}>
               <Ionicons
                 name="notifications-off-outline"
                 size={48}
                 color="#475569"
               />
-              <Text className="text-slate-400 text-base text-center mt-4">
-                No alerts yet
-              </Text>
-              <Text className="text-slate-500 text-sm text-center mt-2">
+              <Text style={s.emptyTitle}>No alerts yet</Text>
+              <Text style={s.emptyDesc}>
                 Follow games in the Games tab to receive alerts for close games,
                 big runs, and other key moments.
               </Text>
@@ -61,3 +60,20 @@ export default function AlertsScreen() {
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+  headerTitle: { color: "#ffffff", fontSize: 24, fontWeight: "900" },
+  headerSubtitle: { color: "#94a3b8", fontSize: 14, marginTop: 4 },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: { color: "#94a3b8", fontSize: 16, textAlign: "center", marginTop: 16 },
+  emptyDesc: { color: "#64748b", fontSize: 14, textAlign: "center", marginTop: 8 },
+});

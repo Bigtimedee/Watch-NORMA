@@ -3,16 +3,28 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Game } from "../lib/types";
 
+/** Get the local calendar date as YYYY-MM-DD (avoids UTC midnight rollover bug) */
+function localDateStr(date?: string): string {
+  if (date) return date;
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /** Fetch today's games with team data, subscribing to realtime updates */
 export function useGames(date?: string) {
   const queryClient = useQueryClient();
-  const today = date ?? new Date().toISOString().split("T")[0];
+  const today = localDateStr(date);
 
   const query = useQuery<Game[]>({
     queryKey: ["games", today],
     queryFn: async () => {
-      const startOfDay = `${today}T00:00:00Z`;
-      const endOfDay = `${today}T23:59:59Z`;
+      // Use local midnight boundaries converted to UTC for the query range.
+      // This ensures "today" means the user's local calendar day.
+      const startOfDay = new Date(`${today}T00:00:00`).toISOString();
+      const endOfDay = new Date(`${today}T23:59:59`).toISOString();
 
       const { data, error } = await supabase
         .from("games")
@@ -25,6 +37,7 @@ export function useGames(date?: string) {
         )
         .gte("scheduled_at", startOfDay)
         .lte("scheduled_at", endOfDay)
+        .not("status", "in", "(cancelled,postponed)")
         .order("scheduled_at", { ascending: true });
 
       if (error) throw error;

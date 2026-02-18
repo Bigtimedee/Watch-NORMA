@@ -3,14 +3,12 @@ import type { Alert, AlertType, Game } from "./types";
 /** Human-readable label for an alert type */
 export function alertTypeLabel(type: AlertType): string {
   const labels: Record<AlertType, string> = {
-    game_start: "Tip Off",
-    close_game: "Close Game",
-    overtime: "Overtime",
-    big_run: "Big Run",
-    halftime: "Halftime",
-    game_end: "Final",
-    momentum_shift: "Momentum Shift",
-    foul_trouble: "Foul Trouble",
+    spread_alert: "Spread",
+    total_alert: "Over/Under",
+    moneyline_alert: "Moneyline",
+    prop_alert: "Prop Bet",
+    position_alert: "Position",
+    bet_resolved: "Result",
   };
   return labels[type] ?? type;
 }
@@ -18,14 +16,12 @@ export function alertTypeLabel(type: AlertType): string {
 /** Accent color for alert type badges */
 export function alertTypeColor(type: AlertType): string {
   const colors: Record<AlertType, string> = {
-    game_start: "#22c55e", // green
-    close_game: "#ef4444", // red
-    overtime: "#f97316", // orange
-    big_run: "#eab308", // yellow
-    halftime: "#6366f1", // indigo
-    game_end: "#8b5cf6", // violet
-    momentum_shift: "#f59e0b", // amber
-    foul_trouble: "#ec4899", // pink
+    spread_alert: "#f97316", // orange
+    total_alert: "#eab308", // yellow
+    moneyline_alert: "#ef4444", // red
+    prop_alert: "#3b82f6", // blue
+    position_alert: "#a855f7", // purple
+    bet_resolved: "#22c55e", // green
   };
   return colors[type] ?? "#94a3b8";
 }
@@ -33,16 +29,19 @@ export function alertTypeColor(type: AlertType): string {
 /** Icon name (Ionicons) for alert type */
 export function alertTypeIcon(type: AlertType): string {
   const icons: Record<AlertType, string> = {
-    game_start: "play-circle-outline",
-    close_game: "flame-outline",
-    overtime: "timer-outline",
-    big_run: "trending-up-outline",
-    halftime: "pause-circle-outline",
-    game_end: "checkmark-circle-outline",
-    momentum_shift: "swap-horizontal-outline",
-    foul_trouble: "warning-outline",
+    spread_alert: "trending-up-outline",
+    total_alert: "analytics-outline",
+    moneyline_alert: "flame-outline",
+    prop_alert: "person-outline",
+    position_alert: "cash-outline",
+    bet_resolved: "checkmark-circle-outline",
   };
   return icons[type] ?? "notifications-outline";
+}
+
+/** Whether an alert type indicates the user should tune in NOW */
+export function isUrgent(type: AlertType): boolean {
+  return type !== "bet_resolved";
 }
 
 /** Format time-ago string */

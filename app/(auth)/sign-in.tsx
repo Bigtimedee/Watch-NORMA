@@ -2,17 +2,21 @@ import { useState } from "react";
 import {
   View,
   Text,
+  Image,
   TextInput,
   Pressable,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "../../hooks/useAuth";
+
+const normaLogo = require("../../assets/norma-logo.png");
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -41,37 +45,31 @@ export default function SignInScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-court-dark">
+    <SafeAreaView style={s.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={s.flex}
       >
         <ScrollView
-          className="flex-1"
-          contentContainerClassName="px-8 pt-8 pb-12"
+          style={s.flex}
+          contentContainerStyle={s.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           {/* Back button */}
-          <Pressable onPress={() => router.back()} className="mb-8">
-            <Text className="text-brand-400 text-base">&larr; Back</Text>
+          <Pressable onPress={() => router.back()} style={s.backBtn}>
+            <Text style={s.backText}>{"\u2190"} Back</Text>
           </Pressable>
 
-          <Text className="text-white text-3xl font-black mb-2">
-            Welcome Back
-          </Text>
-          <Text className="text-slate-400 text-base mb-8">
-            Sign in to your NORMA account.
-          </Text>
+          <Image source={normaLogo} style={s.logo} resizeMode="contain" />
+
+          <Text style={s.title}>Welcome Back</Text>
+          <Text style={s.subtitle}>Sign in to your NORMA account.</Text>
 
           {/* Apple Sign-In */}
           {Platform.OS === "ios" && (
             <AppleAuthentication.AppleAuthenticationButton
-              buttonType={
-                AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-              }
-              buttonStyle={
-                AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-              }
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
               cornerRadius={12}
               style={{ width: "100%", height: 50 }}
               onPress={handleApple}
@@ -79,17 +77,17 @@ export default function SignInScreen() {
           )}
 
           {Platform.OS === "ios" && (
-            <View className="flex-row items-center my-6">
-              <View className="flex-1 h-px bg-court-border" />
-              <Text className="text-slate-500 mx-4 text-sm">or</Text>
-              <View className="flex-1 h-px bg-court-border" />
+            <View style={s.divider}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>or</Text>
+              <View style={s.dividerLine} />
             </View>
           )}
 
           {/* Email */}
-          <Text className="text-slate-300 text-sm font-medium mb-2">Email</Text>
+          <Text style={s.label}>Email</Text>
           <TextInput
-            className="bg-court-card text-white rounded-xl px-4 py-3.5 mb-4 text-base"
+            style={s.input}
             placeholder="you@example.com"
             placeholderTextColor="#64748b"
             value={email}
@@ -100,11 +98,9 @@ export default function SignInScreen() {
           />
 
           {/* Password */}
-          <Text className="text-slate-300 text-sm font-medium mb-2">
-            Password
-          </Text>
+          <Text style={s.label}>Password</Text>
           <TextInput
-            className="bg-court-card text-white rounded-xl px-4 py-3.5 mb-8 text-base"
+            style={[s.input, { marginBottom: 32 }]}
             placeholder="Your password"
             placeholderTextColor="#64748b"
             value={password}
@@ -115,25 +111,23 @@ export default function SignInScreen() {
 
           {/* Sign In button */}
           <Pressable
-            className={`rounded-xl py-4 items-center ${
-              loading ? "bg-brand-700" : "bg-brand-500"
-            }`}
+            style={[s.button, loading && s.buttonDisabled]}
             onPress={handleSignIn}
             disabled={loading}
           >
-            <Text className="text-white text-base font-bold">
+            <Text style={s.buttonText}>
               {loading ? "Signing In..." : "Sign In"}
             </Text>
           </Pressable>
 
           {/* Sign Up link */}
           <Pressable
-            className="py-4 items-center"
+            style={s.linkBtn}
             onPress={() => router.replace("/(auth)/sign-up")}
           >
-            <Text className="text-slate-400 text-sm">
+            <Text style={s.linkText}>
               Don't have an account?{" "}
-              <Text className="text-brand-400 font-semibold">Sign Up</Text>
+              <Text style={s.linkHighlight}>Sign Up</Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -141,3 +135,38 @@ export default function SignInScreen() {
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: 32, paddingTop: 32, paddingBottom: 48 },
+  logo: { width: 200, height: 133, alignSelf: "center", marginBottom: 24 },
+  backBtn: { marginBottom: 16 },
+  backText: { color: "#fb923c", fontSize: 16 },
+  title: { color: "#ffffff", fontSize: 30, fontWeight: "900", marginBottom: 8 },
+  subtitle: { color: "#94a3b8", fontSize: 16, marginBottom: 32 },
+  divider: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#475569" },
+  dividerText: { color: "#64748b", marginHorizontal: 16, fontSize: 14 },
+  label: { color: "#cbd5e1", fontSize: 14, fontWeight: "500", marginBottom: 8 },
+  input: {
+    backgroundColor: "#1e293b",
+    color: "#ffffff",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#f97316",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  buttonDisabled: { backgroundColor: "#c2410c" },
+  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "700" },
+  linkBtn: { paddingVertical: 16, alignItems: "center" },
+  linkText: { color: "#94a3b8", fontSize: 14 },
+  linkHighlight: { color: "#fb923c", fontWeight: "600" },
+});

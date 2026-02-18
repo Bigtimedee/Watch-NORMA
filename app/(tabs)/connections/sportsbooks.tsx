@@ -1,4 +1,4 @@
-import { View, Text, FlatList, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,37 +13,33 @@ export default function SportsbooksScreen() {
   const { data: providers, isLoading } = useStreamingProviders("sportsbook");
   const { data: connections } = useConnections("sportsbook");
 
+  // Filter out prediction market providers from the sportsbooks list
+  const sportsbookProviders = (providers ?? []).filter(
+    (p) => p.key !== "kalshi" && p.key !== "polymarket"
+  );
+
   return (
-    <SafeAreaView className="flex-1 bg-court-dark" edges={["top"]}>
+    <SafeAreaView style={s.container} edges={["top"]}>
       {/* Header */}
-      <View className="flex-row items-center px-4 py-3">
-        <Pressable
-          onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center"
-        >
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="chevron-back" size={24} color="#f97316" />
         </Pressable>
-        <Text className="text-white text-lg font-bold ml-2">Sportsbooks</Text>
+        <Text style={s.headerTitle}>Sportsbooks</Text>
       </View>
 
-      <Text className="text-slate-400 text-sm px-4 mb-2">
-        Connect your sportsbooks to get personalized alerts for games you've
-        wagered on.
+      <Text style={s.desc}>
+        Connect your sportsbooks to log wagers and get personalized alerts for
+        games you've bet on.
       </Text>
 
-      <View className="mx-4 mb-4 bg-court-card rounded-xl p-3 flex-row items-center">
-        <Ionicons name="construct-outline" size={18} color="#f97316" />
-        <Text className="text-slate-400 text-xs ml-2 flex-1">
-          Full sportsbook integration coming in v1.1. For now, toggle the
-          services you use.
-        </Text>
-      </View>
-
       {isLoading ? (
-        <ActivityIndicator size="large" color="#f97316" className="mt-10" />
+        <View style={s.loadingContainer}>
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
       ) : (
         <FlatList
-          data={providers}
+          data={sportsbookProviders}
           keyExtractor={(item) => item.key}
           renderItem={({ item }) => {
             const conn = (connections ?? []).find(
@@ -57,3 +53,12 @@ export default function SportsbooksScreen() {
     </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { color: "#ffffff", fontSize: 18, fontWeight: "700", marginLeft: 8 },
+  desc: { color: "#94a3b8", fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+});

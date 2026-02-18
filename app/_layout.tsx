@@ -1,21 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { View, Text } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import * as Notifications from "expo-notifications";
 import type { Session } from "@supabase/supabase-js";
-
-import "../global.css";
-
-// Configure notification handling
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,12 +52,11 @@ function AuthGate() {
   useEffect(() => {
     if (!session) return;
 
-    // Register push token
     registerPushToken();
 
-    // Handle notification taps
+    const Notifications = require("expo-notifications");
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
+      (response: any) => {
         const gameId = response.notification.request.content.data?.gameId;
         if (gameId) {
           router.push(`/games/${gameId}`);
@@ -84,6 +72,7 @@ function AuthGate() {
 
 async function registerPushToken() {
   try {
+    const Notifications = require("expo-notifications");
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -96,7 +85,7 @@ async function registerPushToken() {
     if (finalStatus !== "granted") return;
 
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: undefined, // Uses the project ID from app.json
+      projectId: "3a418868-5bb5-4852-b565-3282ee4fe91e",
     });
 
     const {
@@ -113,11 +102,43 @@ async function registerPushToken() {
   }
 }
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0f172a", padding: 20 }}>
+          <Text style={{ color: "#ef4444", fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
+            App Error
+          </Text>
+          <Text style={{ color: "#94a3b8", fontSize: 14, textAlign: "center" }}>
+            {this.state.error?.message ?? "Unknown error"}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <StatusBar style="light" />
-      <AuthGate />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <StatusBar style="light" />
+        <AuthGate />
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

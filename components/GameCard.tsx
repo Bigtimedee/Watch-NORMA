@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { Game } from "../lib/types";
 import { formatClock } from "../lib/alert-helpers";
@@ -15,24 +15,23 @@ export function GameCard({ game }: GameCardProps) {
 
   return (
     <Pressable
-      className="bg-court-card rounded-2xl p-4 mb-3 mx-4"
+      style={s.card}
       onPress={() => router.push(`/games/${game.id}`)}
     >
       {/* Header: broadcast + status */}
-      <View className="flex-row justify-between items-center mb-3">
-        <Text className="text-slate-400 text-xs font-medium">
+      <View style={s.header}>
+        <Text style={s.broadcastText}>
           {game.broadcast ?? ""}
           {game.tournament_round ? ` \u00B7 ${game.tournament_round}` : ""}
         </Text>
         <View
-          className={`px-2 py-0.5 rounded-full ${
-            isLive ? "bg-red-500/20" : isFinal ? "bg-slate-600" : "bg-slate-700"
-          }`}
+          style={[
+            s.statusBadge,
+            isLive ? s.statusLive : isFinal ? s.statusFinal : s.statusScheduled,
+          ]}
         >
           <Text
-            className={`text-xs font-bold ${
-              isLive ? "text-red-400" : "text-slate-300"
-            }`}
+            style={[s.statusText, isLive ? s.statusTextLive : s.statusTextDefault]}
           >
             {isLive ? `LIVE \u00B7 ${formatClock(game)}` : formatClock(game)}
           </Text>
@@ -40,51 +39,103 @@ export function GameCard({ game }: GameCardProps) {
       </View>
 
       {/* Away team */}
-      <View className="flex-row justify-between items-center mb-2">
-        <View className="flex-row items-center flex-1">
-          <View className="w-8 h-8 rounded-full bg-court-surface items-center justify-center mr-3">
-            <Text className="text-white text-xs font-bold">
+      <View style={s.teamRow}>
+        <View style={s.teamInfo}>
+          <View style={s.teamLogo}>
+            <Text style={s.teamLogoText}>
               {game.away_team?.abbreviation?.slice(0, 3) ?? "AWY"}
             </Text>
           </View>
-          <Text className="text-white text-base font-semibold" numberOfLines={1}>
+          <Text style={s.teamName} numberOfLines={1}>
             {game.away_team?.name ?? "Away"}
           </Text>
         </View>
         <Text
-          className={`text-2xl font-bold ${
-            isLive || isFinal ? "text-white" : "text-slate-500"
-          }`}
+          style={[s.score, isLive || isFinal ? s.scoreActive : s.scoreInactive]}
         >
           {game.status !== "scheduled" ? game.away_score : "-"}
         </Text>
       </View>
 
       {/* Home team */}
-      <View className="flex-row justify-between items-center">
-        <View className="flex-row items-center flex-1">
-          <View className="w-8 h-8 rounded-full bg-court-surface items-center justify-center mr-3">
-            <Text className="text-white text-xs font-bold">
+      <View style={[s.teamRow, { marginBottom: 0 }]}>
+        <View style={s.teamInfo}>
+          <View style={s.teamLogo}>
+            <Text style={s.teamLogoText}>
               {game.home_team?.abbreviation?.slice(0, 3) ?? "HME"}
             </Text>
           </View>
-          <Text className="text-white text-base font-semibold" numberOfLines={1}>
+          <Text style={s.teamName} numberOfLines={1}>
             {game.home_team?.name ?? "Home"}
           </Text>
         </View>
         <Text
-          className={`text-2xl font-bold ${
-            isLive || isFinal ? "text-white" : "text-slate-500"
-          }`}
+          style={[s.score, isLive || isFinal ? s.scoreActive : s.scoreInactive]}
         >
           {game.status !== "scheduled" ? game.home_score : "-"}
         </Text>
       </View>
 
       {/* Venue */}
-      {game.venue && (
-        <Text className="text-slate-500 text-xs mt-2">{game.venue}</Text>
-      )}
+      {game.venue && <Text style={s.venue}>{game.venue}</Text>}
     </Pressable>
   );
 }
+
+const s = StyleSheet.create({
+  card: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  broadcastText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  statusLive: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
+  statusFinal: { backgroundColor: "#475569" },
+  statusScheduled: { backgroundColor: "#334155" },
+  statusText: { fontSize: 12, fontWeight: "700" },
+  statusTextLive: { color: "#f87171" },
+  statusTextDefault: { color: "#cbd5e1" },
+  teamRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  teamInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  teamLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 9999,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  teamLogoText: { color: "#ffffff", fontSize: 12, fontWeight: "700" },
+  teamName: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
+  score: { fontSize: 24, fontWeight: "700" },
+  scoreActive: { color: "#ffffff" },
+  scoreInactive: { color: "#64748b" },
+  venue: { color: "#64748b", fontSize: 12, marginTop: 8 },
+});

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Switch } from "react-native";
+import { View, Text, Pressable, Switch, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
 import type { StreamingProvider, Connection } from "../lib/types";
 import { useToggleConnection } from "../hooks/useConnections";
@@ -21,23 +21,16 @@ export function ConnectionToggle({
   };
 
   return (
-    <Pressable
-      className="bg-court-card rounded-xl p-4 mb-2 mx-4 flex-row items-center justify-between"
-      onPress={handleToggle}
-    >
-      <View className="flex-row items-center flex-1">
-        <View className="w-10 h-10 rounded-lg bg-court-surface items-center justify-center mr-3">
-          <Text className="text-white text-xs font-bold">
+    <Pressable style={s.card} onPress={handleToggle}>
+      <View style={s.info}>
+        <View style={s.icon}>
+          <Text style={s.iconText}>
             {provider.name.slice(0, 3).toUpperCase()}
           </Text>
         </View>
-        <View className="flex-1">
-          <Text className="text-white text-base font-medium">
-            {provider.name}
-          </Text>
-          <Text className="text-slate-400 text-xs capitalize">
-            {provider.provider_type}
-          </Text>
+        <View style={s.textCol}>
+          <Text style={s.name}>{provider.name}</Text>
+          <Text style={s.type}>{provider.provider_type}</Text>
         </View>
       </View>
 
@@ -51,3 +44,30 @@ export function ConnectionToggle({
     </Pressable>
   );
 }
+
+const s = StyleSheet.create({
+  card: {
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    marginHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  info: { flexDirection: "row", alignItems: "center", flex: 1 },
+  icon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  iconText: { color: "#ffffff", fontSize: 12, fontWeight: "700" },
+  textCol: { flex: 1 },
+  name: { color: "#ffffff", fontSize: 16, fontWeight: "500" },
+  type: { color: "#94a3b8", fontSize: 12, textTransform: "capitalize" },
+});

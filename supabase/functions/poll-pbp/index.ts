@@ -1,20 +1,160 @@
-// poll-pbp: Play-by-play events from SportsDataIO
-// Trigger: pg_cron every 30 seconds for inprogress games with full coverage
+// poll-pbp: Play-by-play events — dual-source (Sportradar for full coverage, SportsDataIO fallback)
+// Trigger: Called by poll-boxscore orchestrator for active games
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { hashPayload } from "../_shared/utils.ts";
+import {
+  fetchPbp as fetchSportradarPbp,
+  resetCallCount,
+  getCallCount,
+} from "../_shared/sportradar.ts";
+import type {
+  SportradarPbpResponse,
+  SportradarPbpEvent,
+} from "../_shared/sportradar.ts";
 
 const SPORTSDATAIO_BASE = "https://api.sportsdata.io/v3/cbb";
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
-function hashPayload(obj: unknown): string {
-  const str = JSON.stringify(obj);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+/** Parse Sportradar PBP events into structured format for alert evaluation */
+function parseSportradarEvents(pbp: SportradarPbpResponse): Record<string, unknown> {
+  const scoringPlays: Array<{
+    clock: string;
+    period: number;
+    team: string;
+    player: string;
+    points: number;
+    description: string;
+    home_points: number;
+    away_points: number;
+  }> = [];
+
+  const runs: Array<{
+    team: string;
+    points: number;
+    startClock: string;
+    endClock: string;
+    period: number;
+  }> = [];
+
+  const fouls: Array<{
+    clock: string;
+    period: number;
+    team: string;
+    player: string;
+    description: string;
+  }> = [];
+
+  const timeouts: Array<{
+    clock: string;
+    period: number;
+    team: string;
+  }> = [];
+
+  // Track runs (consecutive scoring by one team)
+  let currentRunTeam: string | null = null;
+  let currentRunPoints = 0;
+  let runStartClock = "";
+  let runEndClock = "";
+  let runPeriod = 0;
+
+  for (const period of pbp.periods ?? []) {
+    for (const event of period.events ?? []) {
+      // Scoring plays
+      if (event.scoring_play && event.points && event.points > 0) {
+        const teamName = event.attribution?.name ?? event.attribution?.market ?? "Unknown";
+        scoringPlays.push({
+          clock: event.clock,
+          period: period.number,
+          team: teamName,
+          player: event.player?.full_name ?? "Unknown",
+          points: event.points,
+          description: event.description,
+          home_points: event.home_points ?? 0,
+          away_points: event.away_points ?? 0,
+        });
+
+        // Track runs
+        if (teamName === currentRunTeam) {
+          currentRunPoints += event.points;
+          runEndClock = event.clock;
+        } else {
+          // Save previous run if significant
+          if (currentRunTeam && currentRunPoints >= 6) {
+            runs.push({
+              team: currentRunTeam,
+              points: currentRunPoints,
+              startClock: runStartClock,
+              endClock: runEndClock,
+              period: runPeriod,
+            });
+          }
+          currentRunTeam = teamName;
+          currentRunPoints = event.points;
+          runStartClock = event.clock;
+          runEndClock = event.clock;
+          runPeriod = period.number;
+        }
+      } else if (event.scoring_play === false && event.attribution) {
+        // Non-scoring play by a team breaks the run for the OTHER team
+        const teamName = event.attribution?.name ?? "";
+        if (teamName !== currentRunTeam && currentRunTeam) {
+          if (currentRunPoints >= 6) {
+            runs.push({
+              team: currentRunTeam,
+              points: currentRunPoints,
+              startClock: runStartClock,
+              endClock: runEndClock,
+              period: runPeriod,
+            });
+          }
+          currentRunTeam = null;
+          currentRunPoints = 0;
+        }
+      }
+
+      // Fouls
+      if (event.type === "foul" || event.type === "personalfoul") {
+        fouls.push({
+          clock: event.clock,
+          period: period.number,
+          team: event.attribution?.name ?? "Unknown",
+          player: event.player?.full_name ?? "Unknown",
+          description: event.description,
+        });
+      }
+
+      // Timeouts
+      if (event.type === "timeout") {
+        timeouts.push({
+          clock: event.clock,
+          period: period.number,
+          team: event.attribution?.name ?? "Unknown",
+        });
+      }
+    }
   }
-  return hash.toString(36);
+
+  // Don't forget the last run
+  if (currentRunTeam && currentRunPoints >= 6) {
+    runs.push({
+      team: currentRunTeam,
+      points: currentRunPoints,
+      startClock: runStartClock,
+      endClock: runEndClock,
+      period: runPeriod,
+    });
+  }
+
+  return {
+    source: "sportradar",
+    totalScoringPlays: scoringPlays.length,
+    recentScoringPlays: scoringPlays.slice(-20),
+    runs: runs.filter((r) => r.points >= 8), // Only significant runs
+    fouls,
+    timeouts,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -23,19 +163,51 @@ Deno.serve(async (req) => {
   }
 
   try {
+    resetCallCount();
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get active games
-    const { data: activeGames, error } = await supabase
-      .from("games")
-      .select("id, sportsdataio_id")
-      .in("status", ["inprogress"]);
+    // Accept optional gameId from orchestrator, otherwise fetch all active
+    let body: { gameId?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body — fetch all active games
+    }
 
-    if (error) throw error;
-    if (!activeGames || activeGames.length === 0) {
+    let gamesToPoll: Array<{
+      id: string;
+      sportsdataio_id: number | null;
+      sportradar_id: string | null;
+      coverage_level: string | null;
+    }>;
+
+    if (body.gameId) {
+      const { data, error } = await supabase
+        .from("games")
+        .select("id, sportsdataio_id, sportradar_id, coverage_level")
+        .eq("id", body.gameId)
+        .single();
+      if (error || !data) {
+        return new Response(
+          JSON.stringify({ error: "Game not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      gamesToPoll = [data];
+    } else {
+      const { data, error } = await supabase
+        .from("games")
+        .select("id, sportsdataio_id, sportradar_id, coverage_level")
+        .in("status", ["inprogress"]);
+      if (error) throw error;
+      gamesToPoll = data ?? [];
+    }
+
+    if (gamesToPoll.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: "No active games", stored: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -43,28 +215,57 @@ Deno.serve(async (req) => {
     }
 
     let storedCount = 0;
+    let sportradarCount = 0;
+    let sdioCount = 0;
 
-    for (const game of activeGames) {
-      if (!game.sportsdataio_id) continue;
-
+    for (const game of gamesToPoll) {
       try {
-        const url = `${SPORTSDATAIO_BASE}/stats/json/PlayByPlay/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
-        const res = await fetch(url);
+        let payloadToStore: Record<string, unknown> | null = null;
+        let snapshotType = "pbp";
+        let source = "sportsdataio";
 
-        if (!res.ok) {
-          console.warn(`PBP fetch failed for ${game.sportsdataio_id}: ${res.status}`);
-          continue;
+        // Use Sportradar for full-coverage games
+        if (game.coverage_level === "full" && game.sportradar_id) {
+          try {
+            const pbp = await fetchSportradarPbp(game.sportradar_id);
+            payloadToStore = parseSportradarEvents(pbp);
+            snapshotType = "pbp";
+            source = "sportradar";
+            sportradarCount++;
+          } catch (e) {
+            console.warn(
+              `Sportradar PBP failed for ${game.sportradar_id}, falling back to SportsDataIO:`,
+              e
+            );
+            // Fall through to SportsDataIO
+          }
         }
 
-        const pbp = await res.json();
-        const payloadHash = hashPayload(pbp);
+        // SportsDataIO fallback
+        if (!payloadToStore && game.sportsdataio_id) {
+          const url = `${SPORTSDATAIO_BASE}/stats/json/PlayByPlay/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
+          const res = await fetch(url);
+
+          if (!res.ok) {
+            console.warn(`PBP fetch failed for ${game.sportsdataio_id}: ${res.status}`);
+            continue;
+          }
+
+          payloadToStore = await res.json();
+          source = "sportsdataio";
+          sdioCount++;
+        }
+
+        if (!payloadToStore) continue;
+
+        const payloadHash = hashPayload(payloadToStore);
 
         // Check for duplicate
         const { data: existing } = await supabase
           .from("game_snapshots")
           .select("id")
           .eq("game_id", game.id)
-          .eq("snapshot_type", "pbp")
+          .eq("snapshot_type", snapshotType)
           .eq("payload_hash", payloadHash)
           .limit(1);
 
@@ -72,22 +273,31 @@ Deno.serve(async (req) => {
 
         await supabase.from("game_snapshots").insert({
           game_id: game.id,
-          snapshot_type: "pbp",
-          payload: pbp,
+          snapshot_type: snapshotType,
+          payload: payloadToStore,
           payload_hash: payloadHash,
         });
 
+        // Update last_pbp_source on the game
+        await supabase
+          .from("games")
+          .update({ last_pbp_source: source })
+          .eq("id", game.id);
+
         storedCount++;
       } catch (e) {
-        console.error(`Error fetching PBP for game ${game.sportsdataio_id}:`, e);
+        console.error(`Error fetching PBP for game ${game.id}:`, e);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        activeGames: activeGames.length,
+        activeGames: gamesToPoll.length,
         stored: storedCount,
+        sportradarPbp: sportradarCount,
+        sdioPbp: sdioCount,
+        sportradarApiCalls: getCallCount(),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

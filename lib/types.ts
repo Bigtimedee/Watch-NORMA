@@ -14,14 +14,12 @@ export type FollowType = "game" | "team";
 export type ProviderType = "streaming" | "tv" | "sportsbook";
 
 export type AlertType =
-  | "game_start"
-  | "close_game"
-  | "overtime"
-  | "big_run"
-  | "halftime"
-  | "game_end"
-  | "momentum_shift"
-  | "foul_trouble";
+  | "spread_alert"
+  | "total_alert"
+  | "moneyline_alert"
+  | "prop_alert"
+  | "position_alert"
+  | "bet_resolved";
 
 export type WagerType = "spread" | "moneyline" | "over_under" | "prop";
 export type WagerStatus = "active" | "won" | "lost" | "push";
@@ -44,12 +42,14 @@ export interface Team {
   conference: string | null;
   logo_url: string | null;
   sportsdataio_id: number | null;
+  sportradar_id: string | null;
   created_at: string;
 }
 
 export interface Game {
   id: string;
   sportsdataio_id: number | null;
+  sportradar_id: string | null;
   status: GameStatus;
   title: string | null;
   home_team_id: string | null;
@@ -62,8 +62,11 @@ export interface Game {
   venue: string | null;
   broadcast: string | null;
   coverage: string | null;
+  coverage_level: string | null;
   tournament_round: string | null;
   snapshot_hash: string | null;
+  last_pbp_source: string | null;
+  last_summary_source: string | null;
   updated_at: string;
   // Joined relations
   home_team?: Team;
@@ -140,6 +143,39 @@ export interface Wager {
   odds: string | null;
   status: WagerStatus;
   created_at: string;
+  // Joined
+  game?: Game;
+}
+
+export interface GameOdds {
+  id: number;
+  game_id: string;
+  sportsbook: string;
+  market_type: string;
+  home_line: number | null;
+  away_line: number | null;
+  home_price: number | null;
+  away_price: number | null;
+  over_under: number | null;
+  over_price: number | null;
+  under_price: number | null;
+  last_update: string;
+}
+
+export interface PredictionPosition {
+  id: number;
+  user_id: string;
+  platform: string;
+  market_id: string;
+  market_title: string;
+  game_id: string | null;
+  position_side: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number | null;
+  pnl: number | null;
+  settled: boolean;
+  fetched_at: string;
 }
 
 // SportsDataIO API response types
@@ -209,4 +245,72 @@ export interface ESPNEvent {
       names: string[];
     }>;
   }>;
+}
+
+// --- Sportradar v8 Response Types ---
+
+export interface SportradarSummary {
+  id: string;
+  status: string;
+  coverage: string; // 'full', 'extended_boxscore'
+  home: SportradarTeamStats;
+  away: SportradarTeamStats;
+}
+
+export interface SportradarTeamStats {
+  points: number;
+  field_goals_made: number;
+  field_goals_att: number;
+  three_points_made: number;
+  three_points_att: number;
+  free_throws_made: number;
+  free_throws_att: number;
+  rebounds: number;
+  assists: number;
+  turnovers: number;
+  steals: number;
+  blocks: number;
+  bench_points: number;
+  points_off_turnovers: number;
+  biggest_lead: number;
+  fast_break_points: number;
+  second_chance_points: number;
+  effective_fg_pct: number;
+  true_shooting_pct: number;
+  players: SportradarPlayer[];
+}
+
+export interface SportradarPlayer {
+  full_name: string;
+  jersey_number: string;
+  starter: boolean;
+  played: boolean;
+  on_court: boolean;
+  fouled_out: boolean;
+  ejected: boolean;
+  personal_fouls: number;
+  points: number;
+  minutes: string;
+  field_goals_made: number;
+  field_goals_att: number;
+  three_points_made: number;
+  three_points_att: number;
+  free_throws_made: number;
+  free_throws_att: number;
+  rebounds: number;
+  assists: number;
+  turnovers: number;
+  steals: number;
+  blocks: number;
+}
+
+export interface SportradarPbpEvent {
+  id: string;
+  type: string; // 'turnover', 'twopointmade', 'threepointmade', 'foul', etc.
+  clock: string;
+  description: string;
+  team?: { id: string; name: string };
+  player?: { full_name: string };
+  scoring_play?: boolean;
+  points?: number;
 }

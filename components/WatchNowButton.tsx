@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Alert as RNAlert } from "react-native";
+import { View, Text, Pressable, Alert as RNAlert, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type { Game } from "../lib/types";
@@ -42,7 +42,6 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         );
       }
     } else if (game.broadcast) {
-      // No connected provider — suggest connecting
       const broadcastKeys = getBroadcastProviderKeys(game.broadcast);
       const availableProviders = (allProviders ?? []).filter((p) =>
         broadcastKeys.includes(p.key)
@@ -64,9 +63,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
 
   return (
     <Pressable
-      className={`rounded-2xl p-4 mx-4 mb-4 flex-row items-center justify-center ${
-        bestProvider ? "bg-brand-500" : "bg-court-surface"
-      }`}
+      style={[s.button, bestProvider ? s.buttonBrand : s.buttonDefault]}
       onPress={handlePress}
     >
       <Ionicons
@@ -74,22 +71,35 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         size={24}
         color={bestProvider ? "#fff" : "#94a3b8"}
       />
-      <View className="ml-3">
-        <Text
-          className={`text-base font-bold ${
-            bestProvider ? "text-white" : "text-slate-300"
-          }`}
-        >
+      <View style={s.textContainer}>
+        <Text style={[s.label, bestProvider ? s.labelBrand : s.labelDefault]}>
           {bestProvider
             ? `Watch on ${bestProvider.name}`
             : game.broadcast
               ? `On ${game.broadcast}`
               : "Watch"}
         </Text>
-        {bestProvider && (
-          <Text className="text-white/70 text-xs">Tap to open app</Text>
-        )}
+        {bestProvider && <Text style={s.sub}>Tap to open app</Text>}
       </View>
     </Pressable>
   );
 }
+
+const s = StyleSheet.create({
+  button: {
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonBrand: { backgroundColor: "#f97316" },
+  buttonDefault: { backgroundColor: "#334155" },
+  textContainer: { marginLeft: 12 },
+  label: { fontSize: 16, fontWeight: "700" },
+  labelBrand: { color: "#ffffff" },
+  labelDefault: { color: "#cbd5e1" },
+  sub: { color: "rgba(255, 255, 255, 0.7)", fontSize: 12 },
+});

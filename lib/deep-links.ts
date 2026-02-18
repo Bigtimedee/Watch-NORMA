@@ -3,43 +3,87 @@ import type { StreamingProvider } from "./types";
 
 /**
  * Attempt to open a streaming app for a given provider.
- * Falls back to web URL if the app isn't installed.
+ * Fallback chain: native app → web watch URL → App Store → info only.
  */
 export async function openStreamingApp(
   provider: StreamingProvider,
-  gameTitle?: string
-): Promise<{ opened: boolean; fallback: boolean }> {
-  // Try native app scheme first
+  _gameTitle?: string
+): Promise<{ opened: boolean; fallback: boolean; method: string }> {
+  // Step 1: Try native app deep link
   if (Platform.OS === "ios" && provider.ios_scheme) {
-    const canOpen = await Linking.canOpenURL(provider.ios_scheme);
-    if (canOpen) {
-      await Linking.openURL(provider.ios_scheme);
-      return { opened: true, fallback: false };
+    try {
+      const canOpen = await Linking.canOpenURL(provider.ios_scheme);
+      if (canOpen) {
+        await Linking.openURL(provider.ios_scheme);
+        return { opened: true, fallback: false, method: "native_app" };
+      }
+    } catch {
+      // canOpenURL can fail silently on first call after install — retry once
+      try {
+        await new Promise((r) => setTimeout(r, 100));
+        const canOpenRetry = await Linking.canOpenURL(provider.ios_scheme);
+        if (canOpenRetry) {
+          await Linking.openURL(provider.ios_scheme);
+          return { opened: true, fallback: false, method: "native_app_retry" };
+        }
+      } catch {
+        // Fall through to web
+      }
     }
   }
 
   if (Platform.OS === "android" && provider.android_deep_link) {
     try {
       await Linking.openURL(provider.android_deep_link);
-      return { opened: true, fallback: false };
+      return { opened: true, fallback: false, method: "native_app" };
     } catch {
       // Fall through to web
     }
   }
 
-  // Fallback to web URL
+  // Step 2: Fallback to web watch URL (direct watch pages, not marketing pages)
   if (provider.web_url) {
-    await Linking.openURL(provider.web_url);
-    return { opened: true, fallback: true };
+    const watchUrl = getWatchUrl(provider.key, provider.web_url);
+    try {
+      await Linking.openURL(watchUrl);
+      return { opened: true, fallback: true, method: "web_url" };
+    } catch {
+      // Fall through to app store
+    }
   }
 
-  // Fallback to app store
+  // Step 3: Fallback to App Store
   if (Platform.OS === "ios" && provider.ios_app_store_url) {
-    await Linking.openURL(provider.ios_app_store_url);
-    return { opened: true, fallback: true };
+    try {
+      await Linking.openURL(provider.ios_app_store_url);
+      return { opened: true, fallback: true, method: "app_store" };
+    } catch {
+      // Nothing else to try
+    }
   }
 
-  return { opened: false, fallback: false };
+  // Step 4: Nothing available
+  return { opened: false, fallback: false, method: "none" };
+}
+
+/**
+ * Get the direct watch/live URL for a provider (not marketing homepage).
+ */
+function getWatchUrl(providerKey: string, defaultWebUrl: string): string {
+  const watchUrls: Record<string, string> = {
+    espn_plus: "https://plus.espn.com/watch",
+    paramount_plus: "https://www.paramountplus.com/live-tv/",
+    peacock: "https://www.peacocktv.com/watch/live-tv",
+    max: "https://play.max.com",
+    youtube_tv: "https://tv.youtube.com/live",
+    hulu_live: "https://www.hulu.com/live-tv",
+    fubo: "https://www.fubo.tv/welcome",
+    sling: "https://watch.sling.com",
+    directv_stream: "https://stream.directv.com/watchnow",
+    xfinity: "https://www.xfinity.com/stream/live-tv",
+    spectrum: "https://watch.spectrum.net/livetv",
+  };
+  return watchUrls[providerKey] ?? defaultWebUrl;
 }
 
 /**

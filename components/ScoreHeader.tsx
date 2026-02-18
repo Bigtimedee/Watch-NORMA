@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import type { Game } from "../lib/types";
 import { formatClock } from "../lib/alert-helpers";
 import { LIVE_STATUSES } from "../lib/constants";
@@ -12,23 +12,15 @@ export function ScoreHeader({ game }: ScoreHeaderProps) {
   const isFinal = game.status === "closed";
 
   return (
-    <View className="bg-court-card rounded-2xl p-6 mx-4 mb-4">
+    <View style={s.container}>
       {/* Status badge */}
-      <View className="items-center mb-4">
+      <View style={s.statusContainer}>
         {game.tournament_round && (
-          <Text className="text-brand-400 text-xs font-bold mb-1">
-            {game.tournament_round}
-          </Text>
+          <Text style={s.tournamentText}>{game.tournament_round}</Text>
         )}
-        <View
-          className={`px-3 py-1 rounded-full ${
-            isLive ? "bg-red-500/20" : "bg-slate-700"
-          }`}
-        >
+        <View style={[s.statusBadge, isLive ? s.statusLive : s.statusDefault]}>
           <Text
-            className={`text-sm font-bold ${
-              isLive ? "text-red-400" : "text-slate-300"
-            }`}
+            style={[s.statusText, isLive ? s.statusTextLive : s.statusTextDefault]}
           >
             {isLive ? `LIVE \u00B7 ${formatClock(game)}` : formatClock(game)}
           </Text>
@@ -36,44 +28,43 @@ export function ScoreHeader({ game }: ScoreHeaderProps) {
       </View>
 
       {/* Score display */}
-      <View className="flex-row items-center justify-center">
+      <View style={s.scoreRow}>
         {/* Away team */}
-        <View className="flex-1 items-center">
-          <View className="w-16 h-16 rounded-full bg-court-surface items-center justify-center mb-2">
-            <Text className="text-white text-lg font-bold">
+        <View style={s.teamCol}>
+          <View style={s.teamLogo}>
+            <Text style={s.teamLogoText}>
               {game.away_team?.abbreviation?.slice(0, 4) ?? "AWY"}
             </Text>
           </View>
-          <Text
-            className="text-white text-sm font-medium text-center"
-            numberOfLines={2}
-          >
+          <Text style={s.teamName} numberOfLines={2}>
             {game.away_team?.market ?? game.away_team?.name ?? "Away"}
           </Text>
         </View>
 
         {/* Score */}
-        <View className="mx-4 items-center">
+        <View style={s.scoreCenterCol}>
           {game.status === "scheduled" ? (
-            <Text className="text-slate-400 text-lg font-medium">vs</Text>
+            <Text style={s.vsText}>vs</Text>
           ) : (
-            <View className="flex-row items-baseline">
+            <View style={s.scoreNumbers}>
               <Text
-                className={`text-4xl font-bold ${
+                style={[
+                  s.bigScore,
                   isFinal && game.away_score > game.home_score
-                    ? "text-brand-400"
-                    : "text-white"
-                }`}
+                    ? s.bigScoreWinner
+                    : s.bigScoreDefault,
+                ]}
               >
                 {game.away_score}
               </Text>
-              <Text className="text-slate-500 text-2xl font-bold mx-2">-</Text>
+              <Text style={s.scoreSeparator}>-</Text>
               <Text
-                className={`text-4xl font-bold ${
+                style={[
+                  s.bigScore,
                   isFinal && game.home_score > game.away_score
-                    ? "text-brand-400"
-                    : "text-white"
-                }`}
+                    ? s.bigScoreWinner
+                    : s.bigScoreDefault,
+                ]}
               >
                 {game.home_score}
               </Text>
@@ -82,32 +73,66 @@ export function ScoreHeader({ game }: ScoreHeaderProps) {
         </View>
 
         {/* Home team */}
-        <View className="flex-1 items-center">
-          <View className="w-16 h-16 rounded-full bg-court-surface items-center justify-center mb-2">
-            <Text className="text-white text-lg font-bold">
+        <View style={s.teamCol}>
+          <View style={s.teamLogo}>
+            <Text style={s.teamLogoText}>
               {game.home_team?.abbreviation?.slice(0, 4) ?? "HME"}
             </Text>
           </View>
-          <Text
-            className="text-white text-sm font-medium text-center"
-            numberOfLines={2}
-          >
+          <Text style={s.teamName} numberOfLines={2}>
             {game.home_team?.market ?? game.home_team?.name ?? "Home"}
           </Text>
         </View>
       </View>
 
       {/* Venue + broadcast */}
-      <View className="items-center mt-4">
-        {game.venue && (
-          <Text className="text-slate-400 text-xs">{game.venue}</Text>
-        )}
+      <View style={s.infoRow}>
+        {game.venue && <Text style={s.venueText}>{game.venue}</Text>}
         {game.broadcast && (
-          <Text className="text-slate-500 text-xs mt-1">
-            {game.broadcast}
-          </Text>
+          <Text style={s.broadcastText}>{game.broadcast}</Text>
         )}
       </View>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  container: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  statusContainer: { alignItems: "center", marginBottom: 16 },
+  tournamentText: { color: "#fb923c", fontSize: 12, fontWeight: "700", marginBottom: 4 },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 9999 },
+  statusLive: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
+  statusDefault: { backgroundColor: "#334155" },
+  statusText: { fontSize: 14, fontWeight: "700" },
+  statusTextLive: { color: "#f87171" },
+  statusTextDefault: { color: "#cbd5e1" },
+  scoreRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  teamCol: { flex: 1, alignItems: "center" },
+  teamLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 9999,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  teamLogoText: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
+  teamName: { color: "#ffffff", fontSize: 14, fontWeight: "500", textAlign: "center" },
+  scoreCenterCol: { marginHorizontal: 16, alignItems: "center" },
+  vsText: { color: "#94a3b8", fontSize: 18, fontWeight: "500" },
+  scoreNumbers: { flexDirection: "row", alignItems: "baseline" },
+  bigScore: { fontSize: 36, fontWeight: "700" },
+  bigScoreWinner: { color: "#fb923c" },
+  bigScoreDefault: { color: "#ffffff" },
+  scoreSeparator: { color: "#64748b", fontSize: 24, fontWeight: "700", marginHorizontal: 8 },
+  infoRow: { alignItems: "center", marginTop: 16 },
+  venueText: { color: "#94a3b8", fontSize: 12 },
+  broadcastText: { color: "#64748b", fontSize: 12, marginTop: 4 },
+});
