@@ -187,7 +187,7 @@ Deno.test("evaluateMoneyline: fires in OT", () => {
   assertNotEquals(result, null);
 });
 
-// ─── evaluateProp ───
+// ─── evaluateProp (proximity-based) ───
 
 Deno.test("evaluateProp: no alert without summary", () => {
   const game = makeGameState();
@@ -195,62 +195,67 @@ Deno.test("evaluateProp: no alert without summary", () => {
   assertEquals(evaluateProp(game, wager, null), null);
 });
 
-Deno.test("evaluateProp: fires when named player on court", () => {
+Deno.test("evaluateProp: fires when player stat is at HIGH proximity (≥85% of target)", () => {
   const game = makeGameState({ period: 2, clock: "5:00" });
-  const summary = makeSummaryStats();
+  const summary = makeSummaryStats(); // Clingan has 18 pts
   const wager = makeWager({
     wager_type: "prop",
-    description: "Donovan Clingan over 15.5 pts",
+    description: "Donovan Clingan Over 20 Points",
     team_id: null,
-    line: 15.5,
+    line: 20,
   });
+  // 18/20 = 0.90 → HIGH
   const result = evaluateProp(game, wager, summary);
   assertNotEquals(result, null);
   assertEquals(result!.alertType, "prop_alert");
-  assertEquals(result!.body.includes("On the court"), true);
+  assertEquals(result!.body.includes("Donovan Clingan"), true);
 });
 
-Deno.test("evaluateProp: fires on foul-out", () => {
+Deno.test("evaluateProp: no alert when player stat below HIGH threshold", () => {
   const game = makeGameState({ period: 2, clock: "5:00" });
-  const summary = makeSummaryStats({
-    home: {
-      points: 68,
-      biggest_lead: 12,
-      bench_points: 18,
-      effective_fg_pct: 0.52,
-      points_off_turnovers: 14,
-      turnovers: 8,
-      players: [
-        {
-          full_name: "Donovan Clingan",
-          starter: true,
-          on_court: false,
-          fouled_out: true,
-          personal_fouls: 5,
-          points: 18,
-          rebounds: 8,
-          assists: 2,
-        },
-      ],
-    },
-  });
+  const summary = makeSummaryStats(); // Clingan has 18 pts
   const wager = makeWager({
     wager_type: "prop",
-    description: "Donovan Clingan over 15.5 pts",
+    description: "Donovan Clingan Over 30 Points",
     team_id: null,
-    line: 15.5,
+    line: 30,
   });
-  const result = evaluateProp(game, wager, summary);
-  assertNotEquals(result, null);
-  assertEquals(result!.body.includes("Fouled out"), true);
+  // 18/30 = 0.60 → MEDIUM → no alert
+  assertEquals(evaluateProp(game, wager, summary), null);
 });
 
-Deno.test("evaluateProp: no alert when player name not in description", () => {
+Deno.test("evaluateProp: fires RESOLVED when player exceeds target", () => {
+  const game = makeGameState({ period: 2, clock: "5:00" });
+  const summary = makeSummaryStats(); // Davis has 22 pts
+  const wager = makeWager({
+    wager_type: "prop",
+    description: "RJ Davis Over 20 Points",
+    team_id: null,
+    line: 20,
+  });
+  // 22/20 = 1.10 → RESOLVED
+  const result = evaluateProp(game, wager, summary);
+  assertNotEquals(result, null);
+  assertEquals(result!.title.includes("Hit"), true);
+});
+
+Deno.test("evaluateProp: no alert when player name not in summary", () => {
   const game = makeGameState({ period: 2, clock: "5:00" });
   const summary = makeSummaryStats();
   const wager = makeWager({
     wager_type: "prop",
-    description: "Zach Edey over 20.5 pts",
+    description: "Zach Edey Over 20.5 Points",
+    team_id: null,
+  });
+  assertEquals(evaluateProp(game, wager, summary), null);
+});
+
+Deno.test("evaluateProp: returns null for unparseable prop description", () => {
+  const game = makeGameState({ period: 2, clock: "5:00" });
+  const summary = makeSummaryStats();
+  const wager = makeWager({
+    wager_type: "prop",
+    description: "First team to score 10 points",
     team_id: null,
   });
   assertEquals(evaluateProp(game, wager, summary), null);
@@ -258,30 +263,44 @@ Deno.test("evaluateProp: no alert when player name not in description", () => {
 
 // ─── evaluatePosition ───
 
-Deno.test("evaluatePosition: no alert in 1st half", () => {
+Deno.test("evaluatePosition: no alert in 1st half (generic fallback)", () => {
   const game = makeGameState({ period: 1, clock: "10:00" });
-  const position = makePosition();
-  assertEquals(evaluatePosition(game, position), null);
+  const position = makePosition(); // "Duke to win vs UNC" — unparseable as player_stat/game_total
+  assertEquals(evaluatePosition(game, position, null), null);
 });
 
-Deno.test("evaluatePosition: fires in close 2nd-half game", () => {
+Deno.test("evaluatePosition: fires in close 2nd-half game (generic fallback)", () => {
   const game = makeGameState({ period: 2, clock: "5:00", home_score: 68, away_score: 65 });
-  const position = makePosition();
-  const result = evaluatePosition(game, position);
+  const position = makePosition(); // "Duke to win vs UNC" — falls through to generic
+  const result = evaluatePosition(game, position, null);
   assertNotEquals(result, null);
   assertEquals(result!.alertType, "position_alert");
 });
 
-Deno.test("evaluatePosition: no alert when margin > 8", () => {
+Deno.test("evaluatePosition: no alert when margin > 8 (generic fallback)", () => {
   const game = makeGameState({ period: 2, clock: "5:00", home_score: 80, away_score: 65 });
   const position = makePosition();
-  assertEquals(evaluatePosition(game, position), null);
+  assertEquals(evaluatePosition(game, position, null), null);
 });
 
 Deno.test("evaluatePosition: no alert when game not inprogress", () => {
   const game = makeGameState({ status: "scheduled" });
   const position = makePosition();
-  assertEquals(evaluatePosition(game, position), null);
+  assertEquals(evaluatePosition(game, position, null), null);
+});
+
+Deno.test("evaluatePosition: proximity-based alert for player stat market", () => {
+  const game = makeGameState({ period: 2, clock: "5:00", status: "inprogress" });
+  const summary = makeSummaryStats(); // RJ Davis has 22 pts
+  const position = makePosition({
+    market_title: "RJ Davis Over 20 Points",
+    platform: "kalshi",
+    position_side: "yes",
+  });
+  const result = evaluatePosition(game, position, summary);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "position_alert");
+  assertEquals(result!.body.includes("RJ Davis"), true);
 });
 
 // ─── evaluateResolved ───

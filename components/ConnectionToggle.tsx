@@ -21,7 +21,7 @@ export function ConnectionToggle({
   };
 
   return (
-    <Pressable style={s.card} onPress={handleToggle}>
+    <Pressable style={s.card} onPress={handleToggle} accessibilityLabel={`${provider.name}, ${isConnected ? "connected" : "not connected"}`}>
       <View style={s.info}>
         <View style={s.icon}>
           <Text style={s.iconText}>

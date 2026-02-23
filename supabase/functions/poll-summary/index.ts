@@ -191,25 +191,83 @@ Deno.serve(async (req) => {
           .update({ last_summary_source: source })
           .eq("id", game.id);
 
+        // Update game_summary_cache with extracted insights
+        if (source === "sportradar" && payloadToStore) {
+          const p = payloadToStore as any;
+          const homePlayers = p.home?.players ?? [];
+          const awayPlayers = p.away?.players ?? [];
+
+          // Foul trouble: players with 4+ fouls who haven't fouled out
+          const foulTrouble = [
+            ...homePlayers
+              .filter((pl: any) => pl.personal_fouls >= 4 && !pl.fouled_out)
+              .map((pl: any) => ({ player_name: pl.full_name, team_side: "home", fouls: pl.personal_fouls, starter: pl.starter, points: pl.points, on_court: pl.on_court })),
+            ...awayPlayers
+              .filter((pl: any) => pl.personal_fouls >= 4 && !pl.fouled_out)
+              .map((pl: any) => ({ player_name: pl.full_name, team_side: "away", fouls: pl.personal_fouls, starter: pl.starter, points: pl.points, on_court: pl.on_court })),
+          ];
+
+          // Top scorers on court (top 4 by points, currently on court)
+          const allOnCourt = [
+            ...homePlayers.filter((pl: any) => pl.on_court).map((pl: any) => ({ ...pl, team_side: "home" })),
+            ...awayPlayers.filter((pl: any) => pl.on_court).map((pl: any) => ({ ...pl, team_side: "away" })),
+          ]
+            .sort((a: any, b: any) => (b.points ?? 0) - (a.points ?? 0))
+            .slice(0, 4)
+            .map((pl: any) => ({ player_name: pl.full_name, team_side: pl.team_side, points: pl.points, rebounds: pl.rebounds, assists: pl.assists, on_court: true }));
+
+          const homeBench = p.home?.bench_points ?? 0;
+          const awayBench = p.away?.bench_points ?? 0;
+          const homeEfg = p.home?.effective_fg_pct ?? 0;
+          const awayEfg = p.away?.effective_fg_pct ?? 0;
+
+          await supabase
+            .from("game_summary_cache")
+            .upsert({
+              game_id: game.id,
+              payload_hash: payloadHash,
+              home_biggest_lead: p.home?.biggest_lead ?? 0,
+              away_biggest_lead: p.away?.biggest_lead ?? 0,
+              home_bench_points: homeBench,
+              away_bench_points: awayBench,
+              bench_delta: Math.abs(homeBench - awayBench),
+              home_efg_pct: homeEfg,
+              away_efg_pct: awayEfg,
+              efg_delta: Math.abs(homeEfg - awayEfg),
+              home_turnovers: p.home?.turnovers ?? 0,
+              away_turnovers: p.away?.turnovers ?? 0,
+              foul_trouble: foulTrouble,
+              top_scorers_on_court: allOnCourt,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "game_id" });
+          // Non-critical cache update — errors handled by outer try/catch
+        }
+
         storedCount++;
       } catch (e) {
         console.error(`Error fetching summary for game ${game.id}:`, e);
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        activeGames: gamesToPoll.length,
-        stored: storedCount,
-        sportradarSummary: sportradarCount,
-        sdioSummary: sdioCount,
-        sportradarApiCalls: getCallCount(),
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const result = {
+      success: true,
+      activeGames: gamesToPoll.length,
+      stored: storedCount,
+      sportradarSummary: sportradarCount,
+      sdioSummary: sdioCount,
+      sportradarApiCalls: getCallCount(),
+    };
+
+    console.log(JSON.stringify({
+      function: "poll-summary",
+      event: "completed",
+      ...result,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("poll-summary error:", error);
     return new Response(

@@ -1,21 +1,16 @@
-// poll-boxscore: Smart polling orchestrator — live score updates + cost-aware dispatch
-// Trigger: pg_cron every 1 minute during active game windows
+// poll-boxscore: Live score updater
+// Trigger: pg_cron every 1 minute
 //
 // Uses ESPN as the PRIMARY score source (free, reliable, always correct).
 // Falls back to SportsDataIO /scores/json/GamesByDate for games ESPN doesn't cover.
-// SportsDataIO scores freeze at mid-game values on free/trial tiers, so ESPN
-// is critical for accurate final scores.
+//
+// v2: This function ONLY handles score updates and terminal events (game close).
+// PBP, summary, and alert dispatch are handled by game-watcher-orchestrator.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { hashPayload, mapStatus } from "../_shared/utils.ts";
-import {
-  shouldPollPbp,
-  shouldPollSummary,
-  markPbpPolled,
-  markSummaryPolled,
-  isTerminalStatus,
-} from "../_shared/polling-state.ts";
+import { isTerminalStatus } from "../_shared/polling-state.ts";
 
 const SPORTSDATAIO_BASE = "https://api.sportsdata.io/v3/cbb";
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
@@ -48,6 +43,8 @@ interface ESPNGameData {
   status: string;
   homeDisplayName: string;
   awayDisplayName: string;
+  clock: string | null;
+  period: number;
 }
 
 /** Fetch all scores from ESPN for a given Eastern date */
@@ -72,6 +69,8 @@ async function fetchEspnGames(easternDate: string): Promise<ESPNGameData[]> {
         status: comp.status?.type?.description ?? "Unknown",
         homeDisplayName: home.team?.displayName ?? "",
         awayDisplayName: away.team?.displayName ?? "",
+        clock: comp.status?.displayClock ?? null,
+        period: comp.status?.period ?? 0,
       });
     }
   } catch (e) {
@@ -88,18 +87,42 @@ function normalize(s: string): string {
     .replace(/\s+/g, " ").trim();
 }
 
-/** Check if two team references likely refer to the same team using word overlap */
-function teamsMatch(dbName: string, espnDisplayName: string): boolean {
+/** Score how well a DB team name matches an ESPN display name.
+ *  Returns 0 for no match, higher = better.
+ *  Only accepts exact market matches — no prefix/substring matching
+ *  to prevent "Purdue" matching "Purdue Fort Wayne" etc. */
+function teamMatchScore(dbName: string, espnDisplayName: string): number {
   const normDb = normalize(dbName);
   const normEspn = normalize(espnDisplayName);
-  if (normEspn.includes(normDb) || normDb.includes(normEspn)) return true;
-  const dbWords = normDb.split(" ").filter(w => w.length > 1);
-  const espnWords = normEspn.split(" ").filter(w => w.length > 1);
-  const shorter = dbWords.length <= espnWords.length ? dbWords : espnWords;
-  const longer = dbWords.length <= espnWords.length ? espnWords : dbWords;
-  const longerStr = longer.join(" ");
-  const matches = shorter.filter(w => longerStr.includes(w)).length;
-  return shorter.length > 0 && matches / shorter.length >= 0.5;
+
+  // Extract market portion (drop mascot — last word)
+  const dbWords = normDb.split(" ");
+  const dbMarket = dbWords.length > 1 ? dbWords.slice(0, -1).join(" ") : normDb;
+  const espnWords = normEspn.split(" ");
+  const espnMarket = espnWords.length > 1 ? espnWords.slice(0, -1).join(" ") : normEspn;
+
+  // Tier 100: Exact full match
+  if (normDb === normEspn) return 100;
+  // Tier 90: Exact market match
+  if (dbMarket === espnMarket) return 90;
+  if (normDb === espnMarket) return 90;
+  if (dbMarket === normEspn) return 90;
+
+  // Tier 70: Same word count, all words match both ways (handles abbreviation differences)
+  const dbMarketWords = dbMarket.split(" ").filter(w => w.length > 1);
+  const espnMarketWords = espnMarket.split(" ").filter(w => w.length > 1);
+  if (dbMarketWords.length === espnMarketWords.length && dbMarketWords.length >= 2) {
+    const allDbInEspn = dbMarketWords.every(w => espnMarket.includes(w));
+    const allEspnInDb = espnMarketWords.every(w => dbMarket.includes(w));
+    if (allDbInEspn && allEspnInDb) return 70;
+  }
+
+  return 0;
+}
+
+/** Boolean convenience: true if score > 0 */
+function teamsMatch(dbName: string, espnDisplayName: string): boolean {
+  return teamMatchScore(dbName, espnDisplayName) > 0;
 }
 
 /** Match a game to ESPN data by team name (handles abbreviation differences) */
@@ -147,7 +170,6 @@ Deno.serve(async (req) => {
     }
 
     // Collect all unique EASTERN dates we need to fetch scores for.
-    // SportsDataIO indexes games by Eastern date, not UTC date.
     const datesToFetch = new Set<string>();
     for (const game of activeGames) {
       if (game.scheduled_at) {
@@ -163,7 +185,7 @@ Deno.serve(async (req) => {
       espnGamesByDate.set(dateStr, espnGames);
     }
 
-    // Fetch SportsDataIO scores as fallback (for status/period/clock info and games ESPN misses)
+    // Fetch SportsDataIO scores as fallback
     const scoresByGameId: Record<number, {
       HomeTeamScore: number | null;
       AwayTeamScore: number | null;
@@ -200,162 +222,178 @@ Deno.serve(async (req) => {
     }
 
     let updatedCount = 0;
-    const evaluateAlertCalls: string[] = [];
-    let pbpDispatched = 0;
-    let summaryDispatched = 0;
+    const gamesTransitionedToLive: string[] = [];
 
     for (const game of activeGames) {
-      if (!game.sportsdataio_id) continue;
-
-      const gameData = scoresByGameId[game.sportsdataio_id];
-      if (!gameData) continue;
-
       try {
-        // Try to get ESPN scores for cross-reference (ESPN is always accurate)
         const easternDate = game.scheduled_at ? utcToEasternDate(game.scheduled_at) : null;
         const espnDateGames = easternDate ? espnGamesByDate.get(easternDate) ?? [] : [];
 
-        // Match by team name (handles abbreviation differences like AKRON vs AKR, NC State, San José)
         const homeMarket = (game as any).home_team?.market ?? "";
         const awayMarket = (game as any).away_team?.market ?? "";
         const homeFullName = (game as any).home_team?.name ?? "";
         const awayFullName = (game as any).away_team?.name ?? "";
         const espnData = findEspnMatch(espnDateGames, homeMarket, awayMarket, homeFullName, awayFullName);
 
-        // Determine best scores: prefer ESPN if game is closed/final (SportsDataIO freezes scores)
-        let bestHomeScore = gameData.HomeTeamScore ?? 0;
-        let bestAwayScore = gameData.AwayTeamScore ?? 0;
-        const newStatus = mapStatus(gameData.Status, gameData.IsClosed);
+        const gameData = game.sportsdataio_id
+          ? scoresByGameId[game.sportsdataio_id] ?? null
+          : null;
 
-        if (espnData && (espnData.status === "Final" || newStatus === "closed")) {
+        // Need at least one data source
+        if (!espnData && !gameData) continue;
+
+        let bestHomeScore: number;
+        let bestAwayScore: number;
+        let newStatus: string;
+        let clock: string | null = null;
+        let period: number | null = null;
+
+        if (espnData && gameData) {
+          // Both sources available — ESPN scores are more accurate, SDIO for status/clock
           bestHomeScore = espnData.homeScore;
           bestAwayScore = espnData.awayScore;
-          console.log(`[ESPN] Using ESPN scores for ${awayMarket}@${homeMarket}: ${bestAwayScore}-${bestHomeScore} (SDIO had ${gameData.AwayTeamScore}-${gameData.HomeTeamScore})`);
-        } else if (espnData && espnData.homeScore + espnData.awayScore > bestHomeScore + bestAwayScore) {
+          newStatus = mapStatus(gameData.Status, gameData.IsClosed);
+          clock = gameData.TimeRemainingMinutes != null && gameData.TimeRemainingSeconds != null
+            ? `${gameData.TimeRemainingMinutes}:${String(gameData.TimeRemainingSeconds).padStart(2, "0")}`
+            : null;
+          period = gameData.Period ? parseInt(gameData.Period) || null : null;
+        } else if (espnData) {
+          // ESPN only — use ESPN clock and period data
           bestHomeScore = espnData.homeScore;
           bestAwayScore = espnData.awayScore;
+          newStatus = mapStatus(espnData.status, false);
+          clock = espnData.clock;
+          period = espnData.period || null;
+        } else {
+          // SportsDataIO only
+          bestHomeScore = gameData!.HomeTeamScore ?? 0;
+          bestAwayScore = gameData!.AwayTeamScore ?? 0;
+          newStatus = mapStatus(gameData!.Status, gameData!.IsClosed);
+          clock = gameData!.TimeRemainingMinutes != null && gameData!.TimeRemainingSeconds != null
+            ? `${gameData!.TimeRemainingMinutes}:${String(gameData!.TimeRemainingSeconds).padStart(2, "0")}`
+            : null;
+          period = gameData!.Period ? parseInt(gameData!.Period) || null : null;
         }
 
         // Compute hash for dedup
         const scoreData = {
           homeScore: bestHomeScore,
           awayScore: bestAwayScore,
-          period: gameData.Period,
-          timeRemMins: gameData.TimeRemainingMinutes,
-          timeRemSecs: gameData.TimeRemainingSeconds,
-          status: gameData.Status,
-          isClosed: gameData.IsClosed,
+          period,
+          clock,
+          status: newStatus,
         };
         const newHash = hashPayload(scoreData);
 
         if (newHash === game.snapshot_hash) {
-          // No change — still check if we should poll PBP/summary
-        } else {
-          const clock =
-            gameData.TimeRemainingMinutes != null &&
-            gameData.TimeRemainingSeconds != null
-              ? `${gameData.TimeRemainingMinutes}:${String(gameData.TimeRemainingSeconds).padStart(2, "0")}`
-              : null;
-
-          // Update game row
-          const { error: updateError } = await supabase
-            .from("games")
-            .update({
-              home_score: bestHomeScore,
-              away_score: bestAwayScore,
-              clock,
-              period: gameData.Period ? parseInt(gameData.Period) || null : null,
-              status: newStatus,
-              snapshot_hash: newHash,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", game.id);
-
-          if (updateError) {
-            console.error(`Failed to update game ${game.id}:`, updateError);
-            continue;
-          }
-
-          // Store snapshot
-          await supabase.from("game_snapshots").insert({
-            game_id: game.id,
-            snapshot_type: "scores",
-            payload: { Game: gameData },
-            payload_hash: newHash,
-          });
-
-          updatedCount++;
-          evaluateAlertCalls.push(game.id);
-
-          // Handle terminal status transitions
-          if (isTerminalStatus(newStatus)) {
-            if (newStatus === "closed") {
-              try {
-                await supabase.functions.invoke("resolve-wagers", {
-                  body: { gameId: game.id },
-                });
-              } catch (e) {
-                console.warn(`Failed to invoke resolve-wagers for ${game.id}:`, e);
-              }
-
-              try {
-                await supabase.functions.invoke("poll-summary", {
-                  body: { gameId: game.id },
-                });
-              } catch (e) {
-                console.warn(`Failed to invoke final poll-summary for ${game.id}:`, e);
-              }
-            }
-
-            continue;
-          }
+          continue; // No change
         }
 
-        // Cost-aware PBP dispatch
-        if (game.coverage_level === "full" && game.sportradar_id) {
-          const { data: lastPbp } = await supabase
-            .from("game_snapshots")
-            .select("created_at")
-            .eq("game_id", game.id)
-            .eq("snapshot_type", "pbp")
-            .order("created_at", { ascending: false })
-            .limit(1);
+        // Update game row
+        const { error: updateError } = await supabase
+          .from("games")
+          .update({
+            home_score: bestHomeScore,
+            away_score: bestAwayScore,
+            clock,
+            period,
+            status: newStatus,
+            snapshot_hash: newHash,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", game.id);
 
-          const lastPbpTime = lastPbp?.[0]?.created_at ?? null;
+        if (updateError) {
+          console.error(`Failed to update game ${game.id}:`, updateError);
+          continue;
+        }
 
-          if (shouldPollPbp(game.id, game.coverage_level, lastPbpTime)) {
+        // Store snapshot
+        await supabase.from("game_snapshots").insert({
+          game_id: game.id,
+          snapshot_type: "scores",
+          payload: { Game: gameData ?? espnData, source: gameData ? "sdio" : "espn" },
+          payload_hash: newHash,
+        });
+
+        // Update game_state_cache with pre-computed derived fields
+        const gamePeriod = period;
+        const clockParts = clock?.split(":") ?? [];
+        const clockMins = clockParts.length === 2
+          ? parseInt(clockParts[0]) + parseInt(clockParts[1]) / 60
+          : null;
+        const margin = Math.abs(bestHomeScore - bestAwayScore);
+        const inSecondHalf = gamePeriod != null && gamePeriod >= 2;
+        const isOT = gamePeriod != null && gamePeriod > 2;
+        const isLive = newStatus === "inprogress" || newStatus === "halftime";
+        const periodLabel = gamePeriod == null ? null
+          : gamePeriod === 1 ? "1H"
+          : gamePeriod === 2 ? "2H"
+          : `OT${gamePeriod - 2 > 1 ? gamePeriod - 2 : ""}`;
+
+        await supabase
+          .from("game_state_cache")
+          .upsert({
+            game_id: game.id,
+            status: newStatus,
+            home_score: bestHomeScore,
+            away_score: bestAwayScore,
+            clock,
+            period: gamePeriod,
+            margin,
+            clock_minutes: clockMins,
+            period_label: periodLabel,
+            is_close: inSecondHalf && margin <= 6,
+            is_final_minutes: inSecondHalf && clockMins != null && clockMins <= 5,
+            is_final_two: inSecondHalf && clockMins != null && clockMins <= 2,
+            is_overtime: isOT,
+            is_live: isLive,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "game_id" });
+        // Non-critical cache update — ignore errors
+
+        updatedCount++;
+
+        // Track games that just became live (for watcher_state creation by orchestrator)
+        if (game.status === "scheduled" && (newStatus === "inprogress" || newStatus === "halftime")) {
+          gamesTransitionedToLive.push(game.id);
+        }
+
+        // Handle terminal status transitions — these are one-time events, not recurring polls
+        if (isTerminalStatus(newStatus)) {
+          if (newStatus === "closed") {
+            // Resolve wagers on game close
             try {
-              await supabase.functions.invoke("poll-pbp", {
+              await supabase.functions.invoke("resolve-wagers", {
                 body: { gameId: game.id },
               });
-              markPbpPolled(game.id);
-              pbpDispatched++;
             } catch (e) {
-              console.warn(`Failed to invoke poll-pbp for ${game.id}:`, e);
+              console.warn(`Failed to invoke resolve-wagers for ${game.id}:`, e);
             }
-          }
-        }
 
-        // Cost-aware summary dispatch (every 2 min)
-        const { data: lastSummary } = await supabase
-          .from("game_snapshots")
-          .select("created_at")
-          .eq("game_id", game.id)
-          .in("snapshot_type", ["summary", "sportradar_summary"])
-          .order("created_at", { ascending: false })
-          .limit(1);
+            // Final summary snapshot on game close
+            try {
+              await supabase.functions.invoke("poll-summary", {
+                body: { gameId: game.id },
+              });
+            } catch (e) {
+              console.warn(`Failed to invoke final poll-summary for ${game.id}:`, e);
+            }
 
-        const lastSummaryTime = lastSummary?.[0]?.created_at ?? null;
+            // Final alert evaluation for bet_resolved alerts
+            try {
+              await supabase.functions.invoke("evaluate-alerts", {
+                body: { gameId: game.id },
+              });
+            } catch (e) {
+              console.warn(`Failed to invoke final evaluate-alerts for ${game.id}:`, e);
+            }
 
-        if (shouldPollSummary(game.id, lastSummaryTime)) {
-          try {
-            await supabase.functions.invoke("poll-summary", {
-              body: { gameId: game.id },
-            });
-            markSummaryPolled(game.id);
-            summaryDispatched++;
-          } catch (e) {
-            console.warn(`Failed to invoke poll-summary for ${game.id}:`, e);
+            // Deactivate watcher
+            await supabase
+              .from("watcher_state")
+              .update({ is_active: false, updated_at: new Date().toISOString() })
+              .eq("game_id", game.id);
           }
         }
       } catch (e) {
@@ -363,25 +401,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Trigger alert evaluation for updated games
-    for (const gameId of evaluateAlertCalls) {
-      try {
-        await supabase.functions.invoke("evaluate-alerts", {
-          body: { gameId },
-        });
-      } catch (e) {
-        console.warn(`Failed to invoke evaluate-alerts for ${gameId}:`, e);
-      }
-    }
+    console.log(JSON.stringify({
+      function: "poll-boxscore",
+      event: "completed",
+      activeGames: activeGames.length,
+      updated: updatedCount,
+      gamesTransitionedToLive: gamesTransitionedToLive.length,
+      timestamp: new Date().toISOString(),
+    }));
 
     return new Response(
       JSON.stringify({
         success: true,
         activeGames: activeGames.length,
         updated: updatedCount,
-        alertsTriggered: evaluateAlertCalls.length,
-        pbpDispatched,
-        summaryDispatched,
+        gamesTransitionedToLive: gamesTransitionedToLive.length,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

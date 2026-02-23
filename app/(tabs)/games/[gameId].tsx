@@ -13,11 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useGameDetail, useGameFollow } from "../../../hooks/useGameDetail";
 import { useWagers } from "../../../hooks/useWagers";
+import { useBetSlipScanner, type ScanResult } from "../../../hooks/useBetSlipScanner";
 import { ScoreHeader } from "../../../components/ScoreHeader";
 import { WatchNowButton } from "../../../components/WatchNowButton";
 import { OddsDisplay } from "../../../components/OddsDisplay";
 import { WagerCard } from "../../../components/WagerCard";
 import { AddWagerSheet } from "../../../components/AddWagerSheet";
+import { ReviewScannedWagersSheet } from "../../../components/ReviewScannedWagersSheet";
 import { MarketPrices } from "../../../components/MarketPrices";
 import { LIVE_STATUSES } from "../../../lib/constants";
 
@@ -27,7 +29,17 @@ export default function GameDetailScreen() {
   const { data: game, isLoading } = useGameDetail(gameId);
   const { isFollowing, toggleFollow, isToggling } = useGameFollow(gameId);
   const { data: wagers } = useWagers(gameId);
+  const { scanBetSlip, isScanning } = useBetSlipScanner();
   const [showAddWager, setShowAddWager] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+
+  const handleScanSlip = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const result = await scanBetSlip(gameId);
+    if (result) {
+      setScanResult(result);
+    }
+  };
 
   if (isLoading || !game) {
     return (
@@ -75,13 +87,27 @@ export default function GameDetailScreen() {
         <View style={s.wagerSection}>
           <View style={s.wagerHeader}>
             <Text style={s.sectionLabel}>Your Wagers</Text>
-            <Pressable
-              style={s.logWagerBtn}
-              onPress={() => setShowAddWager(true)}
-            >
-              <Ionicons name="add" size={16} color="#f97316" />
-              <Text style={s.logWagerText}>Log Wager</Text>
-            </Pressable>
+            <View style={s.wagerActions}>
+              <Pressable
+                style={s.scanSlipBtn}
+                onPress={handleScanSlip}
+                disabled={isScanning}
+              >
+                {isScanning ? (
+                  <ActivityIndicator size={14} color="#a855f7" />
+                ) : (
+                  <Ionicons name="scan-outline" size={16} color="#a855f7" />
+                )}
+                <Text style={s.scanSlipText}>Scan Slip</Text>
+              </Pressable>
+              <Pressable
+                style={s.logWagerBtn}
+                onPress={() => setShowAddWager(true)}
+              >
+                <Ionicons name="add" size={16} color="#f97316" />
+                <Text style={s.logWagerText}>Log Wager</Text>
+              </Pressable>
+            </View>
           </View>
           {(wagers ?? []).length > 0 ? (
             (wagers ?? []).map((w) => <WagerCard key={w.id} wager={w} />)
@@ -154,6 +180,16 @@ export default function GameDetailScreen() {
       {showAddWager && (
         <AddWagerSheet game={game} onClose={() => setShowAddWager(false)} />
       )}
+
+      {/* Review Scanned Wagers Sheet */}
+      {scanResult && (
+        <ReviewScannedWagersSheet
+          game={game}
+          wagers={scanResult.wagers}
+          confidence={scanResult.confidence}
+          onClose={() => setScanResult(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -183,6 +219,16 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  wagerActions: { flexDirection: "row", gap: 8 },
+  scanSlipBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(168, 85, 247, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+  },
+  scanSlipText: { color: "#a855f7", fontSize: 13, fontWeight: "600", marginLeft: 4 },
   logWagerBtn: {
     flexDirection: "row",
     alignItems: "center",

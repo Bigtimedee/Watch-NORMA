@@ -65,6 +65,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
     <Pressable
       style={[s.button, bestProvider ? s.buttonBrand : s.buttonDefault]}
       onPress={handlePress}
+      accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Watch"}
     >
       <Ionicons
         name="play-circle"

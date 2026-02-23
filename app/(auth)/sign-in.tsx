@@ -114,6 +114,7 @@ export default function SignInScreen() {
             style={[s.button, loading && s.buttonDisabled]}
             onPress={handleSignIn}
             disabled={loading}
+            accessibilityLabel={loading ? "Signing In" : "Sign In"}
           >
             <Text style={s.buttonText}>
               {loading ? "Signing In..." : "Sign In"}

@@ -284,25 +284,77 @@ Deno.serve(async (req) => {
           .update({ last_pbp_source: source })
           .eq("id", game.id);
 
+        // Insert normalized events into game_events table
+        if (source === "sportradar" && payloadToStore) {
+          try {
+            const p = payloadToStore as any;
+            const scoringPlays = p.recentScoringPlays ?? [];
+
+            if (scoringPlays.length > 0) {
+              // Get the max sequence already stored for this game
+              const { data: maxSeqRow } = await supabase
+                .from("game_events")
+                .select("sequence")
+                .eq("game_id", game.id)
+                .order("sequence", { ascending: false })
+                .limit(1);
+
+              const maxSeq = maxSeqRow?.[0]?.sequence ?? 0;
+
+              // Only insert events with sequence > maxSeq
+              const newEvents = scoringPlays
+                .map((sp: any, idx: number) => ({
+                  game_id: game.id,
+                  sequence: maxSeq + idx + 1,
+                  event_type: sp.points === 3 ? "threepointmade" : sp.points === 2 ? "twopointmade" : "freethrowmade",
+                  clock: sp.clock,
+                  period: sp.period,
+                  team_id: null, // We don't have sportradar team IDs in scoring plays
+                  player_name: sp.player,
+                  points: sp.points,
+                  scoring_play: true,
+                  home_score_after: sp.home_points,
+                  away_score_after: sp.away_points,
+                  description: sp.description,
+                }));
+
+              if (newEvents.length > 0) {
+                await supabase
+                  .from("game_events")
+                  .upsert(newEvents, { onConflict: "game_id,sequence", ignoreDuplicates: true });
+                // Non-critical event upsert — errors handled by outer try/catch
+              }
+            }
+          } catch (e) {
+            console.warn(`Failed to normalize PBP events for ${game.id}:`, e);
+          }
+        }
+
         storedCount++;
       } catch (e) {
         console.error(`Error fetching PBP for game ${game.id}:`, e);
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        activeGames: gamesToPoll.length,
-        stored: storedCount,
-        sportradarPbp: sportradarCount,
-        sdioPbp: sdioCount,
-        sportradarApiCalls: getCallCount(),
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const result = {
+      success: true,
+      activeGames: gamesToPoll.length,
+      stored: storedCount,
+      sportradarPbp: sportradarCount,
+      sdioPbp: sdioCount,
+      sportradarApiCalls: getCallCount(),
+    };
+
+    console.log(JSON.stringify({
+      function: "poll-pbp",
+      event: "completed",
+      ...result,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("poll-pbp error:", error);
     return new Response(

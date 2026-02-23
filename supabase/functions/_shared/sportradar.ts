@@ -11,6 +11,46 @@ const SEASON_YEAR = 2026;
 // Track API calls per invocation for quota awareness
 let callCount = 0;
 
+// Optional Supabase client for rate budget logging
+// Set via setRateBudgetClient() at function startup
+let _rateBudgetClient: any = null;
+
+/** Set a Supabase client for rate budget tracking (optional) */
+export function setRateBudgetClient(client: any): void {
+  _rateBudgetClient = client;
+}
+
+/** Record a Sportradar API call in the rate budget log */
+async function recordApiCall(): Promise<void> {
+  if (!_rateBudgetClient) return;
+  try {
+    const windowStart = new Date(
+      Math.floor(Date.now() / 60_000) * 60_000
+    ).toISOString();
+
+    // Try to insert a new row; if the window already exists, increment calls_made
+    const { data: existing } = await _rateBudgetClient
+      .from("api_rate_log")
+      .select("id, calls_made")
+      .eq("provider", "sportradar")
+      .eq("window_start", windowStart)
+      .maybeSingle();
+
+    if (existing) {
+      await _rateBudgetClient
+        .from("api_rate_log")
+        .update({ calls_made: existing.calls_made + 1 })
+        .eq("id", existing.id);
+    } else {
+      await _rateBudgetClient
+        .from("api_rate_log")
+        .insert({ provider: "sportradar", window_start: windowStart, calls_made: 1 });
+    }
+  } catch {
+    // Non-critical — don't block the API call
+  }
+}
+
 async function sportradarFetch<T>(path: string): Promise<T> {
   const separator = path.includes("?") ? "&" : "?";
   const url = `${SPORTRADAR_BASE}${path}${separator}api_key=${SPORTRADAR_KEY}`;
@@ -24,6 +64,9 @@ async function sportradarFetch<T>(path: string): Promise<T> {
       `Sportradar API error ${res.status} for ${path}: ${body}`
     );
   }
+
+  // Record call for rate budget tracking (fire-and-forget)
+  recordApiCall().catch(() => {});
 
   return res.json() as Promise<T>;
 }

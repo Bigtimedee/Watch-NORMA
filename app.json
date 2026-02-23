@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "scheme": "norma",
     "splash": {
       "image": "./assets/norma-logo.png",
@@ -16,8 +16,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.norma.app",
+      "buildNumber": "7",
       "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "NORMA needs access to your camera to scan bet slips.",
+        "NSPhotoLibraryUsageDescription": "NORMA needs access to your photo library to scan bet slip screenshots.",
         "UIBackgroundModes": [
           "remote-notification"
         ],
@@ -53,19 +57,23 @@
       "package": "com.norma.app",
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "NOTIFICATIONS"
+        "NOTIFICATIONS",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "NORMA needs access to your photo library to scan bet slip screenshots.",
+          "cameraPermission": "NORMA needs access to your camera to scan bet slips."
+        }
+      ]
     ],
-    "runtimeVersion": "exposdk:54.0.0",
-    "updates": {
-      "url": "https://u.expo.dev/3a418868-5bb5-4852-b565-3282ee4fe91e"
-    },
     "experiments": {
       "typedRoutes": true
     },

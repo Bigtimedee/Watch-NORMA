@@ -19,7 +19,11 @@ export type AlertType =
   | "moneyline_alert"
   | "prop_alert"
   | "position_alert"
-  | "bet_resolved";
+  | "bet_resolved"
+  | "close_game"
+  | "overtime"
+  | "foul_trouble"
+  | "follow_alert";
 
 export type WagerType = "spread" | "moneyline" | "over_under" | "prop";
 export type WagerStatus = "active" | "won" | "lost" | "push";
@@ -114,6 +118,41 @@ export interface StreamingProvider {
   android_deep_link: string | null;
   web_url: string | null;
   active: boolean;
+  // v2 fields (nullable for backward compat with older rows/caches)
+  universal_link?: string | null;
+  fallback_store_url?: string | null;
+  auth_mode?: string | null;
+  category?: string | null;
+}
+
+export type ProviderCategory = "streaming" | "tv" | "sportsbook" | "prediction_market";
+
+export interface UserPreferences {
+  user_id: string;
+  favorite_teams: Array<{ team_id: string; added_at: string }>;
+  favorite_players: Array<{ player_name: string; team_id: string; added_at: string }>;
+  notification_settings: {
+    quiet_hours_start: string | null;
+    quiet_hours_end: string | null;
+    max_alerts_per_game: number;
+    max_alerts_per_hour: number;
+    channels: { push: boolean; in_app: boolean };
+    ad_personalization_enabled?: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhyNow {
+  headline: string;
+  bullets: string[];
+  stats_used: Record<string, number>;
+  confidence: number;
+  wager_impact?: {
+    wager_id: number;
+    wager_description: string;
+    status: "covering" | "not_covering" | "at_risk" | "decided";
+  };
 }
 
 export interface Alert {
@@ -127,6 +166,16 @@ export interface Alert {
   push_sent: boolean;
   read: boolean;
   created_at: string;
+  // v2 fields
+  score: number | null;
+  explanation: WhyNow | null;
+  suppressed_reason: string | null;
+  // Sponsor fields (advertising)
+  sponsor_bid_id: number | null;
+  sponsor_text: string | null;
+  sponsor_cta_url: string | null;
+  sponsor_logo_url: string | null;
+  clearing_price_cents: number | null;
   // Joined
   game?: Game;
 }
@@ -143,6 +192,16 @@ export interface Wager {
   odds: string | null;
   status: WagerStatus;
   created_at: string;
+  // v2 fields
+  source: string | null;
+  provider_key: string | null;
+  external_bet_id: string | null;
+  stake: number | null;
+  potential_payout: number | null;
+  legs: Array<{ game_id: string; team_id?: string; market_type: string; line?: number; odds?: string; description: string }> | null;
+  market_type: string | null;
+  placed_at: string | null;
+  parsed_target: Record<string, unknown> | null;
   // Joined
   game?: Game;
 }
@@ -176,6 +235,7 @@ export interface PredictionPosition {
   pnl: number | null;
   settled: boolean;
   fetched_at: string;
+  parsed_target: Record<string, unknown> | null;
 }
 
 // SportsDataIO API response types

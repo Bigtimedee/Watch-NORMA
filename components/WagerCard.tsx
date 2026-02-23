@@ -17,7 +17,7 @@ export function WagerCard({ wager }: WagerCardProps) {
   const statusStyle = STATUS_COLORS[wager.status] ?? STATUS_COLORS.active;
 
   return (
-    <View style={s.card}>
+    <View style={s.card} accessibilityLabel={`${wager.description}, ${wager.status}`}>
       <View style={s.topRow}>
         <View style={s.meta}>
           {wager.sportsbook && (

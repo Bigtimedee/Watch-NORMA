@@ -1,12 +1,38 @@
-import { View, Text, Pressable, Switch, Alert, ScrollView, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, Switch, Alert, ScrollView, Linking, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
+import { PreferencesSheet } from "../../../components/PreferencesSheet";
+import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
+
+const PRIVACY_POLICY_URL = "https://d10dave.github.io/norma/privacy-policy.html";
+const TERMS_URL = "https://d10dave.github.io/norma/terms-of-service.html";
 
 export default function ProfileScreen() {
-  const { session, profile, signOut, updateProfile } = useAuth();
+  const { session, profile, signOut, deleteAccount, updateProfile } = useAuth();
   const { data: wagerStats } = useWagerStats();
+  const { data: preferences } = usePreferences();
+  const updatePreferences = useUpdatePreferences();
+  const [showPrefs, setShowPrefs] = useState(false);
+
+  const adPersonalization =
+    preferences?.notification_settings?.ad_personalization_enabled ?? true;
+
+  const toggleAdPersonalization = async () => {
+    if (!preferences) return;
+    try {
+      await updatePreferences.mutateAsync({
+        notification_settings: {
+          ...preferences.notification_settings,
+          ad_personalization_enabled: !adPersonalization,
+        },
+      });
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -23,6 +49,27 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch (error: any) {
+              Alert.alert("Error", error.message);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const toggleNotifications = async () => {
@@ -100,6 +147,19 @@ export default function ProfileScreen() {
           <Text style={s.sectionLabel}>Settings</Text>
 
           <View style={s.settingsCard}>
+            {/* Preferences */}
+            <Pressable
+              style={[s.settingsRow, s.settingsRowBorder]}
+              onPress={() => setShowPrefs(true)}
+              accessibilityLabel="Preferences"
+            >
+              <View style={s.settingsLeft}>
+                <Ionicons name="options-outline" size={20} color="#f97316" />
+                <Text style={s.settingsText}>Preferences</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#64748b" />
+            </Pressable>
+
             {/* Notifications toggle */}
             <View style={[s.settingsRow, s.settingsRowBorder]}>
               <View style={s.settingsLeft}>
@@ -109,6 +169,20 @@ export default function ProfileScreen() {
               <Switch
                 value={profile?.notifications_enabled ?? true}
                 onValueChange={toggleNotifications}
+                trackColor={{ false: "#475569", true: "#f97316" }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* Ad Personalization */}
+            <View style={[s.settingsRow, s.settingsRowBorder]}>
+              <View style={s.settingsLeft}>
+                <Ionicons name="megaphone-outline" size={20} color="#f97316" />
+                <Text style={s.settingsText}>Ad Personalization</Text>
+              </View>
+              <Switch
+                value={adPersonalization}
+                onValueChange={toggleAdPersonalization}
                 trackColor={{ false: "#475569", true: "#f97316" }}
                 thumbColor="#fff"
               />
@@ -136,20 +210,54 @@ export default function ProfileScreen() {
               <Text style={s.aboutLabel}>Version</Text>
               <Text style={s.settingsValue}>1.0.0</Text>
             </View>
-            <View style={s.settingsRow}>
+            <View style={[s.settingsRow, s.settingsRowBorder]}>
               <Text style={s.aboutLabel}>Data by</Text>
               <Text style={s.settingsValue}>SportsDataIO + ESPN</Text>
             </View>
+
+            <Pressable
+              style={[s.settingsRow, s.settingsRowBorder]}
+              onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+              accessibilityLabel="Privacy Policy"
+            >
+              <Text style={s.aboutLabel}>Privacy Policy</Text>
+              <Ionicons name="open-outline" size={16} color="#64748b" />
+            </Pressable>
+
+            <Pressable
+              style={s.settingsRow}
+              onPress={() => Linking.openURL(TERMS_URL)}
+              accessibilityLabel="Terms of Service"
+            >
+              <Text style={s.aboutLabel}>Terms of Service</Text>
+              <Ionicons name="open-outline" size={16} color="#64748b" />
+            </Pressable>
           </View>
         </View>
 
         {/* Sign Out */}
         <View style={s.signOutSection}>
-          <Pressable style={s.signOutBtn} onPress={handleSignOut}>
+          <Pressable
+            style={s.signOutBtn}
+            onPress={handleSignOut}
+            accessibilityLabel="Sign Out"
+          >
             <Text style={s.signOutText}>Sign Out</Text>
+          </Pressable>
+
+          <Pressable
+            style={s.deleteBtn}
+            onPress={handleDeleteAccount}
+            accessibilityLabel="Delete Account"
+          >
+            <Text style={s.deleteText}>Delete Account</Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {showPrefs && (
+        <PreferencesSheet onClose={() => setShowPrefs(false)} />
+      )}
     </SafeAreaView>
   );
 }
@@ -224,4 +332,11 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   signOutText: { color: "#f87171", fontSize: 16, fontWeight: "600" },
+  deleteBtn: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center" as const,
+    marginTop: 8,
+  },
+  deleteText: { color: "#ef4444", fontSize: 14, fontWeight: "500" },
 });

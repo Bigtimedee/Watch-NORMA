@@ -188,6 +188,9 @@ describe("sortAlerts", () => {
     push_sent: false,
     read,
     created_at: dateStr,
+    score: null,
+    explanation: null,
+    suppressed_reason: null,
   });
 
   it("unread alerts come first", () => {

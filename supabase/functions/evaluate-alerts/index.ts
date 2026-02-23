@@ -1,12 +1,16 @@
-// evaluate-alerts: Wager-only "Tune In Now" engine
-// Alerts ONLY fire when a user has an active wager or prediction position
-// and the game state makes that bet relevant RIGHT NOW.
-// Trigger: Called by poll-boxscore after each game update
+// evaluate-alerts v2: Staged alert pipeline
+// Stage 0: Candidate Generation (follows + wagers + positions)
+// Stage 1: Signal Extraction
+// Stage 2: Scoring + Must-Notify Rules
+// Stage 2b: "Why Now" Explanation
+// Stage 3: Throttling + Dedup (via alert_throttle table)
+// Stage 4: Delivery Routing
+//
+// Trigger: Called by game-watcher-orchestrator per-game
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
-  ALERT_COOLDOWN_MS,
   evaluateSpread,
   evaluateTotal,
   evaluateMoneyline,
@@ -21,8 +25,24 @@ import type {
   SummaryStats,
   AlertCandidate,
 } from "./logic.ts";
+import {
+  extractSignals,
+  computeScore,
+  meetsThreshold,
+  buildWhyNow,
+  checkMustNotify,
+  determineAlertType,
+  computeDedupHash,
+} from "../_shared/alert-scoring.ts";
+import type { WhyNow } from "../_shared/alert-scoring.ts";
+import {
+  runAuction,
+  recordAuctionResult,
+  type AuctionInput,
+} from "../_shared/auction-engine.ts";
 
-// --- Main Handler ---
+// Cooldown: minimum 5 minutes between same alert_type for same game per user
+const COOLDOWN_MS = 5 * 60 * 1000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -43,7 +63,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get game state with team info
+    // --- Get game state with team info ---
     const { data: game, error: gameError } = await supabase
       .from("games")
       .select(`
@@ -63,29 +83,103 @@ Deno.serve(async (req) => {
 
     const gameState = game as unknown as GameState;
 
-    // Find ALL users with active wagers on this game
+    // --- Stage 0: Candidate Generation ---
+    // v2: Include users who FOLLOW teams/players in this game, not just wager holders
+
+    // Find users with active wagers on this game
     const { data: wagers } = await supabase
       .from("wagers")
-      .select("id, user_id, wager_type, team_id, line, odds, description, sportsbook")
+      .select("id, user_id, wager_type, team_id, line, odds, description, sportsbook, parsed_target")
       .eq("game_id", gameId)
       .eq("status", "active");
 
-    // Find ALL users with active prediction positions on this game
+    // Find users with active prediction positions
     const { data: positions } = await supabase
       .from("prediction_positions")
-      .select("id, user_id, platform, market_title, position_side, quantity, avg_price")
+      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target")
       .eq("game_id", gameId)
       .eq("settled", false);
 
-    // No wagers AND no positions = no alerts. Period.
-    if ((!wagers || wagers.length === 0) && (!positions || positions.length === 0)) {
+    // Find users who follow teams playing in this game
+    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean);
+    let followUsers: Array<{ user_id: string; entity_type: string; entity_id: string }> = [];
+    if (teamIds.length > 0) {
+      const { data: teamFollows } = await supabase
+        .from("follows")
+        .select("user_id, entity_type, entity_id")
+        .in("entity_id", teamIds)
+        .eq("entity_type", "team");
+
+      if (teamFollows) followUsers.push(...teamFollows);
+    }
+
+    // Find users who follow this specific game
+    const { data: gameFollows } = await supabase
+      .from("follows")
+      .select("user_id, entity_type, entity_id")
+      .eq("entity_id", gameId)
+      .eq("entity_type", "game");
+
+    if (gameFollows) followUsers.push(...gameFollows);
+
+    // Collect all unique user IDs
+    const userWagerMap = new Map<string, UserWager[]>();
+    for (const w of (wagers ?? []) as UserWager[]) {
+      const list = userWagerMap.get(w.user_id) ?? [];
+      list.push(w);
+      userWagerMap.set(w.user_id, list);
+    }
+
+    const userPositionMap = new Map<string, UserPosition[]>();
+    for (const p of (positions ?? []) as UserPosition[]) {
+      const list = userPositionMap.get(p.user_id) ?? [];
+      list.push(p);
+      userPositionMap.set(p.user_id, list);
+    }
+
+    // Follow-based users: map user_id -> followed team IDs
+    const userFollowTeamMap = new Map<string, string[]>();
+    for (const f of followUsers) {
+      if (f.entity_type === "team") {
+        const list = userFollowTeamMap.get(f.user_id) ?? [];
+        list.push(f.entity_id);
+        userFollowTeamMap.set(f.user_id, list);
+      }
+    }
+
+    const allUserIds = new Set([
+      ...userWagerMap.keys(),
+      ...userPositionMap.keys(),
+      ...followUsers.map((f) => f.user_id),
+    ]);
+
+    if (allUserIds.size === 0) {
       return new Response(
-        JSON.stringify({ success: true, alertsSent: 0, reason: "No active wagers or positions on this game" }),
+        JSON.stringify({ success: true, alertsSent: 0, reason: "No interested users for this game" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fetch latest Sportradar summary (for richer context in alerts)
+    // Check notification preferences
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, notifications_enabled")
+      .in("id", Array.from(allUserIds))
+      .eq("notifications_enabled", true);
+
+    const enabledUserIds = new Set((profiles ?? []).map((p: any) => p.id));
+
+    // Fetch user preferences for per-user caps and quiet hours
+    const { data: userPrefs } = await supabase
+      .from("user_preferences")
+      .select("user_id, notification_settings, favorite_players")
+      .in("user_id", Array.from(enabledUserIds));
+
+    const prefsMap = new Map(
+      (userPrefs ?? []).map((p: any) => [p.user_id, p])
+    );
+
+    // Fetch latest Sportradar summary
     let summaryStats: SummaryStats | null = null;
     const { data: summarySnapshots } = await supabase
       .from("game_snapshots")
@@ -102,99 +196,361 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Collect unique user IDs from wagers + positions
-    const userWagerMap = new Map<string, UserWager[]>();
-    for (const w of (wagers ?? []) as UserWager[]) {
-      const list = userWagerMap.get(w.user_id) ?? [];
-      list.push(w);
-      userWagerMap.set(w.user_id, list);
+    // Count lead changes from game_events (last 5 minutes of game time)
+    let leadChangesRecent = 0;
+    try {
+      const { data: scoringEvents } = await supabase
+        .from("game_events")
+        .select("home_score_after, away_score_after, sequence")
+        .eq("game_id", gameId)
+        .eq("scoring_play", true)
+        .order("sequence", { ascending: true });
+
+      if (scoringEvents && scoringEvents.length >= 2) {
+        // Count lead changes in the last 20 scoring events (approximation of ~5 min)
+        const recentEvents = scoringEvents.slice(-20);
+        let prevLeader: "home" | "away" | "tie" = "tie";
+        for (const ev of recentEvents) {
+          const h = ev.home_score_after ?? 0;
+          const a = ev.away_score_after ?? 0;
+          const leader = h > a ? "home" : a > h ? "away" : "tie";
+          if (leader !== "tie" && prevLeader !== "tie" && leader !== prevLeader) {
+            leadChangesRecent++;
+          }
+          if (leader !== "tie") prevLeader = leader;
+        }
+      }
+    } catch {
+      // Non-critical — proceed with 0
     }
-
-    const userPositionMap = new Map<string, UserPosition[]>();
-    for (const p of (positions ?? []) as UserPosition[]) {
-      const list = userPositionMap.get(p.user_id) ?? [];
-      list.push(p);
-      userPositionMap.set(p.user_id, list);
-    }
-
-    const allUserIds = new Set([...userWagerMap.keys(), ...userPositionMap.keys()]);
-
-    // Check notification preferences
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, notifications_enabled")
-      .in("id", Array.from(allUserIds))
-      .eq("notifications_enabled", true);
-
-    const enabledUserIds = new Set((profiles ?? []).map((p: any) => p.id));
 
     let totalAlerts = 0;
+    let suppressed = 0;
     const alertsToSendPush: number[] = [];
 
+    // --- Process each user ---
     for (const userId of enabledUserIds) {
       const userWagers = userWagerMap.get(userId) ?? [];
       const userPositions = userPositionMap.get(userId) ?? [];
-      const candidates: AlertCandidate[] = [];
+      const userFollowTeams = userFollowTeamMap.get(userId) ?? [];
+      const prefs = prefsMap.get(userId);
+      const notifSettings = prefs?.notification_settings ?? {};
+      const favPlayers: Array<{ player_name: string }> = prefs?.favorite_players ?? [];
+      const maxAlertsPerGame = notifSettings.max_alerts_per_game ?? 5;
+      const maxAlertsPerHour = notifSettings.max_alerts_per_hour ?? 10;
 
-      // Evaluate each wager
-      for (const wager of userWagers) {
-        const spread = evaluateSpread(gameState, wager, summaryStats);
-        if (spread) candidates.push(spread);
+      // Check per-game cap
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: gameAlertCount } = await supabase
+        .from("alerts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .gte("created_at", oneHourAgo);
 
-        const total = evaluateTotal(gameState, wager);
-        if (total) candidates.push(total);
-
-        const ml = evaluateMoneyline(gameState, wager, summaryStats);
-        if (ml) candidates.push(ml);
-
-        const prop = evaluateProp(gameState, wager, summaryStats);
-        if (prop) candidates.push(prop);
-
-        const resolved = evaluateResolved(gameState, wager);
-        if (resolved) candidates.push(resolved);
+      if ((gameAlertCount ?? 0) >= maxAlertsPerGame) {
+        suppressed++;
+        continue;
       }
 
-      // Evaluate each prediction position
-      for (const position of userPositions) {
-        const posAlert = evaluatePosition(gameState, position);
-        if (posAlert) candidates.push(posAlert);
+      // Check per-hour cap
+      const { count: hourAlertCount } = await supabase
+        .from("alerts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", oneHourAgo);
+
+      if ((hourAlertCount ?? 0) >= maxAlertsPerHour) {
+        suppressed++;
+        continue;
       }
 
-      // De-duplicate and rate-limit
-      for (const candidate of candidates) {
-        const cutoff = new Date(Date.now() - ALERT_COOLDOWN_MS).toISOString();
-        const { data: recentAlerts } = await supabase
-          .from("alerts")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("game_id", gameId)
-          .eq("alert_type", candidate.alertType)
-          .gte("created_at", cutoff)
-          .limit(1);
+      // --- Stage 1: Signal Extraction ---
+      // Collect parsed targets from positions for proximity scoring
+      const positionTargets = userPositions
+        .map((p) => p.parsed_target ?? null)
+        .filter(Boolean);
 
-        if (recentAlerts && recentAlerts.length > 0) continue;
+      const signals = extractSignals(
+        gameState,
+        summaryStats,
+        userFollowTeams,
+        favPlayers.map((p) => p.player_name),
+        userWagers,
+        userPositions.length > 0,
+        leadChangesRecent,
+        positionTargets as any[],
+      );
 
-        const { data: newAlert, error: insertError } = await supabase
-          .from("alerts")
-          .insert({
-            user_id: userId,
-            game_id: gameId,
-            alert_type: candidate.alertType,
-            title: candidate.title,
-            body: candidate.body,
-            why: candidate.why,
-          })
-          .select("id")
-          .single();
+      // --- Stage 2: Must-Notify Check + Scoring ---
+      const mustNotify = checkMustNotify(gameState, summaryStats, userWagers);
+      const score = computeScore(signals);
 
-        if (!insertError && newAlert) {
-          totalAlerts++;
-          alertsToSendPush.push(newAlert.id);
+      // For wager holders, also run v1 evaluators as a fallback
+      const v1Candidates: AlertCandidate[] = [];
+      if (userWagers.length > 0) {
+        for (const wager of userWagers) {
+          const spread = evaluateSpread(gameState, wager, summaryStats);
+          if (spread) v1Candidates.push(spread);
+          const total = evaluateTotal(gameState, wager);
+          if (total) v1Candidates.push(total);
+          const ml = evaluateMoneyline(gameState, wager, summaryStats);
+          if (ml) v1Candidates.push(ml);
+          const prop = evaluateProp(gameState, wager, summaryStats);
+          if (prop) v1Candidates.push(prop);
+          const resolved = evaluateResolved(gameState, wager);
+          if (resolved) v1Candidates.push(resolved);
         }
+      }
+
+      // For position holders, run position evaluator (now proximity-aware)
+      for (const position of userPositions) {
+        const posAlert = evaluatePosition(gameState, position, summaryStats);
+        if (posAlert) v1Candidates.push(posAlert);
+      }
+
+      // Determine if we should alert this user
+      const shouldAlert = mustNotify != null || meetsThreshold(score) || v1Candidates.length > 0;
+
+      console.log(JSON.stringify({
+        function: "evaluate-alerts",
+        event: "user_evaluation",
+        gameId,
+        userId,
+        gameStatus: gameState.status,
+        gamePeriod: gameState.period,
+        gameClock: gameState.clock,
+        wagerCount: userWagers.length,
+        positionCount: userPositions.length,
+        mustNotify: mustNotify != null ? mustNotify.alertType : null,
+        score,
+        v1CandidateCount: v1Candidates.length,
+        v1Types: v1Candidates.map(c => c.alertType),
+        shouldAlert,
+        hasSummaryData: !!summaryStats,
+      }));
+
+      if (!shouldAlert) continue;
+
+      // --- Stage 2b: Build explanation ---
+      const alertType = v1Candidates.length > 0
+        ? v1Candidates[0].alertType
+        : determineAlertType(signals, mustNotify, userWagers);
+
+      const whyNow = buildWhyNow(gameState, signals, score, userWagers, mustNotify);
+
+      // Use v1 candidate title/body if available, otherwise generate from WhyNow
+      const title = v1Candidates.length > 0 ? v1Candidates[0].title : whyNow.headline;
+      const body = v1Candidates.length > 0 ? v1Candidates[0].body : whyNow.bullets[0] ?? "";
+      const whyText = v1Candidates.length > 0
+        ? v1Candidates[0].why
+        : whyNow.bullets.join(" ");
+
+      // --- Stage 3: Throttle + Dedup ---
+      const dedupHash = computeDedupHash(userId, gameId, alertType, signals.margin, signals.period, signals.proximity_level ?? undefined);
+
+      // Check alert_throttle for existing hash
+      const { data: existingThrottle } = await supabase
+        .from("alert_throttle")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .eq("alert_type", alertType)
+        .eq("dedup_hash", dedupHash)
+        .limit(1);
+
+      if (existingThrottle && existingThrottle.length > 0) {
+        console.log(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "dedup_blocked",
+          gameId,
+          userId,
+          alertType,
+          dedupHash,
+        }));
+        continue; // Already sent this exact alert context
+      }
+
+      // Check cooldown: min 5 minutes between same alert_type per game
+      const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
+      const { data: recentAlerts } = await supabase
+        .from("alerts")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .eq("alert_type", alertType)
+        .gte("created_at", cooldownCutoff)
+        .limit(1);
+
+      if (recentAlerts && recentAlerts.length > 0) {
+        console.log(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "cooldown_blocked",
+          gameId,
+          userId,
+          alertType,
+        }));
+        continue;
+      }
+
+      // Check quiet hours
+      let suppressPush = false;
+      if (notifSettings.quiet_hours_start && notifSettings.quiet_hours_end) {
+        const now = new Date();
+        const hours = now.getHours();
+        const mins = now.getMinutes();
+        const currentTime = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+        const start = notifSettings.quiet_hours_start;
+        const end = notifSettings.quiet_hours_end;
+
+        // Handle overnight quiet hours (e.g., 22:00 - 08:00)
+        if (start > end) {
+          suppressPush = currentTime >= start || currentTime < end;
+        } else {
+          suppressPush = currentTime >= start && currentTime < end;
+        }
+      }
+
+      // --- Stage 3.5: Auction — attach sponsor if available ---
+      // Determine user segment for auction
+      const userSegment = userWagers.length > 0
+        ? "wager_holder"
+        : userPositions.length > 0
+        ? "position_holder"
+        : "team_follower";
+
+      let auctionResult: Awaited<ReturnType<typeof runAuction>> = null;
+      try {
+        const auctionInput: AuctionInput = {
+          game_id: gameId,
+          moment_type: alertType,
+          alert_score: score,
+          user_id: userId,
+          user_segment: userSegment,
+          tournament_round: gameState.tournament_round ?? null,
+          period: gameState.period ?? null,
+        };
+        auctionResult = await runAuction(supabase, auctionInput);
+
+        if (auctionResult) {
+          console.log(JSON.stringify({
+            function: "evaluate-alerts",
+            event: "auction_won",
+            gameId,
+            userId,
+            alertType,
+            winningBidId: auctionResult.winning_bid_id,
+            clearingPrice: auctionResult.clearing_price_cents,
+          }));
+        }
+      } catch (auctionErr) {
+        // Auction failure should never block alert delivery
+        console.warn(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "auction_error",
+          gameId,
+          userId,
+          error: (auctionErr as Error).message,
+        }));
+      }
+
+      // --- Stage 4: Insert alert + delivery ---
+      const { data: newAlert, error: insertError } = await supabase
+        .from("alerts")
+        .insert({
+          user_id: userId,
+          game_id: gameId,
+          alert_type: alertType,
+          title,
+          body,
+          why: whyText,
+          score,
+          explanation: whyNow,
+          suppressed_reason: suppressPush ? "quiet_hours" : null,
+          // Sponsor fields from auction
+          sponsor_bid_id: auctionResult?.winning_bid_id ?? null,
+          sponsor_text: auctionResult?.sponsor_text ?? null,
+          sponsor_cta_url: auctionResult?.sponsor_cta_url ?? null,
+          sponsor_logo_url: auctionResult?.sponsor_logo_url ?? null,
+          clearing_price_cents: auctionResult?.clearing_price_cents ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !newAlert) {
+        console.warn(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "insert_failed",
+          gameId,
+          userId,
+          alertType,
+          error: insertError?.message ?? "unknown",
+          errorDetails: insertError,
+        }));
+        continue;
+      }
+
+      console.log(JSON.stringify({
+        function: "evaluate-alerts",
+        event: "alert_created",
+        gameId,
+        userId,
+        alertId: newAlert.id,
+        alertType,
+        title,
+        score,
+      }));
+
+      // Record auction result (impression + spend update)
+      if (auctionResult && newAlert) {
+        try {
+          await recordAuctionResult(supabase, auctionResult, {
+            game_id: gameId,
+            moment_type: alertType,
+            alert_score: score,
+            user_id: userId,
+            user_segment: userSegment,
+            tournament_round: gameState.tournament_round ?? null,
+            period: gameState.period ?? null,
+          }, newAlert.id);
+        } catch (recordErr) {
+          console.warn(JSON.stringify({
+            function: "evaluate-alerts",
+            event: "record_auction_error",
+            alertId: newAlert.id,
+            error: (recordErr as Error).message,
+          }));
+        }
+      }
+
+      // Record in alert_throttle for dedup (ignore unique constraint violations)
+      const { error: throttleErr } = await supabase
+        .from("alert_throttle")
+        .insert({
+          user_id: userId,
+          game_id: gameId,
+          alert_type: alertType,
+          dedup_hash: dedupHash,
+        });
+      if (throttleErr) {
+        console.log(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "throttle_insert_ignored",
+          gameId,
+          userId,
+          error: throttleErr.message,
+        }));
+      }
+
+      totalAlerts++;
+
+      // Send push (unless quiet hours)
+      if (!suppressPush) {
+        alertsToSendPush.push(newAlert.id);
       }
     }
 
-    // Send push notifications
+    // Dispatch push notifications
     for (const alertId of alertsToSendPush) {
       try {
         await supabase.functions.invoke("send-push", {
@@ -205,19 +561,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        usersWithWagers: userWagerMap.size,
-        usersWithPositions: userPositionMap.size,
-        alertsSent: totalAlerts,
-        pushSent: alertsToSendPush.length,
-        hasSummaryData: !!summaryStats,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const result = {
+      success: true,
+      usersEvaluated: enabledUserIds.size,
+      usersWithWagers: userWagerMap.size,
+      usersWithPositions: userPositionMap.size,
+      usersWithFollows: userFollowTeamMap.size,
+      alertsSent: totalAlerts,
+      alertsSuppressed: suppressed,
+      pushSent: alertsToSendPush.length,
+      hasSummaryData: !!summaryStats,
+    };
+
+    console.log(JSON.stringify({
+      function: "evaluate-alerts",
+      event: "completed",
+      gameId,
+      ...result,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("evaluate-alerts error:", error);
     return new Response(

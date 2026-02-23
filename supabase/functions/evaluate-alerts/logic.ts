@@ -1,5 +1,12 @@
 // evaluate-alerts/logic.ts — Pure functions extracted for testability
 
+import { parseWagerTarget } from "../_shared/wager-target-parser.ts";
+import type { WagerTarget } from "../_shared/wager-target-parser.ts";
+import { computeProximity } from "../_shared/outcome-proximity.ts";
+import type { ProximityResult } from "../_shared/outcome-proximity.ts";
+
+export type { WagerTarget, ProximityResult };
+
 export const ALERT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes between same-type alerts
 
 // --- Interfaces ---
@@ -29,6 +36,7 @@ export interface UserWager {
   odds: string | null;
   description: string;
   sportsbook: string | null;
+  parsed_target?: WagerTarget | null;
 }
 
 export interface UserPosition {
@@ -39,6 +47,7 @@ export interface UserPosition {
   position_side: string;
   quantity: number;
   avg_price: number;
+  parsed_target?: WagerTarget | null;
 }
 
 export interface SummaryStats {
@@ -250,7 +259,7 @@ export function evaluateMoneyline(
 }
 
 // --- Prop Bet Alert ---
-// Fire when game state indicates a player prop is about to be decided
+// Fire when the player stat is approaching/crossing the prop line (proximity-based)
 
 export function evaluateProp(
   game: GameState,
@@ -258,75 +267,97 @@ export function evaluateProp(
   summary: SummaryStats | null
 ): AlertCandidate | null {
   if (wager.wager_type !== "prop") return null;
-  if (game.status !== "inprogress") return null;
-  if (!summary) return null;
+  if (game.status !== "inprogress" && game.status !== "closed") return null;
 
-  const clockMins = parseClockMinutes(game.clock);
-  if (clockMins == null || game.period == null) return null;
-
-  // Parse the prop description for player name and stat
-  const desc = wager.description;
-
-  // Search both teams' players for anyone mentioned in the prop
-  const allPlayers = [
-    ...summary.home.players.map((p) => ({ ...p, side: "home" as const })),
-    ...summary.away.players.map((p) => ({ ...p, side: "away" as const })),
-  ];
-
-  for (const player of allPlayers) {
-    // Check if this player is referenced in the wager description
-    const nameInDesc =
-      desc.toLowerCase().includes(player.full_name.toLowerCase()) ||
-      desc.toLowerCase().includes(player.full_name.split(" ").pop()?.toLowerCase() ?? "");
-
-    if (!nameInDesc) continue;
-
-    // Player is on court and relevant to the prop — alert
-    if (player.on_court) {
-      const teamName = player.side === "home"
-        ? (game.home_team?.abbreviation ?? "Home")
-        : (game.away_team?.abbreviation ?? "Away");
-
-      // Build stat context
-      const statLine = `${player.points}pts, ${player.rebounds}reb, ${player.assists}ast`;
-
-      return {
-        alertType: "prop_alert",
-        title: `${player.full_name} Prop`,
-        body: `On the court — ${statLine}`,
-        why: `Your prop bet "${desc}" — ${player.full_name} (${teamName}) is on the court with ${statLine} and ${game.clock} left. Tune in now.`,
-      };
-    }
-
-    // Player fouled out — prop is locked
-    if (player.fouled_out) {
-      return {
-        alertType: "prop_alert",
-        title: `${player.full_name} Prop`,
-        body: `Fouled out — final line: ${player.points}pts`,
-        why: `${player.full_name} has fouled out with ${player.points}pts. Your prop "${desc}" outcome may be decided.`,
-      };
-    }
+  // Get or parse the wager target
+  const target = wager.parsed_target ?? parseWagerTarget(wager.description);
+  if (!target || target.target_type !== "player_stat") {
+    // Fallback: if we can't parse a structured target, skip (no generic "on court" alerts)
+    return null;
   }
 
-  return null;
+  if (!summary) return null;
+
+  const proximity = computeProximity(target, game, summary);
+  if (!proximity) return null;
+
+  // Only alert at HIGH or RESOLVED — not on generic game state
+  if (proximity.level !== "HIGH" && proximity.level !== "RESOLVED") return null;
+
+  const playerName = target.player_name ?? "Player";
+  const statLabel = (target.stat_type ?? "stat").replace(/_/g, " ");
+  const targetLine = target.line ?? 0;
+
+  if (proximity.level === "RESOLVED") {
+    const hit = proximity.current_value >= targetLine;
+    const outcomeLabel = target.is_over
+      ? (hit ? "Hit" : "Missed")
+      : (hit ? "Missed" : "Hit");
+
+    return {
+      alertType: "prop_alert",
+      title: `${playerName} — ${outcomeLabel}`,
+      body: `${proximity.current_value} ${statLabel} (line: ${targetLine})`,
+      why: `${playerName} finished with ${proximity.current_value} ${statLabel}. Your ${target.is_over ? "over" : "under"} ${targetLine} ${outcomeLabel.toLowerCase()}.`,
+    };
+  }
+
+  // HIGH proximity
+  const remaining = Math.max(0, Math.ceil(targetLine - proximity.current_value));
+  const trendLabel = proximity.trend === "favorable" ? "on pace" : proximity.trend === "unfavorable" ? "needs to pick up" : "";
+
+  return {
+    alertType: "prop_alert",
+    title: `${playerName} at ${proximity.current_value} ${statLabel} — ${remaining} away from ${targetLine}`,
+    body: proximity.description,
+    why: `${proximity.description}${trendLabel ? `. ${playerName} ${trendLabel}` : ""}. ${game.clock ? `${game.clock} remaining.` : ""} Tune in now.`,
+  };
 }
 
 // --- Prediction Position Alert ---
-// Fire when game state puts a Kalshi/Polymarket position at stake
+// Fire when position is near resolution (proximity-based for player/total markets)
 
 export function evaluatePosition(
   game: GameState,
-  position: UserPosition
+  position: UserPosition,
+  summary: SummaryStats | null = null,
 ): AlertCandidate | null {
-  if (game.status !== "inprogress") return null;
+  if (game.status !== "inprogress" && game.status !== "closed") return null;
 
+  // Try proximity-based alerting first
+  const target = position.parsed_target ?? parseWagerTarget(position.market_title);
+
+  if (target && summary) {
+    const proximity = computeProximity(target, game, summary);
+
+    if (proximity && (proximity.level === "HIGH" || proximity.level === "RESOLVED")) {
+      if (proximity.level === "RESOLVED") {
+        return {
+          alertType: "position_alert",
+          title: `${position.platform} — Position Resolved`,
+          body: proximity.description,
+          why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" has resolved. ${proximity.description}`,
+        };
+      }
+
+      return {
+        alertType: "position_alert",
+        title: `${position.platform} — Near Resolution`,
+        body: proximity.description,
+        why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" is close to resolving. ${proximity.description}${game.clock ? ` ${game.clock} remaining.` : ""} Tune in now.`,
+      };
+    }
+
+    // If we have a parseable target but proximity isn't HIGH/RESOLVED, don't fall through to generic
+    if (proximity) return null;
+  }
+
+  // Fallback to generic game-state logic for unparseable markets
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return null;
 
   const margin = Math.abs(game.home_score - game.away_score);
 
-  // Only alert in second half or OT, close game
   if (game.period < 2) return null;
   if (margin > 8) return null;
   if (game.period === 2 && clockMins > 10) return null;

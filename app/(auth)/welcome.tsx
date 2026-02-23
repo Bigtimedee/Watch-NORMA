@@ -42,6 +42,7 @@ export default function WelcomeScreen() {
         <Pressable
           style={s.ctaButton}
           onPress={() => router.push("/(auth)/sign-up")}
+          accessibilityLabel="Get Started"
         >
           <Text style={s.ctaText}>Get Started</Text>
         </Pressable>
@@ -49,6 +50,7 @@ export default function WelcomeScreen() {
         <Pressable
           style={s.signInLink}
           onPress={() => router.push("/(auth)/sign-in")}
+          accessibilityLabel="Sign In"
         >
           <Text style={s.signInText}>
             Already have an account?{" "}

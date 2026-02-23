@@ -9,6 +9,10 @@ export function alertTypeLabel(type: AlertType): string {
     prop_alert: "Prop Bet",
     position_alert: "Position",
     bet_resolved: "Result",
+    close_game: "Close Game",
+    overtime: "Overtime",
+    foul_trouble: "Foul Trouble",
+    follow_alert: "Following",
   };
   return labels[type] ?? type;
 }
@@ -22,6 +26,10 @@ export function alertTypeColor(type: AlertType): string {
     prop_alert: "#3b82f6", // blue
     position_alert: "#a855f7", // purple
     bet_resolved: "#22c55e", // green
+    close_game: "#ef4444", // red
+    overtime: "#f97316", // orange
+    foul_trouble: "#eab308", // yellow
+    follow_alert: "#3b82f6", // blue
   };
   return colors[type] ?? "#94a3b8";
 }
@@ -35,6 +43,10 @@ export function alertTypeIcon(type: AlertType): string {
     prop_alert: "person-outline",
     position_alert: "cash-outline",
     bet_resolved: "checkmark-circle-outline",
+    close_game: "flame-outline",
+    overtime: "timer-outline",
+    foul_trouble: "warning-outline",
+    follow_alert: "heart-outline",
   };
   return icons[type] ?? "notifications-outline";
 }
@@ -74,8 +86,9 @@ export function formatClock(game: Game): string {
   if (game.status === "cancelled") return "CANCELLED";
   if (game.status === "postponed") return "PPD";
 
+  if (!game.period) return game.clock ?? "LIVE";
   const periodLabel =
-    game.period && game.period > 2 ? `OT${game.period - 2}` : `H${game.period}`;
+    game.period > 2 ? `OT${game.period - 2}` : `H${game.period}`;
   return game.clock ? `${game.clock} ${periodLabel}` : periodLabel;
 }
 

@@ -132,6 +132,7 @@ export default function SignUpScreen() {
             style={[s.button, loading && s.buttonDisabled]}
             onPress={handleSignUp}
             disabled={loading}
+            accessibilityLabel={loading ? "Creating Account" : "Create Account"}
           >
             <Text style={s.buttonText}>
               {loading ? "Creating Account..." : "Create Account"}

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Wager, WagerType } from "../lib/types";
+import { parseWagerTarget } from "../lib/wager-target-parser";
+import type { WagerTarget } from "../lib/wager-target-parser";
 
 export function useWagers(gameId?: string) {
   return useQuery<Wager[]>({
@@ -49,15 +51,31 @@ export function useAddWager() {
       team_id?: string;
       line?: number;
       odds?: string;
+      // v2 fields
+      market_type?: string;
+      stake?: number;
+      potential_payout?: number;
+      legs?: Array<{ game_id: string; team_id?: string; market_type: string; line?: number; odds?: string; description: string }>;
+      source?: string;
+      // v3: pre-parsed target (from structured fields in AddWagerSheet)
+      parsed_target?: WagerTarget | null;
     }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Compute parsed_target: use provided value, or parse from description
+      const parsed_target = wager.parsed_target !== undefined
+        ? wager.parsed_target
+        : parseWagerTarget(wager.description);
+
+      const { parsed_target: _omit, ...wagerFields } = wager;
+
       const { error } = await supabase.from("wagers").insert({
         user_id: user.id,
-        ...wager,
+        ...wagerFields,
+        parsed_target,
         status: "active",
       });
 

@@ -61,6 +61,17 @@ Deno.serve(async (req) => {
     }
 
     if (!profile.notifications_enabled || !profile.push_token) {
+      // Record throttled delivery
+      await supabase
+        .from("delivery_log")
+        .insert({
+          alert_id: alertId,
+          channel: "push",
+          status: "throttled",
+          error_detail: !profile.notifications_enabled ? "notifications_disabled" : "no_push_token",
+        })
+        ; // ignore errors
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -79,15 +90,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Build push body — append sponsor text if present
+    let pushBody = alert.body;
+    if (alert.sponsor_text) {
+      pushBody = `${alert.body}\n${alert.sponsor_text}`;
+    }
+
     // Send via Expo Push API
-    const pushPayload = {
+    const pushPayload: Record<string, unknown> = {
       to: profile.push_token,
       title: alert.title,
-      body: alert.body,
+      body: pushBody,
       data: {
         gameId: alert.game_id,
         alertId: alert.id,
         alertType: alert.alert_type,
+        // Sponsor data for client-side rendering
+        ...(alert.sponsor_text && {
+          sponsorText: alert.sponsor_text,
+          sponsorCtaUrl: alert.sponsor_cta_url,
+          sponsorLogoUrl: alert.sponsor_logo_url,
+        }),
       },
       sound: "default",
       priority: "high",
@@ -105,12 +128,34 @@ Deno.serve(async (req) => {
 
     const pushResult = await pushRes.json();
 
+    // Extract provider message ID from Expo response
+    const ticketId = pushResult?.data?.id ?? pushResult?.id ?? null;
+
     if (pushRes.ok) {
       // Mark alert as push_sent
       await supabase
         .from("alerts")
         .update({ push_sent: true })
         .eq("id", alertId);
+
+      // Record successful delivery
+      await supabase
+        .from("delivery_log")
+        .insert({
+          alert_id: alertId,
+          channel: "push",
+          provider_message_id: ticketId,
+          status: "sent",
+        })
+        ; // non-critical, ignore errors
+
+      console.log(JSON.stringify({
+        function: "send-push",
+        event: "delivered",
+        alertId,
+        ticketId,
+        timestamp: new Date().toISOString(),
+      }));
 
       return new Response(
         JSON.stringify({
@@ -120,7 +165,26 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
-      console.error("Expo Push API error:", pushResult);
+      console.log(JSON.stringify({
+        function: "send-push",
+        event: "failed",
+        alertId,
+        error: JSON.stringify(pushResult).slice(0, 200),
+        timestamp: new Date().toISOString(),
+      }));
+
+      // Record failed delivery
+      await supabase
+        .from("delivery_log")
+        .insert({
+          alert_id: alertId,
+          channel: "push",
+          provider_message_id: ticketId,
+          status: "failed",
+          error_detail: JSON.stringify(pushResult).slice(0, 500),
+        })
+        ; // non-critical, ignore errors
+
       return new Response(
         JSON.stringify({
           error: "Push delivery failed",

@@ -77,15 +77,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        gamesProcessed: closedGames.length,
-        wagersChecked: wagers.length,
-        resolved: resolvedCount,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    const result = {
+      success: true,
+      gamesProcessed: closedGames.length,
+      wagersChecked: wagers.length,
+      resolved: resolvedCount,
+    };
+
+    console.log(JSON.stringify({
+      function: "resolve-wagers",
+      event: "completed",
+      ...result,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("resolve-wagers error:", error);
     return new Response(

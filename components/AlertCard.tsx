@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Alert } from "../lib/types";
@@ -19,6 +19,7 @@ import {
   useStreamingProviders,
 } from "../hooks/useConnections";
 import { LIVE_STATUSES } from "../lib/constants";
+import { BetNowButton } from "./BetNowButton";
 
 interface AlertCardProps {
   alert: Alert;
@@ -66,6 +67,7 @@ export function AlertCard({ alert }: AlertCardProps) {
         urgent && !alert.read && { borderColor: color, borderWidth: 1 },
       ]}
       onPress={handlePress}
+      accessibilityLabel={`${alertTypeLabel(alert.alert_type)}: ${alert.title}`}
     >
       <View style={s.row}>
         {/* Icon */}
@@ -90,20 +92,64 @@ export function AlertCard({ alert }: AlertCardProps) {
           <Text style={s.title}>{alert.title}</Text>
           <Text style={s.body}>{alert.body}</Text>
 
-          {/* "Why tune in" — the core of every alert */}
-          {alert.why && (
+          {/* "Why tune in" — structured explanation (v2) or plain text (v1) */}
+          {alert.explanation ? (
+            <View style={[s.whyContainer, { borderLeftColor: color }]}>
+              {alert.explanation.headline && (
+                <Text style={s.whyHeadline}>{alert.explanation.headline}</Text>
+              )}
+              {alert.explanation.bullets?.map((bullet, i) => (
+                <Text key={i} style={s.whyBullet}>{"\u2022"} {bullet}</Text>
+              ))}
+              {alert.explanation.wager_impact && (
+                <View style={s.wagerImpact}>
+                  <Text style={s.wagerImpactText}>
+                    {alert.explanation.wager_impact.status === "covering" ? "Covering" :
+                     alert.explanation.wager_impact.status === "not_covering" ? "Not covering" :
+                     alert.explanation.wager_impact.status === "decided" ? "Decided" : "At risk"}
+                    {" \u2014 "}{alert.explanation.wager_impact.wager_description}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : alert.why ? (
             <View style={[s.whyContainer, { borderLeftColor: color }]}>
               <Text style={s.why}>{alert.why}</Text>
             </View>
+          ) : null}
+
+          {/* Sponsor row */}
+          {alert.sponsor_text && (
+            <View style={s.sponsorRow}>
+              {alert.sponsor_logo_url && (
+                <Image
+                  source={{ uri: alert.sponsor_logo_url }}
+                  style={s.sponsorLogo}
+                />
+              )}
+              <Text style={s.sponsorText}>{alert.sponsor_text}</Text>
+            </View>
           )}
 
-          {/* One-tap Watch button for live games */}
-          {bestProvider && (
-            <Pressable style={[s.watchButton, { backgroundColor: color }]} onPress={handleWatch}>
-              <Ionicons name="play-circle" size={16} color="#fff" />
-              <Text style={s.watchText}>Watch on {bestProvider.name}</Text>
-            </Pressable>
-          )}
+          {/* Action buttons */}
+          <View style={s.ctaRow}>
+            {/* One-tap Watch button for live games */}
+            {bestProvider && (
+              <Pressable style={[s.watchButton, { backgroundColor: color }]} onPress={handleWatch} accessibilityLabel={`Watch on ${bestProvider.name}`}>
+                <Ionicons name="play-circle" size={16} color="#fff" />
+                <Text style={s.watchText}>Watch on {bestProvider.name}</Text>
+              </Pressable>
+            )}
+
+            {/* Sportsbook CTA from sponsor */}
+            {alert.sponsor_cta_url && (
+              <BetNowButton
+                ctaUrl={alert.sponsor_cta_url}
+                logoUrl={alert.sponsor_logo_url}
+                alertId={alert.id}
+              />
+            )}
+          </View>
         </View>
       </View>
     </Pressable>
@@ -148,6 +194,16 @@ const s = StyleSheet.create({
     borderLeftWidth: 3,
   },
   why: { color: "#e2e8f0", fontSize: 13, fontWeight: "500", lineHeight: 18 },
+  whyHeadline: { color: "#ffffff", fontSize: 13, fontWeight: "700", marginBottom: 4 },
+  whyBullet: { color: "#e2e8f0", fontSize: 13, lineHeight: 18, marginBottom: 2 },
+  wagerImpact: {
+    marginTop: 6,
+    backgroundColor: "rgba(249, 115, 22, 0.1)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  wagerImpactText: { color: "#f97316", fontSize: 12, fontWeight: "600" },
   watchButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -162,5 +218,31 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginLeft: 6,
+  },
+  sponsorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(100, 116, 139, 0.3)",
+  },
+  sponsorLogo: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  sponsorText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+  ctaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
   },
 });

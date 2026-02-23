@@ -17,6 +17,7 @@ export function GameCard({ game }: GameCardProps) {
     <Pressable
       style={s.card}
       onPress={() => router.push(`/games/${game.id}`)}
+      accessibilityLabel={`${game.away_team?.name ?? "Away"} at ${game.home_team?.name ?? "Home"}, ${isLive ? "Live" : isFinal ? "Final" : "Scheduled"}`}
     >
       {/* Header: broadcast + status */}
       <View style={s.header}>

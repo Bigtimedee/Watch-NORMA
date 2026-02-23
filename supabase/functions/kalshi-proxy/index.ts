@@ -167,6 +167,13 @@ Deno.serve(async (req) => {
       return json(data, kalshiRes.status);
     }
 
+    console.log(JSON.stringify({
+      function: "kalshi-proxy",
+      event: "unknown_action",
+      action,
+      timestamp: new Date().toISOString(),
+    }));
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error("kalshi-proxy error:", error);

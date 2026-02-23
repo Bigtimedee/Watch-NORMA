@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  client:
+    name: Client (TypeCheck + Jest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit
+      - run: npm test -- --ci --coverage
+
+  deno:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check logic files
+        run: |
+          deno check supabase/functions/evaluate-alerts/logic.ts
+          deno check supabase/functions/resolve-wagers/logic.ts
+          deno check supabase/functions/_shared/utils.ts
+          deno check supabase/functions/_shared/kalshi-crypto.ts
+          deno check supabase/functions/_shared/polling-state.ts
+          deno check supabase/functions/_shared/team-matching.ts
+      - name: Run tests
+        run: deno test --allow-env --allow-net=none supabase/functions/
+
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase db reset
+      - run: supabase stop

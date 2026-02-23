@@ -3,7 +3,11 @@ import type { StreamingProvider } from "./types";
 
 /**
  * Attempt to open a streaming app for a given provider.
- * Fallback chain: native app → web watch URL → App Store → info only.
+ * Fallback chain:
+ *   1. Native app (iOS scheme / Android deep link)
+ *   2. Universal link (from DB) or legacy watch URL
+ *   3. App Store / Play Store (fallback_store_url or ios_app_store_url)
+ *   4. Nothing available
  */
 export async function openStreamingApp(
   provider: StreamingProvider,
@@ -27,7 +31,7 @@ export async function openStreamingApp(
           return { opened: true, fallback: false, method: "native_app_retry" };
         }
       } catch {
-        // Fall through to web
+        // Fall through to universal link
       }
     }
   }
@@ -37,25 +41,27 @@ export async function openStreamingApp(
       await Linking.openURL(provider.android_deep_link);
       return { opened: true, fallback: false, method: "native_app" };
     } catch {
-      // Fall through to web
+      // Fall through to universal link
     }
   }
 
-  // Step 2: Fallback to web watch URL (direct watch pages, not marketing pages)
-  if (provider.web_url) {
-    const watchUrl = getWatchUrl(provider.key, provider.web_url);
+  // Step 2: Try universal link (DB field), then legacy watch URL fallback
+  const universalLink = provider.universal_link ?? null;
+  const watchUrl = universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
+  if (watchUrl) {
     try {
       await Linking.openURL(watchUrl);
-      return { opened: true, fallback: true, method: "web_url" };
+      return { opened: true, fallback: true, method: universalLink ? "universal_link" : "web_url" };
     } catch {
       // Fall through to app store
     }
   }
 
-  // Step 3: Fallback to App Store
-  if (Platform.OS === "ios" && provider.ios_app_store_url) {
+  // Step 3: Fallback to App Store (prefer fallback_store_url, then ios_app_store_url)
+  const storeUrl = provider.fallback_store_url ?? provider.ios_app_store_url ?? null;
+  if (storeUrl) {
     try {
-      await Linking.openURL(provider.ios_app_store_url);
+      await Linking.openURL(storeUrl);
       return { opened: true, fallback: true, method: "app_store" };
     } catch {
       // Nothing else to try

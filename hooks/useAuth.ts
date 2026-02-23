@@ -105,6 +105,23 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) throw new Error("Not authenticated");
+
+    const { data, error } = await supabase.functions.invoke("delete-account", {
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    // Sign out locally after account deletion
+    await supabase.auth.signOut();
+  }, []);
+
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {
       if (!session) return;
@@ -127,6 +144,7 @@ export function useAuth() {
     signIn,
     signInWithApple,
     signOut,
+    deleteAccount,
     updateProfile,
   };
 }

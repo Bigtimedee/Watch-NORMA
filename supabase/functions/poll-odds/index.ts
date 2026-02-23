@@ -124,14 +124,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        eventsReceived: events.length,
-        oddsUpserted: upsertCount,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    const result = {
+      success: true,
+      eventsReceived: events.length,
+      oddsUpserted: upsertCount,
+    };
+
+    console.log(JSON.stringify({
+      function: "poll-odds",
+      event: "completed",
+      ...result,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("poll-odds error:", error);
     return new Response(
