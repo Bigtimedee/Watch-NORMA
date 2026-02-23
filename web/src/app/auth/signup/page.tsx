@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 export default function SignupPage() {
@@ -61,7 +60,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-slate-800 bg-slate-900 p-8">
         <div className="flex flex-col items-center">
           <Link href="/">
-            <Image src="/logo.png" alt="NORMA" width={160} height={67} className="h-14 w-auto" />
+            <img src="/logo.png" alt="NORMA" className="h-14 w-auto" />
           </Link>
           <p className="mt-3 text-sm text-slate-400">Create your advertiser account</p>
         </div>

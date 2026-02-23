@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
@@ -31,7 +30,7 @@ export function Nav() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         <div className="flex items-center gap-8">
           <Link href="/dashboard">
-            <Image src="/logo.png" alt="NORMA" width={100} height={42} className="h-8 w-auto" />
+            <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
           </Link>
           <div className="flex gap-1">
             {navItems.map((item) => (

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 
 export default function AdvertisersPage() {
   return (
@@ -8,7 +7,7 @@ export default function AdvertisersPage() {
       <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/">
-            <Image src="/logo.png" alt="NORMA" width={120} height={50} className="h-10 w-auto" priority />
+            <img src="/logo.png" alt="NORMA" className="h-10 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             <Link href="/advertisers" className="text-sm font-medium text-white">
@@ -333,7 +332,7 @@ export default function AdvertisersPage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div>
-              <Image src="/logo.png" alt="NORMA" width={100} height={42} className="h-8 w-auto" />
+              <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
               <p className="mt-1 text-sm text-slate-500">Real-Time Sports Intent Advertising</p>
             </div>
             <div className="flex gap-6 text-sm text-slate-400">
