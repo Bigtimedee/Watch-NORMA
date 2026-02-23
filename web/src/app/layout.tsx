@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   description:
     "NORMA tells fans exactly when to tune in to live games based on their wagers, predictions, and team loyalties. For advertisers, it's access to the most engaged sports audience on the planet.",
   metadataBase: new URL("https://getnorma.app"),
+  icons: {
+    icon: "/favicon-32.png",
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "NORMA — The Perfect Moment to Watch. The Perfect Moment to Advertise.",
     description:
@@ -13,12 +17,14 @@ export const metadata: Metadata = {
     url: "https://getnorma.app",
     siteName: "NORMA",
     type: "website",
+    images: [{ url: "/og-image.jpg", width: 1400, height: 930 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "NORMA — Real-Time Sports Intent Advertising",
     description:
       "Push notifications at the perfect moment. Advertising at peak fan engagement.",
+    images: ["/og-image.jpg"],
   },
 };
 
