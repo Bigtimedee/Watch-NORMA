@@ -66,7 +66,7 @@ export async function importRsaPrivateKey(pemKey: string): Promise<CryptoKey> {
 
   // Kalshi generates PKCS#1 keys — wrap them in PKCS#8 for WebCrypto
   if (isPkcs1) {
-    binaryDer = wrapPkcs1ToPkcs8(binaryDer);
+    binaryDer = new Uint8Array(wrapPkcs1ToPkcs8(binaryDer));
   }
 
   return crypto.subtle.importKey(

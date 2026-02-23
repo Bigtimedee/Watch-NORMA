@@ -191,6 +191,11 @@ describe("sortAlerts", () => {
     score: null,
     explanation: null,
     suppressed_reason: null,
+    sponsor_bid_id: null,
+    sponsor_text: null,
+    sponsor_cta_url: null,
+    sponsor_logo_url: null,
+    clearing_price_cents: null,
   });
 
   it("unread alerts come first", () => {
