@@ -33,7 +33,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-slate-800 bg-slate-900 p-8">
         <div className="text-center">
-          <h1 className="text-2xl font-black text-orange-500">NORMA</h1>
+          <Link href="/" className="text-2xl font-black text-orange-500 hover:text-orange-400">
+            NORMA
+          </Link>
           <p className="mt-2 text-sm text-slate-400">Advertiser Portal</p>
         </div>
 
