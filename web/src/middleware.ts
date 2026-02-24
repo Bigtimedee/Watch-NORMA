@@ -30,11 +30,21 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Protected routes: redirect to login if not authenticated
-  const protectedPaths = ["/dashboard", "/campaigns", "/reporting", "/billing", "/inventory", "/settings", "/onboarding"];
+  const protectedPaths = ["/dashboard", "/campaigns", "/reporting", "/billing", "/inventory", "/settings", "/onboarding", "/admin"];
   if (protectedPaths.some((p) => path.startsWith(p)) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
+  }
+
+  // Admin routes: require admin role
+  if (path.startsWith("/admin") && user) {
+    const isAdmin = user.app_metadata?.role === "admin";
+    if (!isAdmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Auth pages: redirect to dashboard if already authenticated
@@ -57,5 +67,6 @@ export const config = {
     "/settings/:path*",
     "/onboarding/:path*",
     "/auth/:path*",
+    "/admin/:path*",
   ],
 };

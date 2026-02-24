@@ -268,7 +268,8 @@ async function queryEligibleBids(
         priority_tier,
         advertisers!inner (
           id,
-          category
+          category,
+          balance_cents
         )
       ),
       creatives!inner (
@@ -303,6 +304,9 @@ async function queryEligibleBids(
 
       // Budget check
       if (campaign.spent_cents >= campaign.budget_cents) return false;
+
+      // Wallet balance check — skip advertisers with zero balance
+      if ((campaign.advertisers.balance_cents ?? 0) <= 0) return false;
 
       // Game match: bid targets specific game or all games
       if (row.game_id && row.game_id !== gameId) return false;

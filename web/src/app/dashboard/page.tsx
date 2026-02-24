@@ -14,7 +14,7 @@ export default async function DashboardPage() {
 
   const { data: advertiser } = await supabase
     .from("advertisers")
-    .select("id, name")
+    .select("id, name, balance_cents")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -60,7 +60,11 @@ export default async function DashboardPage() {
         </h1>
 
         {/* KPI Cards */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard
+            title="Wallet Balance"
+            value={formatCents(advertiser.balance_cents ?? 0)}
+          />
           <KpiCard
             title="Total Impressions"
             value={formatNumber(totalImpressions)}

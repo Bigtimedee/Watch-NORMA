@@ -19,6 +19,43 @@ function normalize(s: string): string {
     .replace(/\s+/g, " ").trim();
 }
 
+/** Common NCAAB abbreviation aliases used by Kalshi/Polymarket
+ *  that differ from SportsDataIO abbreviations.
+ *  Maps external alias → SportsDataIO market name (lowercase). */
+const TEAM_ALIASES: Record<string, string> = {
+  "unc": "north carolina",
+  "uconn": "connecticut",
+  "usc": "southern california",
+  "smu": "southern methodist",
+  "vcu": "virginia commonwealth",
+  "etsu": "east tennessee state",
+  "utep": "texas el paso",
+  "unlv": "nevada las vegas",
+  "ucf": "central florida",
+  "lsu": "louisiana state",
+  "tcu": "texas christian",
+  "ole miss": "mississippi",
+  "pitt": "pittsburgh",
+  "cuse": "syracuse",
+  "uva": "virginia",
+  "cal": "california",
+  "umass": "massachusetts",
+  "wisc": "wisconsin",
+  "wis": "wisconsin",
+  "mich": "michigan",
+  "minn": "minnesota",
+  "ill": "illinois",
+  "ind": "indiana",
+  "tenn": "tennessee",
+  "ark": "arkansas",
+  "stan": "stanford",
+  "colo": "colorado",
+  "ore": "oregon",
+  "wash": "washington",
+  "ariz": "arizona",
+  "gtown": "georgetown",
+};
+
 interface DBTeam {
   id: string;
   name: string;
@@ -35,14 +72,46 @@ interface DBGame {
 }
 
 /** Extract team-like words from a market title.
- *  Kalshi titles look like: "Iowa vs Wisconsin", "Iowa at Wisconsin",
- *  "Duke vs North Carolina", etc.
- *  We split on "vs", "at", "v.", and return each side as a candidate name. */
+ *  Kalshi titles vary in format:
+ *    "Iowa vs Wisconsin"
+ *    "Men's College Basketball Men's Game, Louisville, LOU at UNC (Feb 23)"
+ *    "Duke vs North Carolina"
+ *  We strip common prefixes/suffixes, split on "vs"/"at"/"versus",
+ *  and also extract abbreviations. */
 function extractTeamNames(marketTitle: string): string[] {
-  const norm = normalize(marketTitle);
-  // Split on common separators
-  const parts = norm.split(/\s+(?:vs?\.?|at|versus)\s+/);
-  return parts.map(p => p.trim()).filter(p => p.length > 0);
+  let cleaned = marketTitle;
+  // Strip common Kalshi prefixes
+  cleaned = cleaned.replace(/^Men'?s College Basketball Men'?s Game,?\s*/i, "");
+  cleaned = cleaned.replace(/^Women'?s College Basketball[^,]*,?\s*/i, "");
+  // Strip date suffixes like "(Feb 23)" or "(2/23)"
+  cleaned = cleaned.replace(/\s*\([^)]*\)\s*$/g, "");
+  // Strip "Winner?" suffix
+  cleaned = cleaned.replace(/\s*Winner\??$/i, "");
+
+  // Split on commas BEFORE normalizing (normalization removes commas)
+  // "Louisville, LOU at UNC" → split commas → ["Louisville", "LOU at UNC"]
+  const commaParts = cleaned.split(/\s*,\s*/);
+
+  const result: string[] = [];
+  for (const cp of commaParts) {
+    const norm = normalize(cp);
+    // Split on vs/at/versus separators
+    const parts = norm.split(/\s+(?:vs?\.?|at|versus)\s+/);
+    for (const p of parts) {
+      const trimmed = p.trim();
+      if (trimmed.length > 0) {
+        result.push(trimmed);
+        // Also add individual words for short abbreviations (LOU, UNC, etc.)
+        const words = trimmed.split(/\s+/);
+        if (words.length > 1) {
+          for (const w of words) {
+            if (w.length >= 2) result.push(w);
+          }
+        }
+      }
+    }
+  }
+  return [...new Set(result)]; // dedupe
 }
 
 /** Check if a market title references a given team.
@@ -51,15 +120,22 @@ function extractTeamNames(marketTitle: string): string[] {
 function titleReferencesTeam(titleParts: string[], team: DBTeam): boolean {
   const normMarket = normalize(team.market ?? "");
   const normName = normalize(team.name);
+  const normAbbrev = normalize(team.abbreviation ?? "");
   // Drop mascot from full name: "Iowa Hawkeyes" → "Iowa"
   const nameWords = normName.split(" ");
   const nameMarket = nameWords.length > 1 ? nameWords.slice(0, -1).join(" ") : normName;
 
   for (const part of titleParts) {
+    // Resolve alias (e.g., "unc" → "north carolina")
+    const resolved = TEAM_ALIASES[part] ?? part;
+
     // Exact match against market name (most reliable)
-    if (normMarket && part === normMarket) return true;
-    if (part === nameMarket) return true;
-    if (part === normName) return true;
+    if (normMarket && (part === normMarket || resolved === normMarket)) return true;
+    if (part === nameMarket || resolved === nameMarket) return true;
+    if (part === normName || resolved === normName) return true;
+
+    // Abbreviation match (handles "LOU", "NCAR", etc.)
+    if (normAbbrev && part === normAbbrev) return true;
 
     // Check if the part starts with the market name at a word boundary
     // (handles "Iowa Hawkeyes" in title matching "Iowa" market)
@@ -175,7 +251,7 @@ Deno.serve(async (req) => {
     const { data: dbGames } = await supabase
       .from("games")
       .select("id, home_team_id, away_team_id, status, title")
-      .in("status", ["scheduled", "inprogress", "halftime"]);
+      .in("status", ["scheduled", "inprogress", "halftime", "closed"]);
 
     // Get all Kalshi connections
     const { data: kalshiConns } = await supabase
@@ -259,6 +335,10 @@ Deno.serve(async (req) => {
           const marketTitle = marketTitleCache[ticker] || pos.market_title || ticker;
           const gameId = matchMarketToGame(marketTitle, dbTeams ?? [], dbGames ?? []);
 
+          // Use ticker as market_id (most reliable unique identifier from Kalshi).
+          // Fallback to market_id, then generate from market_title to avoid empty-string collisions.
+          const marketId = ticker || pos.market_id || `kalshi-${marketTitle.slice(0, 100)}`;
+
           if (gameId) {
             positionsMatched++;
           } else {
@@ -270,7 +350,7 @@ Deno.serve(async (req) => {
             {
               user_id: conn.user_id,
               platform: "kalshi",
-              market_id: pos.market_ticker ?? pos.market_id ?? "",
+              market_id: marketId,
               market_title: marketTitle,
               game_id: gameId,
               position_side: (pos.total_traded_yes ?? 0) > 0 ? "yes" : "no",
@@ -320,7 +400,7 @@ Deno.serve(async (req) => {
             {
               user_id: conn.user_id,
               platform: "polymarket",
-              market_id: pos.condition_id ?? pos.token_id ?? "",
+              market_id: pos.condition_id ?? pos.token_id ?? `poly-${marketTitle.slice(0, 100)}`,
               market_title: marketTitle,
               game_id: gameId,
               position_side: pos.outcome === "Yes" ? "yes" : "no",

@@ -70,6 +70,21 @@ Deno.serve(async (req) => {
           }, 400);
         }
 
+        // Balance check: advertiser must have enough funds to cover remaining budget
+        const remainingBudget = (campaign.budget_cents as number) - (campaign.spent_cents as number);
+        const { data: hasBalance } = await supabase.rpc("check_advertiser_balance", {
+          p_advertiser_id: campaign.advertisers.id,
+          p_required_cents: remainingBudget,
+        });
+
+        if (!hasBalance) {
+          return jsonResponse({
+            error: "Insufficient balance",
+            message: "Your wallet balance is too low to cover this campaign's budget. Please add funds.",
+            required_cents: remainingBudget,
+          }, 400);
+        }
+
         // For draft campaigns, go through pending_review first
         const targetStatus = campaign.status === "draft" ? "pending_review" : "active";
 

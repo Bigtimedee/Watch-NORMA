@@ -113,7 +113,7 @@ export function evaluateSpread(
   summary: SummaryStats | null
 ): AlertCandidate | null {
   if (wager.wager_type !== "spread" || wager.line == null || !wager.team_id) return null;
-  if (game.status !== "inprogress") return null;
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
 
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return null;
@@ -164,7 +164,7 @@ export function evaluateTotal(
   wager: UserWager
 ): AlertCandidate | null {
   if (wager.wager_type !== "over_under" || wager.line == null) return null;
-  if (game.status !== "inprogress") return null;
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
 
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return null;
@@ -216,7 +216,7 @@ export function evaluateMoneyline(
   summary: SummaryStats | null
 ): AlertCandidate | null {
   if (wager.wager_type !== "moneyline" || !wager.team_id) return null;
-  if (game.status !== "inprogress") return null;
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
 
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return null;
@@ -322,7 +322,10 @@ export function evaluatePosition(
   position: UserPosition,
   summary: SummaryStats | null = null,
 ): AlertCandidate | null {
-  if (game.status !== "inprogress" && game.status !== "closed") return null;
+  const liveStatuses = ["inprogress", "halftime", "closed"];
+  if (!liveStatuses.includes(game.status)) return null;
+
+  const margin = Math.abs(game.home_score - game.away_score);
 
   // Try proximity-based alerting first
   const target = position.parsed_target ?? parseWagerTarget(position.market_title);
@@ -352,11 +355,19 @@ export function evaluatePosition(
     if (proximity) return null;
   }
 
+  // Halftime alert: if the game is at halftime and within 6 points, alert the user
+  if (game.status === "halftime" && margin <= 6) {
+    return {
+      alertType: "position_alert",
+      title: `Halftime — ${margin}-Point Game`,
+      body: `Your ${position.platform} position on "${position.market_title}"`,
+      why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" — ${margin}-point game at halftime (${game.home_score}-${game.away_score}). Tune in for the 2nd half.`,
+    };
+  }
+
   // Fallback to generic game-state logic for unparseable markets
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return null;
-
-  const margin = Math.abs(game.home_score - game.away_score);
 
   if (game.period < 2) return null;
   if (margin > 8) return null;

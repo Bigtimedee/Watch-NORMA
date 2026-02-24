@@ -1,5 +1,31 @@
 // Advertiser portal types
 
+export type UserRole = "admin" | "advertiser";
+
+export interface AdminStats {
+  totalMobileUsers: number;
+  totalAdvertisers: number;
+  newUsers7d: number;
+  newAdvertisers7d: number;
+  totalRevenue: number;
+  totalAdSpend: number;
+  platformBalance: number;
+  avgEcpm: number;
+  activeCampaigns: number;
+  totalImpressions: number;
+  unresolvedFraudEvents: number;
+  grossMargin: number;
+}
+
+export interface ProfileWithEmail {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  push_token: string | null;
+  notifications_enabled: boolean;
+  created_at: string;
+}
+
 export interface Advertiser {
   id: number;
   name: string;
@@ -9,6 +35,8 @@ export interface Advertiser {
   logo_url: string | null;
   website_url: string | null;
   onboarding_complete: boolean;
+  stripe_customer_id: string | null;
+  balance_cents: number;
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +159,20 @@ export interface CampaignMetrics {
   seen_rate_pct: number;
   ctr_pct: number;
   effective_cpm_cents: number;
+}
+
+export interface AdvertiserTransaction {
+  id: number;
+  advertiser_id: number;
+  type: "deposit" | "campaign_spend" | "refund" | "adjustment";
+  amount_cents: number;
+  balance_after_cents: number;
+  description: string | null;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  campaign_id: number | null;
+  bid_id: number | null;
+  created_at: string;
 }
 
 export const MOMENT_TYPES = [
