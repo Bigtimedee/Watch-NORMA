@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { View, Text } from "react-native";
+import { Platform, View, Text } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from "expo-notifications";
 import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+
+// Show notifications even when the app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,9 +66,8 @@ function AuthGate() {
 
     registerPushToken();
 
-    const Notifications = require("expo-notifications");
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response: any) => {
+      (response) => {
         const gameId = response.notification.request.content.data?.gameId;
         if (gameId) {
           router.push(`/games/${gameId}`);
@@ -72,13 +83,31 @@ function AuthGate() {
 
 async function registerPushToken() {
   try {
-    const Notifications = require("expo-notifications");
+    // Create Android notification channel (must exist before notifications arrive)
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("game-alerts", {
+        name: "Game Alerts",
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: "default",
+        enableVibrate: true,
+        enableLights: true,
+        lightColor: "#f97316",
+      });
+    }
+
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowSound: true,
+          allowBadge: true,
+        },
+      });
       finalStatus = status;
     }
 
