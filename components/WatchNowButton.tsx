@@ -1,9 +1,8 @@
 import { View, Text, Pressable, Alert as RNAlert, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import type { Game } from "../lib/types";
 import {
-  openStreamingApp,
   getBestWatchProvider,
   getBroadcastProviderKeys,
 } from "../lib/deep-links";
@@ -12,6 +11,13 @@ import {
   useStreamingProviders,
 } from "../hooks/useConnections";
 import { LIVE_STATUSES } from "../lib/constants";
+import { useTapToStream } from "../lib/tap-to-stream-context";
+import {
+  PHASE_ANTICIPATION,
+  PHASE_COMMITMENT,
+} from "../hooks/useTapToStream";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface WatchNowButtonProps {
   game: Game;
@@ -20,6 +26,7 @@ interface WatchNowButtonProps {
 export function WatchNowButton({ game }: WatchNowButtonProps) {
   const connectedKeys = useConnectedProviderKeys();
   const { data: allProviders } = useStreamingProviders();
+  const { triggerStream, phase } = useTapToStream();
   const isLive = LIVE_STATUSES.includes(game.status as any);
 
   if (!game.broadcast && !isLive) return null;
@@ -31,16 +38,8 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
   );
 
   const handlePress = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     if (bestProvider) {
-      const result = await openStreamingApp(bestProvider);
-      if (!result.opened) {
-        RNAlert.alert(
-          "Unable to Open",
-          `Could not open ${bestProvider.name}. Make sure the app is installed.`
-        );
-      }
+      triggerStream(bestProvider);
     } else if (game.broadcast) {
       const broadcastKeys = getBroadcastProviderKeys(game.broadcast);
       const availableProviders = (allProviders ?? []).filter((p) =>
@@ -61,9 +60,25 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
     }
   };
 
+  // Animated style: opacity pulse during Anticipation, scale during Commitment
+  const animatedButtonStyle = useAnimatedStyle(() => {
+    const p = phase.value;
+    if (p === PHASE_ANTICIPATION) {
+      return { opacity: 0.92, transform: [{ scale: 1 }] };
+    }
+    if (p === PHASE_COMMITMENT) {
+      return { opacity: 1, transform: [{ scale: 0.96 }] };
+    }
+    return { opacity: 1, transform: [{ scale: 1 }] };
+  });
+
   return (
-    <Pressable
-      style={[s.button, bestProvider ? s.buttonBrand : s.buttonDefault]}
+    <AnimatedPressable
+      style={[
+        s.button,
+        bestProvider ? s.buttonBrand : s.buttonDefault,
+        bestProvider ? animatedButtonStyle : undefined,
+      ]}
       onPress={handlePress}
       accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Watch"}
     >
@@ -82,7 +97,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         </Text>
         {bestProvider && <Text style={s.sub}>Tap to open app</Text>}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

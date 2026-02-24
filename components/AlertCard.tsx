@@ -10,14 +10,12 @@ import {
   timeAgo,
 } from "../lib/alert-helpers";
 import { useMarkAlertRead } from "../hooks/useAlerts";
-import {
-  openStreamingApp,
-  getBestWatchProvider,
-} from "../lib/deep-links";
+import { getBestWatchProvider } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
   useStreamingProviders,
 } from "../hooks/useConnections";
+import { useTapToStream } from "../lib/tap-to-stream-context";
 import { LIVE_STATUSES } from "../lib/constants";
 import { BetNowButton } from "./BetNowButton";
 
@@ -33,6 +31,7 @@ export function AlertCard({ alert }: AlertCardProps) {
   const urgent = isUrgent(alert.alert_type);
   const connectedKeys = useConnectedProviderKeys();
   const { data: allProviders } = useStreamingProviders();
+  const { triggerStream } = useTapToStream();
 
   // Show Watch button for live games with urgent (non-resolved) alerts
   const isLive = alert.game
@@ -51,12 +50,12 @@ export function AlertCard({ alert }: AlertCardProps) {
     }
   };
 
-  const handleWatch = async () => {
+  const handleWatch = () => {
     if (!bestProvider) return;
     if (!alert.read) {
       markRead.mutate(alert.id);
     }
-    await openStreamingApp(bestProvider);
+    triggerStream(bestProvider);
   };
 
   return (

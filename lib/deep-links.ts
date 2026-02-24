@@ -93,6 +93,51 @@ function getWatchUrl(providerKey: string, defaultWebUrl: string): string {
 }
 
 /**
+ * Resolve the deep link URL for a provider without actually opening it.
+ * Front-loads the ~50-100ms canOpenURL check into the Anticipation phase.
+ * Returns { url, method } or null if nothing is available.
+ */
+export async function resolveDeepLinkUrl(
+  provider: StreamingProvider
+): Promise<{ url: string; method: string } | null> {
+  // Step 1: Try native app scheme
+  if (Platform.OS === "ios" && provider.ios_scheme) {
+    try {
+      const canOpen = await Linking.canOpenURL(provider.ios_scheme);
+      if (canOpen) {
+        return { url: provider.ios_scheme, method: "native_app" };
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  if (Platform.OS === "android" && provider.android_deep_link) {
+    return { url: provider.android_deep_link, method: "native_app" };
+  }
+
+  // Step 2: Try universal link, then legacy watch URL
+  const universalLink = provider.universal_link ?? null;
+  const watchUrl =
+    universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
+  if (watchUrl) {
+    return {
+      url: watchUrl,
+      method: universalLink ? "universal_link" : "web_url",
+    };
+  }
+
+  // Step 3: Fallback to App Store
+  const storeUrl =
+    provider.fallback_store_url ?? provider.ios_app_store_url ?? null;
+  if (storeUrl) {
+    return { url: storeUrl, method: "app_store" };
+  }
+
+  return null;
+}
+
+/**
  * Map broadcast network names to streaming provider keys.
  * Used to suggest which app to open for watching a game.
  */

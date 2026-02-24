@@ -5,6 +5,9 @@ import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { supabase } from "../lib/supabase";
+import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
+import { TransitionOverlay } from "../components/TransitionOverlay";
+import type { StreamingProvider } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
 
 // Show notifications even when the app is foregrounded
@@ -61,6 +64,14 @@ function AuthGate() {
     }
   }, [session, segments, loading]);
 
+  // Access tap-to-stream context for notification-triggered streams
+  let tapToStream: ReturnType<typeof useTapToStream> | null = null;
+  try {
+    tapToStream = useTapToStream();
+  } catch {
+    // Provider not mounted yet — ignore
+  }
+
   useEffect(() => {
     if (!session) return;
 
@@ -68,7 +79,23 @@ function AuthGate() {
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        const gameId = response.notification.request.content.data?.gameId;
+        const data = response.notification.request.content.data;
+        const gameId = data?.gameId;
+
+        // If push includes a streamProviderKey, trigger stream transition
+        if (data?.streamProviderKey && tapToStream) {
+          // Look up provider from cached query data
+          const providers: StreamingProvider[] | undefined =
+            queryClient.getQueryData(["streaming-providers", undefined]);
+          const provider = providers?.find(
+            (p) => p.key === data.streamProviderKey
+          );
+          if (provider) {
+            tapToStream.triggerStream(provider, { skipAnticipation: true });
+            return;
+          }
+        }
+
         if (gameId) {
           router.push(`/games/${gameId}`);
         }
@@ -76,7 +103,7 @@ function AuthGate() {
     );
 
     return () => subscription.remove();
-  }, [session]);
+  }, [session, tapToStream]);
 
   return <Slot />;
 }
@@ -165,8 +192,11 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" />
-        <AuthGate />
+        <TapToStreamProvider>
+          <StatusBar style="light" />
+          <AuthGate />
+          <TransitionOverlay />
+        </TapToStreamProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
