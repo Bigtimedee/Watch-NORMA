@@ -19,6 +19,8 @@ site_url = "norma://auth-callback"
 
 [auth.external.apple]
 enabled = true
+client_id = "env(APPLE_CLIENT_ID)"
+secret = "env(APPLE_SECRET)"
 
 [auth.external.google]
 enabled = false
