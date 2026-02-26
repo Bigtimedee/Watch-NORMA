@@ -39,7 +39,7 @@ export default async function AdminAdvertisersPage() {
                 Category
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-400">
-                Billing
+                Model
               </th>
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">
                 Balance

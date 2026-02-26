@@ -76,7 +76,7 @@ export default function ReportingPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-400">Campaign</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">Impressions</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">CTR</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">eCPM</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">Cost/Moment</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">Conversions</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">Spent</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">Users</th>
@@ -88,7 +88,7 @@ export default function ReportingPage() {
                     <td className="px-6 py-4 font-medium text-white">{c.campaign_name}</td>
                     <td className="px-6 py-4 text-right text-slate-300">{formatNumber(c.total_impressions)}</td>
                     <td className="px-6 py-4 text-right text-slate-300">{formatPercent(c.ctr_pct)}</td>
-                    <td className="px-6 py-4 text-right text-slate-300">{formatCents(c.effective_cpm_cents)}</td>
+                    <td className="px-6 py-4 text-right text-slate-300">{formatCents(c.effective_cost_per_moment_cents)}</td>
                     <td className="px-6 py-4 text-right text-slate-300">{formatNumber(c.total_conversions)}</td>
                     <td className="px-6 py-4 text-right text-slate-300">{formatCents(c.total_spent_cents)}</td>
                     <td className="px-6 py-4 text-right text-slate-300">{formatNumber(c.unique_users_reached)}</td>

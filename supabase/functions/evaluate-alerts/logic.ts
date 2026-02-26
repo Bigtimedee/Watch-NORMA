@@ -48,6 +48,7 @@ export interface UserPosition {
   quantity: number;
   avg_price: number;
   parsed_target?: WagerTarget | null;
+  settled?: boolean;
 }
 
 export interface SummaryStats {
@@ -380,6 +381,44 @@ export function evaluatePosition(
     title: `${position.platform} — ${position.position_side}`,
     body: `"${position.market_title}" — ${margin}-point game`,
     why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" — game within ${margin} in the ${periodLabel} with ${game.clock} left. Tune in now.`,
+  };
+}
+
+// --- Prediction Resolved Alert ---
+// Fire when a game ends and a user's prediction position outcome is realized.
+// This is the highest-value post-outcome moment: the user knows the result,
+// and we can serve contextually relevant ads (e.g., team merchandise for winners).
+
+export function evaluatePredictionResolved(
+  game: GameState,
+  position: UserPosition,
+  summary: SummaryStats | null
+): AlertCandidate | null {
+  if (game.status !== "closed") return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const scoreStr = `${awayName} ${game.away_score}, ${homeName} ${game.home_score}`;
+  const winner = game.home_score > game.away_score
+    ? (game.home_team?.name ?? "Home")
+    : (game.away_team?.name ?? "Away");
+
+  // Try to determine outcome from proximity if we have summary stats
+  const target = position.parsed_target ?? parseWagerTarget(position.market_title);
+  let outcomeDetail = "";
+
+  if (target && summary) {
+    const proximity = computeProximity(target, game, summary);
+    if (proximity) {
+      outcomeDetail = ` ${proximity.description}`;
+    }
+  }
+
+  return {
+    alertType: "prediction_resolved",
+    title: `${position.platform} — Prediction Resolved`,
+    body: `${scoreStr} — ${winner} wins.${outcomeDetail}`,
+    why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" has resolved. ${winner} wins ${scoreStr}.${outcomeDetail}`,
   };
 }
 

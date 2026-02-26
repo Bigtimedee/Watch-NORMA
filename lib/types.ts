@@ -20,6 +20,7 @@ export type AlertType =
   | "prop_alert"
   | "position_alert"
   | "bet_resolved"
+  | "prediction_resolved"
   | "close_game"
   | "overtime"
   | "foul_trouble"

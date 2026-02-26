@@ -98,7 +98,7 @@ export default function CampaignReportingPage() {
             <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
               <KpiCard title="Impressions" value={formatNumber(m.total_impressions)} />
               <KpiCard title="CTR" value={formatPercent(m.ctr_pct)} />
-              <KpiCard title="eCPM" value={formatCents(m.effective_cpm_cents)} />
+              <KpiCard title="Cost/Moment" value={formatCents(m.effective_cost_per_moment_cents)} />
               <KpiCard title="Users Reached" value={formatNumber(m.unique_users_reached)} />
             </div>
 

@@ -59,10 +59,10 @@ export default async function AdminDashboardPage() {
     .from("impressions")
     .select("*", { count: "exact", head: true });
 
-  // Avg eCPM
-  const avgEcpm =
+  // Avg Cost per Moment
+  const avgCostPerMoment =
     (totalImpressions ?? 0) > 0
-      ? (totalAdSpend / (totalImpressions ?? 1)) * 1000
+      ? totalAdSpend / (totalImpressions ?? 1)
       : 0;
 
   // Unresolved fraud events
@@ -100,7 +100,7 @@ export default async function AdminDashboardPage() {
         <KpiCard title="Total Revenue" value={formatCents(totalRevenue)} />
         <KpiCard title="Total Ad Spend" value={formatCents(totalAdSpend)} />
         <KpiCard title="Platform Balance" value={formatCents(platformBalance)} />
-        <KpiCard title="Avg eCPM" value={formatCents(Math.round(avgEcpm))} />
+        <KpiCard title="Avg Cost/Moment" value={formatCents(Math.round(avgCostPerMoment))} />
       </div>
 
       {/* Row 3: Operations */}

@@ -94,8 +94,8 @@ export function AdvertiserDetailActions({
                 <span className="text-white">{advertiser.category || "—"}</span>
               </p>
               <p>
-                <span className="text-slate-400">Billing:</span>{" "}
-                <span className="text-white">{advertiser.billing_model}</span>
+                <span className="text-slate-400">Model:</span>{" "}
+                <span className="text-white">{advertiser.billing_model === 'cpm' ? 'Cost per Moment' : advertiser.billing_model}</span>
               </p>
               <p>
                 <span className="text-slate-400">Balance:</span>{" "}

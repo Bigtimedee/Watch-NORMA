@@ -17,6 +17,7 @@ import {
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
+  evaluatePredictionResolved,
 } from "./logic.ts";
 import type {
   GameState,
@@ -93,12 +94,18 @@ Deno.serve(async (req) => {
       .eq("game_id", gameId)
       .eq("status", "active");
 
-    // Find users with active prediction positions
-    const { data: positions } = await supabase
+    // Find users with prediction positions on this game
+    // Include settled positions when game is closed (for prediction_resolved alerts)
+    const positionQuery = supabase
       .from("prediction_positions")
-      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target")
-      .eq("game_id", gameId)
-      .eq("settled", false);
+      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target, settled")
+      .eq("game_id", gameId);
+
+    if (gameState.status !== "closed") {
+      positionQuery.eq("settled", false);
+    }
+
+    const { data: positions } = await positionQuery;
 
     // Find users who follow teams playing in this game
     const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean);
@@ -305,8 +312,14 @@ Deno.serve(async (req) => {
 
       // For position holders, run position evaluator (now proximity-aware)
       for (const position of userPositions) {
-        const posAlert = evaluatePosition(gameState, position, summaryStats);
-        if (posAlert) v1Candidates.push(posAlert);
+        // If the game is closed and position settled, fire prediction_resolved
+        if (gameState.status === "closed" && (position as any).settled) {
+          const predResolved = evaluatePredictionResolved(gameState, position, summaryStats);
+          if (predResolved) v1Candidates.push(predResolved);
+        } else {
+          const posAlert = evaluatePosition(gameState, position, summaryStats);
+          if (posAlert) v1Candidates.push(posAlert);
+        }
       }
 
       // Determine if we should alert this user

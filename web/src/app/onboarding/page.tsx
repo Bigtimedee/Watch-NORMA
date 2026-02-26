@@ -10,7 +10,7 @@ export default function OnboardingPage() {
   const [category, setCategory] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [billingModel, setBillingModel] = useState("cpwa");
+  const [billingModel, setBillingModel] = useState("cpm");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -136,9 +136,9 @@ export default function OnboardingPage() {
               onChange={(e) => setBillingModel(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none"
             >
+              <option value="cpm">Cost per Moment</option>
               <option value="cpwa">CPWA (Cost per Wager Action)</option>
               <option value="cpti">CPTI (Cost per Tuned-In)</option>
-              <option value="cpm">CPM (Cost per Thousand)</option>
               <option value="flat_rate">Flat Rate</option>
             </select>
           </div>

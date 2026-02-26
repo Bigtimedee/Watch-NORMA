@@ -9,6 +9,7 @@ export function alertTypeLabel(type: AlertType): string {
     prop_alert: "Prop Bet",
     position_alert: "Position",
     bet_resolved: "Result",
+    prediction_resolved: "Prediction Result",
     close_game: "Close Game",
     overtime: "Overtime",
     foul_trouble: "Foul Trouble",
@@ -26,6 +27,7 @@ export function alertTypeColor(type: AlertType): string {
     prop_alert: "#3b82f6", // blue
     position_alert: "#a855f7", // purple
     bet_resolved: "#22c55e", // green
+    prediction_resolved: "#10b981", // emerald
     close_game: "#ef4444", // red
     overtime: "#f97316", // orange
     foul_trouble: "#eab308", // yellow
@@ -43,6 +45,7 @@ export function alertTypeIcon(type: AlertType): string {
     prop_alert: "person-outline",
     position_alert: "cash-outline",
     bet_resolved: "checkmark-circle-outline",
+    prediction_resolved: "trophy-outline",
     close_game: "flame-outline",
     overtime: "timer-outline",
     foul_trouble: "warning-outline",
@@ -53,7 +56,7 @@ export function alertTypeIcon(type: AlertType): string {
 
 /** Whether an alert type indicates the user should tune in NOW */
 export function isUrgent(type: AlertType): boolean {
-  return type !== "bet_resolved";
+  return type !== "bet_resolved" && type !== "prediction_resolved";
 }
 
 /** Format time-ago string */

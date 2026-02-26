@@ -13,6 +13,7 @@ export interface FloorPrice {
 
 // Default floor prices (fallback if DB query fails)
 const DEFAULT_FLOORS: Record<string, number> = {
+  prediction_resolved: 60,
   bet_resolved: 50,
   close_game: 35,
   overtime: 40,
@@ -60,6 +61,11 @@ export function computeDynamicPremium(ctx: PremiumContext): number {
   // High-traffic window
   if (ctx.simultaneous_live_games > 10) {
     premium *= 1.3;
+  }
+
+  // Prediction resolved — highest-value post-outcome moment
+  if (ctx.moment_type === "prediction_resolved") {
+    premium *= 1.4;
   }
 
   // OT / close game in late periods
@@ -176,7 +182,7 @@ export async function checkBudgetPacing(
 
 // --- Bid Validation ---
 
-export const MAX_BID_CENTS = 500; // $5 max per impression
+export const MAX_BID_CENTS = 500; // $5 max per moment
 export const MIN_BID_CENTS = 1;
 
 export interface BidValidationResult {

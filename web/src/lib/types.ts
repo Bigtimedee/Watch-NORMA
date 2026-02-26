@@ -10,7 +10,7 @@ export interface AdminStats {
   totalRevenue: number;
   totalAdSpend: number;
   platformBalance: number;
-  avgEcpm: number;
+  avgCostPerMoment: number;
   activeCampaigns: number;
   totalImpressions: number;
   unresolvedFraudEvents: number;
@@ -158,7 +158,7 @@ export interface CampaignMetrics {
   flight_end: string | null;
   seen_rate_pct: number;
   ctr_pct: number;
-  effective_cpm_cents: number;
+  effective_cost_per_moment_cents: number;
 }
 
 export interface AdvertiserTransaction {
@@ -177,6 +177,7 @@ export interface AdvertiserTransaction {
 
 export const MOMENT_TYPES = [
   { key: "bet_resolved", label: "Bet Resolved", description: "User's wager just settled" },
+  { key: "prediction_resolved", label: "Prediction Resolved", description: "User's prediction outcome realized" },
   { key: "close_game", label: "Close Game", description: "Tight score in final minutes" },
   { key: "overtime", label: "Overtime", description: "Game goes to overtime" },
   { key: "spread_alert", label: "Spread Alert", description: "Spread line being crossed" },
