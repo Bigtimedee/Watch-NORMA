@@ -32,9 +32,10 @@ export default function HomePage() {
           Watch at the Perfect Moment.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
-          NORMA monitors every live game and tells you exactly when to tune in — based on
-          your wagers, your predictions, and the teams you follow. No more staring at screens
-          waiting for something to happen. NORMA watches so you don&apos;t have to.
+          Your wagers and predictions tell NORMA exactly what matters to you. When your
+          bet is about to cover, your prediction is resolving, or your team forces overtime,
+          she pulls you into the action. No producer deciding what&apos;s important. No algorithm
+          guessing. Just your money, your interests, your perfect moment.
         </p>
 
         {/* App Store Buttons */}
