@@ -71,21 +71,21 @@ export default function HomePage() {
             {[
               {
                 step: "01",
-                title: "Connect Your Interests",
+                title: "Tell NORMA What You Care About",
                 description:
-                  "Link your DraftKings, FanDuel, Kalshi, or Polymarket accounts. Follow your favorite teams and players.",
+                  "Link your sportsbook and prediction market accounts. Follow your favorite teams. Your wagers and predictions tell NORMA exactly what matters to you.",
               },
               {
                 step: "02",
-                title: "Live Your Life",
+                title: "Go Live Your Life",
                 description:
-                  "You don't need to watch every minute. Go about your day while NORMA monitors every game in real time.",
+                  "No producer. No algorithm guessing what you might like. NORMA already knows because you told her with your money. She watches every game so you don\u2019t have to.",
               },
               {
                 step: "03",
-                title: "Tune In at the Perfect Moment",
+                title: "Tune In When It Matters to You",
                 description:
-                  "Get a push notification when your bet is covering, the spread is shifting, or your team's game goes to overtime.",
+                  "Your bet is about to cover. Your prediction is resolving. Your team just forced overtime. NORMA sends you there at the exact moment that\u2019s personal to you.",
               },
             ].map((item) => (
               <div key={item.step} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
