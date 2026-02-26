@@ -47,10 +47,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Auth pages: redirect to dashboard if already authenticated
+  // Auth pages: redirect to appropriate dashboard if already authenticated
   if (path.startsWith("/auth/") && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    const isAdmin = user.app_metadata?.role === "admin";
+    url.pathname = isAdmin ? "/admin/dashboard" : "/dashboard";
     return NextResponse.redirect(url);
   }
 
