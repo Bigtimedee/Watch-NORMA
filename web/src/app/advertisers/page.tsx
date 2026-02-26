@@ -26,15 +26,15 @@ export default function AdvertisersPage() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-6 pt-24 pb-16 text-center">
         <p className="text-sm font-semibold uppercase tracking-widest text-orange-400">
-          NORMA Advertising Marketplace
+          NORMA Advertising
         </p>
         <h1 className="mt-4 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
-          Advertise at the Exact Moment<br />Fans Care Most
+          12-18% CTR. Not a Typo.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
-          NORMA&apos;s Perfect Moment Engine identifies the precise instant a live game becomes
-          emotionally critical to each fan — based on their real wagers, prediction positions,
-          and team loyalties. Your brand appears right there.
+          NORMA doesn&apos;t interrupt attention — it creates it. Your brand appears inside the
+          push notification that brings a fan back to a live game. Not a banner. Not a pre-roll.{" "}
+          <strong className="text-white">The moment itself.</strong>
         </p>
         <div className="mt-8">
           <Link
@@ -51,42 +51,42 @@ export default function AdvertisersPage() {
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-3xl font-bold text-white">This isn&apos;t display advertising.</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
-            Traditional sports ads buy impressions against pageviews, pre-rolls, or banner placements.
-            NORMA sells access to the moment a fan&apos;s attention peaks — when their money is on the line,
-            their team is in overtime, or their prediction is about to resolve.
+            Banners and pre-rolls fight for attention that&apos;s already somewhere else.
+            NORMA owns the push notification that creates the viewer. Your ad is the reason
+            a fan picks up their phone — not the thing they skip past.
           </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                title: "Intent, Not Demographics",
+                title: "The Push Notification Is the Ad Unit",
                 description:
-                  "Target users based on what they've wagered, predicted, and followed — not their age or location. A user with $500 on Duke -3.5 is more valuable than 10,000 random impressions.",
+                  "Your brand lives inside the alert that makes someone grab their phone. Not beside it, not after it — inside it. That's why CTRs run 10-50x higher than display.",
               },
               {
-                title: "Moment-Level Precision",
+                title: "You're Buying Intent, Not Impressions",
                 description:
-                  "Choose exactly which moments trigger your ad: overtime, close games, bet resolutions, spread crossings. 10 distinct moment types, each with different floor prices and engagement profiles.",
+                  "Every viewer has money on the line — a spread covering, a prop hitting, a prediction resolving. They don't just see your ad. They act on it.",
               },
               {
-                title: "Push Notification Placement",
+                title: "11 Moment Types, Each Priced Differently",
                 description:
-                  "Your brand appears in the push notification that brings the fan back to the game. Not a banner they scroll past — the alert that makes them grab their phone.",
+                  "Bid on overtime moments, bet resolutions, spread crossings, or close games. Higher-intent moments cost more and convert more. You choose where your budget goes.",
               },
               {
-                title: "Second-Price Auction",
+                title: "No Wasted Spend",
                 description:
-                  "Vickrey auction mechanics mean you only pay the minimum needed to win each impression. Bid your true value; the system ensures you never overpay.",
+                  "You only pay the minimum needed to win each impression. Floor prices start at $0.10. Average CPAs run 3-5x lower than social ads for sportsbook install campaigns.",
               },
               {
-                title: "Privacy by Architecture",
+                title: "Self-Optimizing Creatives",
                 description:
-                  "You never see individual user data. All targeting is cohort-based. All reporting is aggregate. Users can opt out entirely. Built for the post-IDFA world.",
+                  "Upload multiple variants. NORMA automatically shifts traffic to the one that converts best. No manual A/B test management. Just upload and let it run.",
               },
               {
-                title: "Self-Serve Portal",
+                title: "Privacy-First by Design",
                 description:
-                  "Create campaigns, set targeting, manage bids, upload creatives, and track performance — all from your browser. No sales calls required to get started.",
+                  "No individual user data exposed. All targeting is cohort-based, all reporting is aggregate. Built for the post-IDFA world. Users can opt out entirely.",
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -128,6 +128,7 @@ export default function AdvertisersPage() {
               <tbody className="divide-y divide-slate-800">
                 {[
                   { name: "Bet Resolved", desc: "User's wager just settled — win or lose", floor: "$0.50", ctr: "12-18%" },
+                  { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60", ctr: "14-20%" },
                   { name: "Overtime", desc: "Game goes to extra time — peak adrenaline", floor: "$0.40", ctr: "10-15%" },
                   { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35", ctr: "8-14%" },
                   { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30", ctr: "8-12%" },
@@ -159,10 +160,10 @@ export default function AdvertisersPage() {
       {/* How the Auction Works */}
       <section className="border-t border-slate-800 bg-slate-900/50 py-20">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">How the Auction Works</h2>
+          <h2 className="text-3xl font-bold text-white">How You Win Impressions</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
-            Every time NORMA fires a push notification, a real-time auction determines which
-            advertiser&apos;s sponsorship appears alongside it.
+            Every push notification triggers a real-time auction. The winning ad appears inside the
+            alert — and you never pay more than one cent above the next-highest bid.
           </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -170,23 +171,23 @@ export default function AdvertisersPage() {
               {
                 step: "1",
                 title: "Moment Fires",
-                description: "The Perfect Moment Engine detects a significant game event for a user.",
+                description: "A fan's bet is covering, their team hits overtime, or a prediction is about to resolve.",
               },
               {
                 step: "2",
-                title: "Eligible Bids",
-                description: "All campaigns matching the moment type, segment, and game are gathered.",
+                title: "Your Campaigns Match",
+                description: "NORMA finds all campaigns targeting this moment type, sport, and audience segment.",
               },
               {
                 step: "3",
                 title: "Floor Check",
-                description: "Bids below the moment type's floor price (with dynamic premium) are filtered out.",
+                description: "Bids below the moment's floor price are filtered out. Higher-intent moments have higher floors.",
               },
               {
                 step: "4",
-                title: "Winner Pays Second Price",
+                title: "You Pay Second Price",
                 description:
-                  "Highest bid wins. Pays only the second-highest bid + $0.01 (or the floor, whichever is higher).",
+                  "Highest bid wins but only pays the second-highest bid + $0.01. Bid your true value — the system protects you from overpaying.",
               },
             ].map((item) => (
               <div key={item.step} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -204,32 +205,37 @@ export default function AdvertisersPage() {
       {/* AI Features */}
       <section className="border-t border-slate-800 py-20">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">Built-In Intelligence</h2>
+          <h2 className="text-3xl font-bold text-white">Set It and Let It Run</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
-            NORMA&apos;s ad engine continuously optimizes your campaigns without manual tuning.
+            NORMA&apos;s engine continuously optimizes your campaigns so you don&apos;t have to.
           </p>
 
           <div className="mt-12 grid gap-8 sm:grid-cols-2">
             {[
               {
-                title: "A/B Creative Testing",
+                title: "Auto-Winning Creatives",
                 description:
-                  "Upload multiple creative variants. NORMA uses Thompson Sampling to automatically shift traffic to the highest-performing variant — no manual analysis needed.",
+                  "Upload multiple variants. NORMA automatically shifts traffic to the one with the highest CTR. Most campaigns find a winner within the first 200 impressions.",
               },
               {
-                title: "Auto-Bidding",
+                title: "CPA-Based Bidding",
                 description:
-                  "Set a target CPA and let NORMA adjust your bids every 30 minutes based on observed conversion rates. Stay within your target without constant monitoring.",
+                  "Set a target cost-per-action and NORMA adjusts your bids every 30 minutes based on real conversion data. Stay on target without constant monitoring.",
               },
               {
-                title: "Budget Pacing",
+                title: "Smart Budget Pacing",
                 description:
-                  "Daily budget caps prevent blowing your entire budget in one high-traffic window. Hourly pacing distributes spend evenly across each day's games.",
+                  "Daily caps prevent blowing your budget during one high-traffic window. Hourly pacing distributes spend evenly across each day's games.",
+              },
+              {
+                title: "Floor Price Optimizer",
+                description:
+                  "NORMA recommends floor-beating bids based on historical win rates for each moment type. See exactly where your bid sits relative to the competitive field.",
               },
               {
                 title: "Fatigue Protection",
                 description:
-                  "NORMA tracks per-user ad fatigue and automatically withholds your sponsorship when a user has seen too many ads recently. Protects your brand and CTR.",
+                  "NORMA tracks per-user ad exposure and automatically withholds your ad when a user has seen too many recently. Protects your brand and your CTR.",
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -279,7 +285,7 @@ export default function AdvertisersPage() {
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-3xl font-bold text-white">Self-Serve Advertiser Portal</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
-            Everything you need to launch, manage, and optimize campaigns — in one dashboard.
+            Launch, manage, and optimize campaigns in one dashboard. No sales calls required.
           </p>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

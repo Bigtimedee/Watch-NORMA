@@ -148,7 +148,7 @@ export default function HomePage() {
       <section className="border-t border-slate-800 bg-slate-900/50 py-20">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold text-white sm:text-4xl">
-            10 Moment Types. Zero Noise.
+            11 Moment Types. Zero Noise.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
             Every notification is scored and ranked by relevance to you. No spam, no box scores,
@@ -166,6 +166,7 @@ export default function HomePage() {
               { name: "Prop Alert", emoji: "🎯" },
               { name: "Position Alert", emoji: "📉" },
               { name: "Foul Trouble", emoji: "🚨" },
+              { name: "Prediction Resolved", emoji: "🏆" },
               { name: "Follow Alert", emoji: "⭐" },
             ].map((mt) => (
               <div
@@ -185,50 +186,27 @@ export default function HomePage() {
       {/* ============================================ */}
       <section id="advertisers" className="border-t-2 border-orange-500/30 py-24">
         <div className="mx-auto max-w-5xl px-6">
-          {/* Bold positioning statement */}
           <div className="text-center">
             <p className="text-sm font-semibold uppercase tracking-widest text-orange-400">
               For Advertisers
             </p>
             <h2 className="mt-6 text-3xl font-black leading-snug text-white sm:text-4xl lg:text-5xl">
-              NORMA Captures Intent<br className="hidden sm:block" /> for Live Sports.
+              The Highest-Intent Ad Unit<br className="hidden sm:block" /> in Sports
             </h2>
           </div>
 
-          <div className="mt-12 space-y-8 text-lg leading-relaxed text-slate-300">
+          <div className="mt-12 space-y-6 text-lg leading-relaxed text-slate-300 max-w-3xl mx-auto">
             <p>
-              NORMA monetizes something the dominant ad platforms cannot:{" "}
-              <strong className="text-white">the exact moment a fan suddenly cares.</strong>{" "}
-              Incumbents like Google, Meta Platforms, and The Trade Desk optimize for reach,
-              targeting, and historical behavior, but they largely miss real-time intent
-              inside live sports. NORMA sits directly in that gap.
+              <strong className="text-white">CTRs 10-50x higher than display.</strong>{" "}
+              NORMA doesn&apos;t interrupt attention — it creates it. Every ad runs inside the push
+              notification that brings a fan back to a live game they care about.
             </p>
             <p>
-              By combining live game data, streaming access, and a user&apos;s existing wagers,
-              NORMA identifies when attention spikes — a comeback, a milestone, a bet on the
-              line — and turns that moment into{" "}
-              <strong className="text-white">premium advertising inventory.</strong>{" "}
-              Brands are not buying impressions; they are buying certainty that a viewer is
-              about to tune in and act.
-            </p>
-            <p>
-              The companies that benefit most are those whose revenue depends on that moment:
-              sportsbooks like <strong className="text-white">DraftKings</strong> and{" "}
-              <strong className="text-white">FanDuel</strong>, streamers such as{" "}
-              <strong className="text-white">YouTube TV</strong>,{" "}
-              <strong className="text-white">Amazon Prime Video</strong>, and{" "}
-              <strong className="text-white">Peacock</strong>, and commerce platforms like{" "}
-              <strong className="text-white">Fanatics</strong> that monetize fan emotion
-              immediately after outcomes occur.
-            </p>
-            <p>
-              NORMA becomes the decision layer that routes viewers, wagers, and spending at
-              the precise second value is highest.{" "}
+              Banners and pre-rolls fight for eyeballs that are already elsewhere.{" "}
               <strong className="text-orange-400">
-                Just as search captured intent for the web, NORMA captures intent for live
-                sports
+                NORMA owns the moment that creates the viewer.
               </strong>{" "}
-              — positioning it to build a marketplace measured in billions rather than impressions.
+              Your brand is the reason they pick up their phone — not the thing they skip past.
             </p>
           </div>
         </div>
@@ -237,44 +215,22 @@ export default function HomePage() {
       {/* Advertiser Features */}
       <section className="border-t border-slate-800 bg-slate-900/50 py-20">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-3xl font-bold text-white sm:text-4xl">
-            The Self-Serve Advertising Platform
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
-            Create campaigns, set targeting, manage bids, and track performance — all from your browser.
-          </p>
-
-          <div className="mt-12 grid gap-8 sm:grid-cols-3">
+          <div className="mt-0 grid gap-8 sm:grid-cols-3">
             {[
               {
-                title: "Intent-Based Targeting",
+                title: "The Push Notification Ad Unit",
                 description:
-                  "Target users who hold active wagers, prediction positions, or team loyalties. Not demographics — actual financial interest in the outcome.",
+                  "Your brand appears inside the alert that makes a fan grab their phone. Not a banner they scroll past — the notification that creates the viewer. 12-18% CTR on bet resolution moments.",
               },
               {
-                title: "Second-Price Auction",
+                title: "Pay-Per-Moment Pricing",
                 description:
-                  "Vickrey auction mechanics. You only pay the minimum needed to win each impression. Transparent floor prices by moment type.",
+                  "Bid on specific moment types — overtime, spread crossings, bet resolutions. Floor prices from $0.10 to $0.50. You only pay what the moment is worth.",
               },
               {
-                title: "Privacy by Architecture",
+                title: "Self-Optimizing Engine",
                 description:
-                  "Advertisers never see individual user data. All targeting is cohort-based. All reporting is aggregate. Users can opt out entirely.",
-              },
-              {
-                title: "AI Creative Optimization",
-                description:
-                  "Upload multiple creative variants. Thompson Sampling automatically shifts traffic to the highest-performing variant.",
-              },
-              {
-                title: "Auto-Bidding & Pacing",
-                description:
-                  "Set a target CPA and let NORMA adjust bids in real time. Daily budget pacing prevents overspend during high-traffic windows.",
-              },
-              {
-                title: "Sportsbook Deep Links",
-                description:
-                  "Game-contextual deep links take users from alert straight into DraftKings, FanDuel, BetMGM, or ESPN BET with the right game loaded.",
+                  "Upload multiple creatives and NORMA automatically shifts traffic to the winner. Set a target CPA and bids adjust every 30 minutes. No manual tuning required.",
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
