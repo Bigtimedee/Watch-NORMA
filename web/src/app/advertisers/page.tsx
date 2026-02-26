@@ -32,7 +32,7 @@ export default function AdvertisersPage() {
           12-18% CTR. Not a Typo.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
-          NORMA doesn&apos;t interrupt attention — it creates it. Your brand appears inside the
+          NORMA doesn&apos;t interrupt attention. It creates it. Your brand appears inside the
           push notification that brings a fan back to a live game. Not a banner. Not a pre-roll.{" "}
           <strong className="text-white">The moment itself.</strong>
         </p>
@@ -53,7 +53,7 @@ export default function AdvertisersPage() {
           <p className="mt-4 max-w-3xl text-slate-400">
             Banners and pre-rolls fight for attention that&apos;s already somewhere else.
             NORMA owns the push notification that creates the viewer. Your ad is the reason
-            a fan picks up their phone — not the thing they skip past.
+            a fan picks up their phone, not the thing they skip past.
           </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -61,12 +61,12 @@ export default function AdvertisersPage() {
               {
                 title: "The Push Notification Is the Ad Unit",
                 description:
-                  "Your brand lives inside the alert that makes someone grab their phone. Not beside it, not after it — inside it. That's why CTRs run 10-50x higher than display.",
+                  "Your brand lives inside the alert that makes someone grab their phone. Not beside it, not after it. Inside it. That's why CTRs run 10-50x higher than display.",
               },
               {
                 title: "You're Buying Intent, Not Impressions",
                 description:
-                  "Every viewer has money on the line — a spread covering, a prop hitting, a prediction resolving. They don't just see your ad. They act on it.",
+                  "Every viewer has money on the line. A spread covering, a prop hitting, a prediction resolving. They don't just see your ad. They act on it.",
               },
               {
                 title: "11 Moment Types, Each Priced Differently",
@@ -104,7 +104,7 @@ export default function AdvertisersPage() {
           <h2 className="text-3xl font-bold text-white">Moment Types &amp; Floor Prices</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
             Each moment type represents a different level of fan engagement. Higher-intent moments
-            command higher floor prices — and deliver higher conversion rates.
+            command higher floor prices and deliver higher conversion rates.
           </p>
 
           <div className="mt-10 overflow-hidden rounded-xl border border-slate-800">
@@ -127,9 +127,9 @@ export default function AdvertisersPage() {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {[
-                  { name: "Bet Resolved", desc: "User's wager just settled — win or lose", floor: "$0.50", ctr: "12-18%" },
+                  { name: "Bet Resolved", desc: "User's wager just settled, win or lose", floor: "$0.50", ctr: "12-18%" },
                   { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60", ctr: "14-20%" },
-                  { name: "Overtime", desc: "Game goes to extra time — peak adrenaline", floor: "$0.40", ctr: "10-15%" },
+                  { name: "Overtime", desc: "Game goes to extra time, peak adrenaline", floor: "$0.40", ctr: "10-15%" },
                   { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35", ctr: "8-14%" },
                   { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30", ctr: "8-12%" },
                   { name: "Moneyline Alert", desc: "Moneyline outcome flipping", floor: "$0.30", ctr: "7-11%" },
@@ -137,7 +137,7 @@ export default function AdvertisersPage() {
                   { name: "Prop Alert", desc: "Player prop stat line in play", floor: "$0.25", ctr: "6-9%" },
                   { name: "Position Alert", desc: "Prediction market position at risk", floor: "$0.20", ctr: "5-8%" },
                   { name: "Foul Trouble", desc: "Key starter picks up 4th foul", floor: "$0.15", ctr: "4-7%" },
-                  { name: "Follow Alert", desc: "Team follower — no financial stake", floor: "$0.10", ctr: "3-5%" },
+                  { name: "Follow Alert", desc: "Team follower with no financial stake", floor: "$0.10", ctr: "3-5%" },
                 ].map((m) => (
                   <tr key={m.name} className="hover:bg-slate-900/50">
                     <td className="px-6 py-4 font-medium text-white">{m.name}</td>
@@ -163,7 +163,7 @@ export default function AdvertisersPage() {
           <h2 className="text-3xl font-bold text-white">How You Win Impressions</h2>
           <p className="mt-4 max-w-3xl text-slate-400">
             Every push notification triggers a real-time auction. The winning ad appears inside the
-            alert — and you never pay more than one cent above the next-highest bid.
+            alert, and you never pay more than one cent above the next highest bid.
           </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -187,7 +187,7 @@ export default function AdvertisersPage() {
                 step: "4",
                 title: "You Pay Second Price",
                 description:
-                  "Highest bid wins but only pays the second-highest bid + $0.01. Bid your true value — the system protects you from overpaying.",
+                  "Highest bid wins but only pays the second highest bid plus $0.01. Bid your true value. The system protects you from overpaying.",
               },
             ].map((item) => (
               <div key={item.step} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -269,11 +269,11 @@ export default function AdvertisersPage() {
 
           <div className="mt-8 max-w-3xl text-sm text-slate-400">
             <p>
-              <strong className="text-slate-200">Affiliate attribution</strong> — Track which impressions
+              <strong className="text-slate-200">Affiliate attribution</strong>: Track which impressions
               drive wager placements. Configurable attribution windows and postback URLs.
             </p>
             <p className="mt-3">
-              <strong className="text-slate-200">Branded CTAs</strong> — Your brand colors, your logo,
+              <strong className="text-slate-200">Branded CTAs</strong>: Your brand colors, your logo,
               your deep link. &quot;Bet Now on DraftKings&quot; rendered natively in the alert card.
             </p>
           </div>

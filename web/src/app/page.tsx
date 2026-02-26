@@ -108,7 +108,7 @@ export default function HomePage() {
             See NORMA in Action
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
-            Watch how NORMA delivers the perfect moment — from bet placement to buzzer-beater notification.
+            Watch how NORMA delivers the perfect moment, from bet placement to buzzer-beater notification.
           </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -199,7 +199,7 @@ export default function HomePage() {
           <div className="mt-12 space-y-6 text-lg leading-relaxed text-slate-300 max-w-3xl mx-auto">
             <p>
               <strong className="text-white">CTRs 10-50x higher than display.</strong>{" "}
-              NORMA doesn&apos;t interrupt attention — it creates it. Every ad runs inside the push
+              NORMA doesn&apos;t interrupt attention. It creates it. Every ad runs inside the push
               notification that brings a fan back to a live game they care about.
             </p>
             <p>
@@ -207,7 +207,7 @@ export default function HomePage() {
               <strong className="text-orange-400">
                 NORMA owns the moment that creates the viewer.
               </strong>{" "}
-              Your brand is the reason they pick up their phone — not the thing they skip past.
+              Your brand is the reason they pick up their phone, not the thing they skip past.
             </p>
           </div>
         </div>
@@ -221,12 +221,12 @@ export default function HomePage() {
               {
                 title: "The Push Notification Ad Unit",
                 description:
-                  "Your brand appears inside the alert that makes a fan grab their phone. Not a banner they scroll past — the notification that creates the viewer. 12-18% CTR on bet resolution moments.",
+                  "Your brand appears inside the alert that makes a fan grab their phone. Not a banner they scroll past. The notification that creates the viewer. 12-18% CTR on bet resolution moments.",
               },
               {
                 title: "Pay-Per-Moment Pricing",
                 description:
-                  "Bid on specific moment types — overtime, spread crossings, bet resolutions. Floor prices from $0.10 to $0.50. You only pay what the moment is worth.",
+                  "Bid on specific moment types like overtime, spread crossings, and bet resolutions. Floor prices from $0.10 to $0.50. You only pay what the moment is worth.",
               },
               {
                 title: "Self-Optimizing Engine",
