@@ -96,6 +96,15 @@ Deno.serve(async (req) => {
       pushBody = `${alert.body}\n${alert.sponsor_text}`;
     }
 
+    // Count unread alerts for badge (alerts not yet seen via push)
+    const { count: unreadCount } = await supabase
+      .from("alerts")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", alert.user_id)
+      .eq("read", false);
+
+    const badgeCount = (unreadCount ?? 0) + 1; // +1 for the current alert
+
     // Send via Expo Push API
     const pushPayload: Record<string, unknown> = {
       to: profile.push_token,
@@ -115,6 +124,7 @@ Deno.serve(async (req) => {
       sound: "default",
       priority: "high",
       channelId: "game-alerts",
+      badge: badgeCount,
     };
 
     const pushRes = await fetch(EXPO_PUSH_URL, {

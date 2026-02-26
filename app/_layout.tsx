@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Platform, View, Text } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, Platform, View, Text } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -17,7 +17,7 @@ Notifications.setNotificationHandler({
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
@@ -63,6 +63,19 @@ function AuthGate() {
       router.replace("/(tabs)/games");
     }
   }, [session, segments, loading]);
+
+  // Clear badge count when app comes to foreground
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    Notifications.setBadgeCountAsync(0);
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === "active") {
+        Notifications.setBadgeCountAsync(0);
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, []);
 
   // Access tap-to-stream context for notification-triggered streams
   let tapToStream: ReturnType<typeof useTapToStream> | null = null;
