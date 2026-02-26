@@ -7,10 +7,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 // Historical moment rates per game (from past data analysis)
 const MOMENT_RATES: Record<string, number> = {
-  close_game: 0.35,       // 35% of games have close finish
-  overtime: 0.04,          // 4% go to OT
-  bet_resolved: 1.0,       // every game ends
-  spread_alert: 0.6,       // 60% have spread-relevant moments
+  prediction_resolved: 0.85,  // most games with predictions resolve
+  close_game: 0.35,           // 35% of games have close finish
+  overtime: 0.04,              // 4% go to OT
+  bet_resolved: 1.0,           // every game ends
+  spread_alert: 0.6,           // 60% have spread-relevant moments
   moneyline_alert: 0.4,
   total_alert: 0.3,
   foul_trouble: 0.15,
@@ -18,6 +19,40 @@ const MOMENT_RATES: Record<string, number> = {
   prop_alert: 0.2,
   position_alert: 0.15,
 };
+
+/**
+ * Fetch learned moment rates from DB and blend with hardcoded fallbacks.
+ * Uses confidence weighting: learned * confidence + hardcoded * (1 - confidence)
+ */
+async function getMomentRates(
+  supabase: ReturnType<typeof createClient>
+): Promise<Record<string, number>> {
+  const blended = { ...MOMENT_RATES };
+
+  try {
+    const { data: learned } = await supabase
+      .from("learned_moment_rates")
+      .select("moment_type, observed_rate, confidence");
+
+    if (learned && learned.length > 0) {
+      for (const row of learned) {
+        const hardcoded = MOMENT_RATES[row.moment_type];
+        if (hardcoded !== undefined) {
+          const confidence = Math.min(row.confidence, 1);
+          blended[row.moment_type] =
+            row.observed_rate * confidence + hardcoded * (1 - confidence);
+        } else {
+          // New moment type learned from data — use directly
+          blended[row.moment_type] = row.observed_rate;
+        }
+      }
+    }
+  } catch {
+    // Fall back to hardcoded rates on any error
+  }
+
+  return blended;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -65,6 +100,9 @@ Deno.serve(async (req) => {
     // Confidence based on sample size
     const baseConfidence = Math.min(gameUserCounts.size / 100, 0.9);
 
+    // Fetch learned moment rates (blended with hardcoded fallbacks)
+    const learnedRates = await getMomentRates(supabase);
+
     // Generate forecasts for next 7 days
     for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
       const forecastDate = new Date();
@@ -87,8 +125,8 @@ Deno.serve(async (req) => {
       // Confidence decreases for further-out days
       const dayConfidence = baseConfidence * (1 - dayOffset * 0.05);
 
-      // Generate forecast for each moment type
-      for (const [momentType, rate] of Object.entries(MOMENT_RATES)) {
+      // Generate forecast for each moment type (using learned rates)
+      for (const [momentType, rate] of Object.entries(learnedRates)) {
         const predictedMoments = Math.round(gameCount * rate);
         const predictedUsers = Math.round(predictedMoments * avgUsersPerGame);
 

@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
     const results = await Promise.allSettled([
       supabase.rpc("refresh_campaign_metrics"),
       supabase.rpc("refresh_daily_impression_stats"),
+      supabase.rpc("refresh_moment_type_aggregates"),
     ]);
 
     // Fallback: use raw SQL if RPCs don't exist yet
@@ -59,11 +60,25 @@ Deno.serve(async (req) => {
           errors.push(`daily_impression_stats refresh: ${(e as Error).message}`);
         }
       }
+
+      try {
+        await supabase.rpc("exec_sql", {
+          sql: "REFRESH MATERIALIZED VIEW CONCURRENTLY public.moment_type_aggregates",
+        });
+      } catch {
+        try {
+          await supabase.rpc("exec_sql", {
+            sql: "REFRESH MATERIALIZED VIEW public.moment_type_aggregates",
+          });
+        } catch (e) {
+          errors.push(`moment_type_aggregates refresh: ${(e as Error).message}`);
+        }
+      }
     }
 
     const result = {
       success: true,
-      views_refreshed: ["campaign_metrics", "daily_impression_stats"],
+      views_refreshed: ["campaign_metrics", "daily_impression_stats", "moment_type_aggregates"],
       errors: errors.length > 0 ? errors : undefined,
     };
 

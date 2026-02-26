@@ -224,6 +224,7 @@ interface MomentValueInput {
 }
 
 const MOMENT_TYPE_BASE_RATES: Record<string, number> = {
+  prediction_resolved: 0.14,
   overtime: 0.15,
   bet_resolved: 0.12,
   close_game: 0.10,
@@ -237,11 +238,45 @@ const MOMENT_TYPE_BASE_RATES: Record<string, number> = {
 };
 
 /**
+ * Fetch learned engagement rates from DB and blend with hardcoded fallbacks.
+ * Uses confidence weighting: learned * confidence + hardcoded * (1 - confidence)
+ */
+export async function getEngagementBaseRates(
+  supabase: SupabaseClient
+): Promise<Record<string, number>> {
+  const blended = { ...MOMENT_TYPE_BASE_RATES };
+
+  try {
+    const { data: learned } = await supabase
+      .from("learned_engagement_rates")
+      .select("moment_type, observed_ctr, confidence");
+
+    if (learned && learned.length > 0) {
+      for (const row of learned) {
+        const hardcoded = MOMENT_TYPE_BASE_RATES[row.moment_type] ?? 0.05;
+        const confidence = Math.min(row.confidence, 1);
+        blended[row.moment_type] =
+          row.observed_ctr * confidence + hardcoded * (1 - confidence);
+      }
+    }
+  } catch {
+    // Fall back to hardcoded rates on any error
+  }
+
+  return blended;
+}
+
+/**
  * Predict ad engagement for a moment (v1: weighted formula).
  * Returns predicted CTR (0-1).
+ * @param baseRates — optional learned rates from getEngagementBaseRates(); falls back to hardcoded
  */
-export function predictMomentEngagement(input: MomentValueInput): number {
-  const baseRate = MOMENT_TYPE_BASE_RATES[input.moment_type] ?? 0.05;
+export function predictMomentEngagement(
+  input: MomentValueInput,
+  baseRates?: Record<string, number>
+): number {
+  const rates = baseRates ?? MOMENT_TYPE_BASE_RATES;
+  const baseRate = rates[input.moment_type] ?? 0.05;
 
   // Alert score factor (higher PME score = more engaged)
   const scoreFactor = Math.min(input.alert_score / 100, 1.5);
