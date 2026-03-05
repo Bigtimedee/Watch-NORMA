@@ -108,7 +108,16 @@ export async function resolveDeepLinkUrl(
         return { url: provider.ios_scheme, method: "native_app" };
       }
     } catch {
-      // Fall through
+      // canOpenURL can fail silently on first call after install — retry once
+      try {
+        await new Promise((r) => setTimeout(r, 100));
+        const canOpenRetry = await Linking.canOpenURL(provider.ios_scheme);
+        if (canOpenRetry) {
+          return { url: provider.ios_scheme, method: "native_app" };
+        }
+      } catch {
+        // Fall through to universal link
+      }
     }
   }
 
