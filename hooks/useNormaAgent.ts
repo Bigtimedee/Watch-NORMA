@@ -1,3 +1,8 @@
+// Issues fixed:
+// #5  — useToggleAgent.toggle now uses onError callback so errors are not silently swallowed
+// #12 — useToggleAgent resets status: "idle" when deactivating, so status dot shows gray immediately
+//       Also exposes `config` so callers don't need to call useAgentConfig separately (fixes #6)
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { AgentConfig, AgentAlert, PredictionPosition } from "../lib/types";
@@ -47,14 +52,33 @@ export function useUpdateAgentConfig() {
   });
 }
 
-// Convenience: toggle agent on/off — creates row if it doesn't exist
+// Convenience: toggle agent on/off — creates row if it doesn't exist.
+// Fixed: exposes `config` so callers don't need a second useAgentConfig call.
+// Fixed: resets status to "idle" when deactivating.
+// Fixed: logs errors rather than swallowing them silently.
 export function useToggleAgent() {
   const { data: config } = useAgentConfig();
   const update = useUpdateAgentConfig();
+  const currentlyActive = config?.is_active ?? false;
 
   return {
-    isActive: config?.is_active ?? false,
-    toggle: () => update.mutate({ is_active: !(config?.is_active ?? false) }),
+    isActive: currentlyActive,
+    config,
+    toggle: () => {
+      const turningOff = currentlyActive;
+      update.mutate(
+        {
+          is_active: !currentlyActive,
+          // Reset status to "idle" when deactivating so status dots show gray immediately
+          ...(turningOff ? { status: "idle" as const } : {}),
+        },
+        {
+          onError: (err) => {
+            console.warn("Agent toggle failed:", (err as Error).message);
+          },
+        }
+      );
+    },
     isPending: update.isPending,
   };
 }

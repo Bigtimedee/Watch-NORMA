@@ -63,17 +63,28 @@ export default function TabLayout() {
         name="agent"
         options={{
           title: "Agent",
+          // Fixed: custom icon with overlay dot instead of tabBarBadge: "●"
+          // tabBarBadge with a string character does not render as a small dot on iOS —
+          // the badge bubble has a fixed minimum width and padding that overwhelms a single char.
+          // An absolutely-positioned View overlay on the icon is the correct approach.
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flask-outline" size={size} color={color} />
+            <View>
+              <Ionicons name="flask-outline" size={size} color={color} />
+              {agentActive && (
+                <View style={{
+                  position: "absolute",
+                  top: -1,
+                  right: -3,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: "#22c55e",
+                  borderWidth: 1.5,
+                  borderColor: "#0f172a",
+                }} />
+              )}
+            </View>
           ),
-          tabBarBadge: agentActive ? "●" : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: "#22c55e",
-            fontSize: 6,
-            minWidth: 10,
-            height: 10,
-            lineHeight: 10,
-          },
         }}
       />
       <Tabs.Screen

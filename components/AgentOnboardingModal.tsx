@@ -40,6 +40,8 @@ function SliderRow({
 }) {
   const steps = Math.round((max - min) / step);
   const idx = Math.round((value - min) / step);
+  // Fixed: use percentage width instead of flex to avoid flex:0 overflow at min/max values
+  const fillPct = steps > 0 ? Math.round((idx / steps) * 100) : 0;
 
   return (
     <View style={sl.row}>
@@ -47,9 +49,8 @@ function SliderRow({
         <Text style={sl.label}>{label}</Text>
         <Text style={sl.value}>{value}{unit}</Text>
       </View>
-      <View style={sl.track}>
-        <View style={[sl.fill, { flex: idx }]} />
-        <View style={[sl.empty, { flex: steps - idx }]} />
+      <View style={sl.trackBg}>
+        <View style={[sl.trackFill, { width: `${fillPct}%` }]} />
       </View>
       <View style={sl.btnRow}>
         <Pressable
@@ -173,16 +174,16 @@ export function AgentOnboardingModal({
                 name="Kalshi"
                 connected={kalshiConnected}
                 onConnect={() => {
-                  onDismiss();
                   router.push("/(tabs)/connections/kalshi-connect");
+                  onDismiss();
                 }}
               />
               <AccountRow
                 name="Polymarket"
                 connected={polyConnected}
                 onConnect={() => {
-                  onDismiss();
                   router.push("/(tabs)/connections/polymarket-connect");
+                  onDismiss();
                 }}
               />
 

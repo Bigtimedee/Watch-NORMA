@@ -943,3 +943,202 @@ norma/
 | Polymarket sync | Partial | Needs CLOB API integration |
 | Watch history from streaming | **Not possible** | No streaming service offers this API |
 | Automatic bet detection | **Not possible** | Would require scraping (violates ToS) |
+
+---
+
+# NORMA AGENT — Safety Rules & Pitfall Prevention
+
+## What the Agent Module Is
+
+`NORMA Agent` is a user-activatable autonomous monitoring system. It polls open
+Kalshi and Polymarket prediction positions and fires push alerts when configured
+thresholds are crossed.
+
+**Key files:**
+- `supabase/migrations/028_norma_agent.sql` — DB schema (agent_config, agent_alerts, new columns on prediction_positions)
+- `supabase/migrations/029_agent_cron.sql` — pg_cron job (every 60 seconds)
+- `supabase/functions/norma-agent-evaluate/index.ts` — evaluation engine (Deno)
+- `hooks/useNormaAgent.ts` — all React Query hooks for agent data
+- `app/(tabs)/agent/` — Agent tab (dashboard + settings sheet)
+- `components/AgentOnboardingModal.tsx` — 3-step onboarding
+- `components/AgentPositionCard.tsx` — per-position card in dashboard
+
+---
+
+## CRITICAL: React Native / TypeScript Rules You Must Never Break
+
+### 1. All imports must be at the top of the file
+TypeScript ES modules require ALL `import` statements at the top level — before
+any function declarations, `export default`, or logic. Placing an `import`
+after `export default function Foo()` is a syntax error that will fail the
+TypeScript compiler and crash the app at load time.
+
+**Wrong:**
+```typescript
+export default function MyScreen() { ... }
+import { Modal } from "react-native"; // ❌ after export default
+```
+
+**Correct:**
+```typescript
+import { Modal } from "react-native"; // ✅ at top
+export default function MyScreen() { ... }
+```
+
+### 2. Never shadow global names with state setters
+React `useState` returns `[value, setter]`. If you name the setter the same as
+a global (e.g., `setInterval`, `setTimeout`, `clearTimeout`, `fetch`), the global
+is shadowed and will be completely inaccessible in that file — causing runtime failures
+that are extremely hard to debug.
+
+**Wrong:**
+```typescript
+const [interval, setInterval] = useState(30); // ❌ shadows global setInterval
+```
+
+**Correct:**
+```typescript
+const [pollInterval, setPollInterval] = useState(30); // ✅
+```
+
+### 3. Components must be declared before first use
+In React Native files, helper components used inside the `export default` component
+must be declared (as functions or `const`) BEFORE the `export default`. If they
+appear after, the reference is `undefined` at the point of use.
+
+### 4. Never import the same symbol twice
+If `Modal` is already in the `react-native` import, do not add a second
+`import { Modal } from "react-native"`. Duplicate imports cause TypeScript errors.
+
+### 5. Remove every unused import/variable before committing
+The project has `noUnusedLocals: true` in tsconfig.json and Deno linting enabled
+for Edge Functions. An unused variable is a CI failure.
+
+---
+
+## NORMA Agent — Data Contracts
+
+### `AgentConfig` (Postgres table: `agent_config`)
+```typescript
+{
+  user_id: string;
+  is_active: boolean;
+  poll_interval_seconds: number;
+  threshold_high: number;     // 60–98
+  threshold_low: number;      // 2–40
+  swing_pct: number;          // 5–40
+  time_window_minutes: number; // 5–60
+  status: "idle" | "monitoring" | "alert_triggered";
+  last_synced_at: string | null;
+  onboarding_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+**Rules:**
+- `status` must be reset to `"idle"` whenever `is_active` is set to `false`.
+  Failing to do this leaves stale green/amber status indicators in the UI.
+- `useToggleAgent` in `hooks/useNormaAgent.ts` is the single source of truth for
+  toggle + status reset. Do NOT call `useAgentConfig` separately in components
+  that already use `useToggleAgent` — it exposes `config` directly.
+
+### `PredictionPosition` (Postgres table: `prediction_positions`)
+Migration 028 added two columns. They MUST be present in `lib/types.ts`:
+```typescript
+last_agent_probability: number | null;  // stored as 0–1 fraction
+market_close_time: string | null;       // ISO timestamp
+```
+Removing or renaming these breaks the edge function type checks.
+
+---
+
+## Tab Navigation — OTA vs Native Rebuild
+
+Adding, removing, or renaming tabs in `app/(tabs)/_layout.tsx` is a **JavaScript-only
+change** and is delivered via Expo's OTA update mechanism. It does NOT require
+a new native build or App Store submission. The native binary for NORMA is already
+published; tab changes go live via EAS Update.
+
+**Never suggest a native rebuild for tab changes, icon changes, or screen additions.**
+
+---
+
+## Agent Tab Icon — Custom Overlay Pattern
+
+The Agent tab uses a custom `tabBarIcon` with an absolutely-positioned green dot
+overlay instead of `tabBarBadge`. This is intentional:
+
+- `tabBarBadge` with a string (e.g., `"●"`) renders a bubble with minimum width/padding
+  that overwhelms a single character on iOS. It does not look like a small dot.
+- The correct pattern for a small status dot is a `View` with `position: "absolute"`
+  overlaid on the icon:
+
+```typescript
+tabBarIcon: ({ color, size }) => (
+  <View>
+    <Ionicons name="flask-outline" size={size} color={color} />
+    {isActive && (
+      <View style={{ position: "absolute", top: -1, right: -3,
+        width: 8, height: 8, borderRadius: 4,
+        backgroundColor: "#22c55e", borderWidth: 1.5, borderColor: "#0f172a" }} />
+    )}
+  </View>
+),
+```
+
+Do NOT revert this to `tabBarBadge`.
+
+---
+
+## Navigation From Modals — Correct Order
+
+When a modal needs to navigate away AND dismiss itself:
+1. Call `router.push(...)` **first**
+2. Call `onDismiss()` **after**
+
+Calling `onDismiss()` first unmounts the component while it is still trying
+to call `router.push()` — this causes a "navigate on unmounted component" warning
+and can silently fail on some Expo Router versions.
+
+**Wrong:**
+```typescript
+onDismiss();
+router.push("/(tabs)/connections/kalshi-connect"); // ❌ component unmounted
+```
+
+**Correct:**
+```typescript
+router.push("/(tabs)/connections/kalshi-connect"); // ✅ navigate first
+onDismiss(); // then unmount
+```
+
+---
+
+## Deep Link Retry — Do Not Remove
+
+`lib/deep-links.ts` → `resolveDeepLinkUrl` contains a 100ms retry for
+`Linking.canOpenURL`. This retry is load-bearing:
+
+- On iOS, `Linking.canOpenURL` can throw on the first call after install
+  (before the OS has fully resolved the app's registered schemes).
+- Without the retry, the function falls through to `universal_link`
+  (e.g., `https://tv.youtube.com/live`), which opens in Safari and shows
+  a "start your free trial" page instead of launching the installed app.
+
+**Never remove this retry block.** It was removed once (commit `76b07bd`,
+Feb 24 2026) and was the root cause of the YouTube TV free trial regression.
+
+---
+
+## Edge Function Local Interfaces Must Match lib/types.ts
+
+Each Deno Edge Function that references `AgentConfig` or `PredictionPosition`
+has a local interface definition (Deno can't import from `lib/types.ts`).
+
+When adding fields to those types in migrations, you MUST update BOTH:
+1. `lib/types.ts` (for the React Native client)
+2. The local interface in every affected Edge Function
+
+Currently affected: `supabase/functions/norma-agent-evaluate/index.ts`
+

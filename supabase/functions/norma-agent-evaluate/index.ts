@@ -18,6 +18,9 @@ interface AgentConfig {
   swing_pct: number;
   time_window_minutes: number;
   poll_interval_seconds: number;
+  status: "idle" | "monitoring" | "alert_triggered";
+  last_synced_at: string | null;
+  onboarding_completed: boolean;
 }
 
 interface PredictionPosition {
@@ -87,8 +90,6 @@ function evaluatePosition(
   if (probPct == null) return null;
 
   const direction = position.position_side.toLowerCase(); // "yes" or "no"
-  // P(YES) is probPct; P(NO) is 100 - probPct
-  const userFacingProb = direction === "yes" ? probPct : 100 - probPct;
 
   // --- Time expiry check (highest priority) ---
   const minsToClose = minutesUntilClose(position);

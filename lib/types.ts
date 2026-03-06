@@ -237,6 +237,9 @@ export interface PredictionPosition {
   settled: boolean;
   fetched_at: string;
   parsed_target: Record<string, unknown> | null;
+  // Added in migration 028 for NORMA Agent swing detection
+  last_agent_probability: number | null;
+  market_close_time: string | null;
 }
 
 // --- NORMA Agent ---

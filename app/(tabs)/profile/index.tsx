@@ -7,7 +7,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
-import { useAgentConfig, useToggleAgent } from "../../../hooks/useNormaAgent";
+import { useToggleAgent } from "../../../hooks/useNormaAgent";
 
 const PRIVACY_POLICY_URL = "https://d10dave.github.io/norma/privacy-policy.html";
 const TERMS_URL = "https://d10dave.github.io/norma/terms-of-service.html";
@@ -19,8 +19,8 @@ export default function ProfileScreen() {
   const { data: preferences } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const [showPrefs, setShowPrefs] = useState(false);
-  const { data: agentConfig } = useAgentConfig();
-  const { isActive: agentActive, toggle: toggleAgent, isPending: agentPending } = useToggleAgent();
+  // Fixed: useToggleAgent now exposes `config` — no second useAgentConfig call needed
+  const { isActive: agentActive, config: agentConfig, toggle: toggleAgent, isPending: agentPending } = useToggleAgent();
 
   const adPersonalization =
     preferences?.notification_settings?.ad_personalization_enabled ?? true;
@@ -177,9 +177,14 @@ export default function ProfileScreen() {
               <View style={s.settingsLeft}>
                 <View style={[
                   { width: 8, height: 8, borderRadius: 4, marginLeft: 6, marginRight: 18 },
-                  { backgroundColor: agentConfig?.status === "monitoring" ? "#22c55e"
-                      : agentConfig?.status === "alert_triggered" ? "#f97316"
-                      : "#475569" }
+                  {
+                    // Fixed: check is_active first — status may lag behind after toggling off
+                    backgroundColor: !agentConfig?.is_active
+                      ? "#475569"
+                      : agentConfig?.status === "alert_triggered"
+                      ? "#f97316"
+                      : "#22c55e"
+                  }
                 ]} />
                 <Text style={s.settingsText}>Open Agent Dashboard</Text>
               </View>
