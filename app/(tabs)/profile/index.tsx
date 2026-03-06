@@ -7,8 +7,6 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
-import { useToggleAgent } from "../../../hooks/useNormaAgent";
-
 const PRIVACY_POLICY_URL = "https://d10dave.github.io/norma/privacy-policy.html";
 const TERMS_URL = "https://d10dave.github.io/norma/terms-of-service.html";
 
@@ -19,8 +17,6 @@ export default function ProfileScreen() {
   const { data: preferences } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const [showPrefs, setShowPrefs] = useState(false);
-  // Fixed: useToggleAgent now exposes `config` — no second useAgentConfig call needed
-  const { isActive: agentActive, config: agentConfig, toggle: toggleAgent, isPending: agentPending } = useToggleAgent();
 
   const adPersonalization =
     preferences?.notification_settings?.ad_personalization_enabled ?? true;
@@ -146,52 +142,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
-
-        {/* NORMA Agent */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>NORMA Agent</Text>
-          <View style={s.settingsCard}>
-            <View style={[s.settingsRow, s.settingsRowBorder]}>
-              <View style={s.settingsLeft}>
-                <Ionicons name="flask-outline" size={20} color="#f97316" />
-                <View style={{ marginLeft: 12 }}>
-                  <Text style={s.settingsText}>Activate NORMA Agent</Text>
-                  <Text style={{ color: "#64748b", fontSize: 12 }}>
-                    {agentActive ? "Monitoring open positions" : "Off — tap to configure"}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={agentActive}
-                onValueChange={toggleAgent}
-                trackColor={{ false: "#475569", true: "#f97316" }}
-                thumbColor="#fff"
-                disabled={agentPending}
-              />
-            </View>
-            <Pressable
-              style={s.settingsRow}
-              onPress={() => router.push("/(tabs)/agent")}
-              accessibilityLabel="Open NORMA Agent dashboard"
-            >
-              <View style={s.settingsLeft}>
-                <View style={[
-                  { width: 8, height: 8, borderRadius: 4, marginLeft: 6, marginRight: 18 },
-                  {
-                    // Fixed: check is_active first — status may lag behind after toggling off
-                    backgroundColor: !agentConfig?.is_active
-                      ? "#475569"
-                      : agentConfig?.status === "alert_triggered"
-                      ? "#f97316"
-                      : "#22c55e"
-                  }
-                ]} />
-                <Text style={s.settingsText}>Open Agent Dashboard</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#64748b" />
-            </Pressable>
-          </View>
-        </View>
 
         {/* Settings */}
         <View style={s.section}>

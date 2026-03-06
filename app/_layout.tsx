@@ -109,12 +109,6 @@ function AuthGate() {
           }
         }
 
-        // Agent alerts route to the Agent tab
-        if (data?.screen === "agent" || data?.agentAlertId) {
-          router.push("/(tabs)/agent");
-          return;
-        }
-
         if (gameId) {
           router.push(`/games/${gameId}`);
         }
