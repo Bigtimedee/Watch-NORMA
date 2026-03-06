@@ -239,6 +239,43 @@ export interface PredictionPosition {
   parsed_target: Record<string, unknown> | null;
 }
 
+// --- NORMA Agent ---
+
+export type AgentStatus = "idle" | "monitoring" | "alert_triggered";
+export type AgentAlertType = "imminent_resolution" | "probability_swing" | "time_expiry";
+
+export interface AgentConfig {
+  user_id: string;
+  is_active: boolean;
+  poll_interval_seconds: number;
+  threshold_high: number;
+  threshold_low: number;
+  swing_pct: number;
+  time_window_minutes: number;
+  status: AgentStatus;
+  last_synced_at: string | null;
+  onboarding_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentAlert {
+  id: number;
+  user_id: string;
+  platform: string;
+  market_id: string;
+  market_title: string;
+  current_probability: number;
+  position_direction: string;
+  position_size_cents: number | null;
+  potential_payout_cents: number | null;
+  alert_type: AgentAlertType;
+  linked_streaming_event: string | null;
+  deep_link_url: string | null;
+  push_sent: boolean;
+  created_at: string;
+}
+
 // SportsDataIO API response types
 export interface SportsDataIOGame {
   GameID: number;

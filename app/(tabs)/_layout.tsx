@@ -1,9 +1,12 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useUnreadAlertCount } from "../../hooks/useAlerts";
+import { useAgentConfig } from "../../hooks/useNormaAgent";
 
 export default function TabLayout() {
   const { data: unreadCount } = useUnreadAlertCount();
+  const { data: agentConfig } = useAgentConfig();
+  const agentActive = agentConfig?.is_active ?? false;
 
   return (
     <Tabs
@@ -54,6 +57,23 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="tv-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="agent"
+        options={{
+          title: "Agent",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flask-outline" size={size} color={color} />
+          ),
+          tabBarBadge: agentActive ? "●" : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#22c55e",
+            fontSize: 6,
+            minWidth: 10,
+            height: 10,
+            lineHeight: 10,
+          },
         }}
       />
       <Tabs.Screen
