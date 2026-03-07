@@ -1,7 +1,13 @@
 -- Rollback: remove NORMA Agent tables and columns added in migrations 028 and 029
 
--- Remove pg_cron job
-SELECT cron.unschedule('norma-agent-evaluate');
+-- Remove pg_cron job (safe no-op if it doesn't exist)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'norma-agent-evaluate') THEN
+    PERFORM cron.unschedule('norma-agent-evaluate');
+  END IF;
+END
+$$;
 
 -- Remove agent tracking columns from prediction_positions
 ALTER TABLE prediction_positions
