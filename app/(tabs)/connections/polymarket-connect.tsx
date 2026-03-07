@@ -1,8 +1,8 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { PolymarketConnect } from "../../../components/PolymarketConnect";
+import { PolymarketWizard } from "../../../components/PolymarketWizard";
 
 export default function PolymarketConnectScreen() {
   const router = useRouter();
@@ -17,20 +17,17 @@ export default function PolymarketConnectScreen() {
         <Text style={s.headerTitle}>Connect Polymarket</Text>
       </View>
 
-      <ScrollView
-        style={s.flex}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <PolymarketConnect onSuccess={() => router.back()} />
-      </ScrollView>
+      {/* Wizard manages its own ScrollView and footer */}
+      <PolymarketWizard
+        onSuccess={() => router.back()}
+        onBack={() => router.back()}
+      />
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
-  flex: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
