@@ -147,7 +147,7 @@ async function registerPushToken() {
           allowSound: true,
           allowBadge: true,
           allowProvisional: true,
-          allowCriticalAlert: true,
+          allowCriticalAlerts: true,
         },
       });
       finalStatus = status;

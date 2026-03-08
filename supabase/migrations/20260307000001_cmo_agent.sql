@@ -243,6 +243,11 @@ BEGIN
             'REPLACE_ME_SERVICE_ROLE_KEY'
         );
     END IF;
+EXCEPTION WHEN insufficient_privilege THEN
+    -- ALTER DATABASE requires superuser. In local/CI environments the migration
+    -- runner may not have that privilege — skip silently. Set these values
+    -- manually on the real database or via Supabase dashboard secrets.
+    NULL;
 END;
 $$;
 
