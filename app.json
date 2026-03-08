@@ -58,6 +58,7 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "NOTIFICATIONS",
+        "POST_NOTIFICATIONS",
         "READ_MEDIA_IMAGES"
       ]
     },

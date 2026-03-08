@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
       priority: "high",
       channelId: "game-alerts",
       badge: badgeCount,
+      ttl: 86400,
     };
 
     const pushRes = await fetch(EXPO_PUSH_URL, {
