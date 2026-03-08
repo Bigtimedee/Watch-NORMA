@@ -542,7 +542,7 @@ function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
 // ---------------------------------------------------------------------------
 
 export default function CMODashboardPage() {
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const supabaseRef = useRef<ReturnType<typeof getSupabaseClient> | null>(null);
 
   function getClient() {
     if (!supabaseRef.current) {
