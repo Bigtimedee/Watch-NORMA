@@ -262,7 +262,7 @@ function EditModal({
               rows={2}
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white
                 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none"
-     0        placeholder="Optional internal notes..."
+              placeholder="Optional internal notes..."
             />
           </div>
         </div>
