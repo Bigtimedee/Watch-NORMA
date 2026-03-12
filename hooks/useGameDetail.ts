@@ -99,11 +99,13 @@ export function useGameFollow(gameId: string) {
           .eq("id", query.data.id);
         if (error) throw error;
       } else {
-        // Follow
+        // Follow — populate both legacy and v2 entity columns
         const { error } = await supabase.from("follows").insert({
           user_id: user.id,
           game_id: gameId,
           follow_type: "game",
+          entity_type: "game",
+          entity_id: gameId,
         });
         if (error) throw error;
       }
