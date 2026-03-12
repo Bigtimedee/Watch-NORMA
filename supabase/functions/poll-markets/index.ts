@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
           // event_ticker may be returned directly, or we derive it by stripping
           // the -YES / -NO suffix from the market ticker.
           const eventTicker: string =
-            pos.event_ticker ?? ticker.replace(/-(?:YES|NO)$/i, "");
+            pos.event_ticker ?? ticker.replace(/-[A-Z]{2,6}$/, "");
           if (eventTicker && !eventTitleCache[eventTicker]) {
             try {
               const evtPath = `/trade-api/v2/events/${eventTicker}`;
@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
         for (const pos of positions) {
           const ticker = pos.market_ticker ?? pos.ticker ?? "";
           const eventTicker: string =
-            pos.event_ticker ?? ticker.replace(/-(?:YES|NO)$/i, "");
+            pos.event_ticker ?? ticker.replace(/-[A-Z]{2,6}$/, "");
           const qty = Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0);
           const existing = eventPositions[eventTicker];
           if (!existing) {
