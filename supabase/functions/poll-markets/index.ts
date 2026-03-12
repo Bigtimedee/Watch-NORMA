@@ -301,43 +301,71 @@ Deno.serve(async (req) => {
         const posData = await posRes.json();
         const positions = posData.market_positions ?? [];
 
-        // Enrich positions with market titles from the markets endpoint.
-        // Kalshi positions only return ticker, not title — we need to fetch each market.
-        const marketTitleCache: Record<string, string> = {};
+        // Bug fix 1: Fetch the EVENT title, not the market (contract) title.
+        // In Kalshi API v2, market.title is the YES/NO contract description
+        // (e.g. "Houston wins by over 1.5 points"), NOT the matchup name.
+        // The human-readable event title (e.g. "Houston at Louisville") lives
+        // on the event object at /trade-api/v2/events/{event_ticker}.
+        const eventTitleCache: Record<string, string> = {};
         for (const pos of positions) {
           const ticker = pos.market_ticker ?? pos.ticker ?? "";
-          if (ticker && !marketTitleCache[ticker]) {
+          // event_ticker may be returned directly, or we derive it by stripping
+          // the -YES / -NO suffix from the market ticker.
+          const eventTicker: string =
+            pos.event_ticker ?? ticker.replace(/-(?:YES|NO)$/i, "");
+          if (eventTicker && !eventTitleCache[eventTicker]) {
             try {
-              const mktPath = `/trade-api/v2/markets/${ticker}`;
-              const mktTs = Date.now().toString();
-              const mktSig = await signKalshiRequest(cryptoKey, mktTs, "GET", mktPath);
-              const mktRes = await fetch(`${KALSHI_API_BASE}${mktPath}`, {
+              const evtPath = `/trade-api/v2/events/${eventTicker}`;
+              const evtTs = Date.now().toString();
+              const evtSig = await signKalshiRequest(cryptoKey, evtTs, "GET", evtPath);
+              const evtRes = await fetch(`${KALSHI_API_BASE}${evtPath}`, {
                 headers: {
                   "KALSHI-ACCESS-KEY": meta.api_key_id,
-                  "KALSHI-ACCESS-SIGNATURE": mktSig,
-                  "KALSHI-ACCESS-TIMESTAMP": mktTs,
+                  "KALSHI-ACCESS-SIGNATURE": evtSig,
+                  "KALSHI-ACCESS-TIMESTAMP": evtTs,
                 },
               });
-              if (mktRes.ok) {
-                const mktData = await mktRes.json();
-                const market = mktData.market ?? mktData;
-                // Use event_ticker title, subtitle, or market title
-                marketTitleCache[ticker] = market.title ?? market.subtitle ?? market.event_ticker ?? ticker;
+              if (evtRes.ok) {
+                const evtData = await evtRes.json();
+                const event = evtData.event ?? evtData;
+                eventTitleCache[eventTicker] = event.title ?? eventTicker;
+              } else {
+                eventTitleCache[eventTicker] = eventTicker;
               }
             } catch (e) {
-              console.warn(`Failed to fetch market details for ${ticker}:`, e);
+              console.warn(`Failed to fetch event details for ${eventTicker}:`, e);
+              eventTitleCache[eventTicker] = eventTicker;
             }
           }
         }
 
+        // Bug fix 3: Deduplicate by event_ticker.
+        // Multiple Kalshi markets (YES/NO contracts or spread variants) can belong
+        // to the same event. Using market_ticker as the DB key creates duplicate
+        // rows for the same game. We group by event_ticker and keep the position
+        // with the largest quantity.
+        const eventPositions: Record<string, typeof positions[0]> = {};
         for (const pos of positions) {
           const ticker = pos.market_ticker ?? pos.ticker ?? "";
-          const marketTitle = marketTitleCache[ticker] || pos.market_title || ticker;
-          const gameId = matchMarketToGame(marketTitle, dbTeams ?? [], dbGames ?? []);
+          const eventTicker: string =
+            pos.event_ticker ?? ticker.replace(/-(?:YES|NO)$/i, "");
+          const qty = Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0);
+          const existing = eventPositions[eventTicker];
+          if (!existing) {
+            eventPositions[eventTicker] = pos;
+          } else {
+            const existingQty = Math.max(
+              existing.total_traded_yes ?? 0,
+              existing.total_traded_no ?? 0
+            );
+            if (qty > existingQty) eventPositions[eventTicker] = pos;
+          }
+        }
 
-          // Use ticker as market_id (most reliable unique identifier from Kalshi).
-          // Fallback to market_id, then generate from market_title to avoid empty-string collisions.
-          const marketId = ticker || pos.market_id || `kalshi-${marketTitle.slice(0, 100)}`;
+        const currentEventTickers: string[] = [];
+        for (const [eventTicker, pos] of Object.entries(eventPositions)) {
+          const marketTitle = eventTitleCache[eventTicker] ?? eventTicker;
+          const gameId = matchMarketToGame(marketTitle, dbTeams ?? [], dbGames ?? []);
 
           if (gameId) {
             positionsMatched++;
@@ -346,16 +374,17 @@ Deno.serve(async (req) => {
             console.warn(`[poll-markets] No game match for Kalshi position: "${marketTitle}"`);
           }
 
+          currentEventTickers.push(eventTicker);
+
           const { error } = await supabase.from("prediction_positions").upsert(
             {
               user_id: conn.user_id,
               platform: "kalshi",
-              market_id: marketId,
+              market_id: eventTicker,
               market_title: marketTitle,
               game_id: gameId,
               position_side: (pos.total_traded_yes ?? 0) > 0 ? "yes" : "no",
-              quantity:
-                Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0),
+              quantity: Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0),
               avg_price: pos.average_price ?? 0,
               current_price: pos.market_price ?? null,
               pnl: pos.realized_pnl ?? null,
@@ -366,6 +395,26 @@ Deno.serve(async (req) => {
           );
 
           if (!error) positionsUpserted++;
+        }
+
+        // Bug fix 2: Delete stale positions that are no longer in the user's
+        // Kalshi portfolio. Without this, resolved or sold positions persist
+        // in the DB indefinitely.
+        const { data: existingRows } = await supabase
+          .from("prediction_positions")
+          .select("id, market_id")
+          .eq("user_id", conn.user_id)
+          .eq("platform", "kalshi");
+
+        const staleIds = (existingRows ?? [])
+          .filter((row) => !currentEventTickers.includes(row.market_id))
+          .map((row) => row.id);
+
+        if (staleIds.length > 0) {
+          await supabase
+            .from("prediction_positions")
+            .delete()
+            .in("id", staleIds);
         }
       } catch (e) {
         console.warn(`Kalshi fetch error for user ${conn.user_id}:`, e);
