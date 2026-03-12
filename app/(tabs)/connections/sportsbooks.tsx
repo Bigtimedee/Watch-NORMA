@@ -8,6 +8,12 @@ import {
 } from "../../../hooks/useConnections";
 import { ConnectionToggle } from "../../../components/ConnectionToggle";
 
+// Tier A partner API providers — scaffolded for when partnerships are secured
+const TIER_A_PROVIDERS = [
+  { key: "draftkings_api", name: "DraftKings", icon: "trophy-outline" as const },
+  { key: "fanduel_api", name: "FanDuel", icon: "trophy-outline" as const },
+] as const;
+
 const FORWARDING_ADDRESS = "bets@getnorma.app";
 
 function EmailImportBanner() {
@@ -38,6 +44,31 @@ function EmailImportBanner() {
           Works with DraftKings, FanDuel, BetMGM, Caesars, and more.
         </Text>
       </View>
+    </View>
+  );
+}
+
+function TierABanner() {
+  return (
+    <View style={s.tierASection}>
+      <View style={s.tierAHeader}>
+        <Ionicons name="flash" size={14} color="#f59e0b" />
+        <Text style={s.tierALabel}>Direct sync — coming soon</Text>
+      </View>
+      <Text style={s.tierADesc}>
+        Automatic bet import directly from your sportsbook account. No email forwarding needed.
+      </Text>
+      {TIER_A_PROVIDERS.map((provider) => (
+        <View key={provider.key} style={s.tierARow}>
+          <View style={s.tierAIcon}>
+            <Ionicons name={provider.icon} size={18} color="#64748b" />
+          </View>
+          <Text style={s.tierAName}>{provider.name}</Text>
+          <View style={s.tierABadge}>
+            <Text style={s.tierABadgeText}>Coming soon</Text>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -74,7 +105,18 @@ export default function SportsbooksScreen() {
         <FlatList
           data={sportsbookProviders}
           keyExtractor={(item) => item.key}
-          ListHeaderComponent={<EmailImportBanner />}
+          ListHeaderComponent={
+            <>
+              <View style={s.tierSection}>
+                <Text style={s.tierSectionTitle}>Tier B — Email import</Text>
+              </View>
+              <EmailImportBanner />
+              <View style={s.tierSection}>
+                <Text style={s.tierSectionTitle}>Tier C — Manual entry</Text>
+              </View>
+            </>
+          }
+          ListFooterComponent={<TierABanner />}
           renderItem={({ item }) => {
             const conn = (connections ?? []).find(
               (c) => c.provider_key === item.key
@@ -132,4 +174,84 @@ const s = StyleSheet.create({
   },
   addressText: { color: "#a855f7", fontSize: 13, fontWeight: "600" },
   bannerHint: { color: "#64748b", fontSize: 12 },
+
+  // Tier labels
+  tierSection: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  tierSectionTitle: {
+    color: "#475569",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+
+  // Tier A coming soon block
+  tierASection: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 8,
+    backgroundColor: "rgba(30, 41, 59, 0.6)",
+    borderWidth: 1,
+    borderColor: "rgba(100, 116, 139, 0.2)",
+    borderRadius: 16,
+    padding: 16,
+  },
+  tierAHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  tierALabel: {
+    color: "#f59e0b",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  tierADesc: {
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  tierARow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(100, 116, 139, 0.12)",
+    gap: 12,
+  },
+  tierAIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierAName: {
+    color: "#64748b",
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+  },
+  tierABadge: {
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.25)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tierABadgeText: {
+    color: "#f59e0b",
+    fontSize: 11,
+    fontWeight: "600",
+  },
 });

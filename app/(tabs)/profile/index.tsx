@@ -209,7 +209,7 @@ export default function ProfileScreen() {
           <View style={s.settingsCard}>
             <View style={[s.settingsRow, s.settingsRowBorder]}>
               <Text style={s.aboutLabel}>Version</Text>
-              <Text style={s.settingsValue}>1.0.0</Text>
+              <Text style={s.settingsValue}>1.1.0</Text>
             </View>
             <View style={[s.settingsRow, s.settingsRowBorder]}>
               <Text style={s.aboutLabel}>Data by</Text>

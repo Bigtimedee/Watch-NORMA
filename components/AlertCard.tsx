@@ -18,6 +18,7 @@ import {
 import { useTapToStream } from "../lib/tap-to-stream-context";
 import { LIVE_STATUSES } from "../lib/constants";
 import { BetNowButton } from "./BetNowButton";
+import { WhyNowCard } from "./WhyNowCard";
 
 interface AlertCardProps {
   alert: Alert;
@@ -93,24 +94,7 @@ export function AlertCard({ alert }: AlertCardProps) {
 
           {/* "Why tune in" — structured explanation (v2) or plain text (v1) */}
           {alert.explanation ? (
-            <View style={[s.whyContainer, { borderLeftColor: color }]}>
-              {alert.explanation.headline && (
-                <Text style={s.whyHeadline}>{alert.explanation.headline}</Text>
-              )}
-              {alert.explanation.bullets?.map((bullet, i) => (
-                <Text key={i} style={s.whyBullet}>{"\u2022"} {bullet}</Text>
-              ))}
-              {alert.explanation.wager_impact && (
-                <View style={s.wagerImpact}>
-                  <Text style={s.wagerImpactText}>
-                    {alert.explanation.wager_impact.status === "covering" ? "Covering" :
-                     alert.explanation.wager_impact.status === "not_covering" ? "Not covering" :
-                     alert.explanation.wager_impact.status === "decided" ? "Decided" : "At risk"}
-                    {" \u2014 "}{alert.explanation.wager_impact.wager_description}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <WhyNowCard explanation={alert.explanation} accentColor={color} />
           ) : alert.why ? (
             <View style={[s.whyContainer, { borderLeftColor: color }]}>
               <Text style={s.why}>{alert.why}</Text>

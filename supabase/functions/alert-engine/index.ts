@@ -1,0 +1,617 @@
+// alert-engine v2: Staged alert pipeline (canonical v2 entrypoint)
+// Stage 0: Candidate Generation (follows + wagers + positions)
+// Stage 1: Signal Extraction
+// Stage 2: Scoring + Must-Notify Rules
+// Stage 2b: "Why Now" Explanation
+// Stage 3: Throttling + Dedup (via alert_throttle table)
+// Stage 4: Delivery Routing
+//
+// Trigger: Called by game-watcher-orchestrator per-game
+// Replaces: evaluate-alerts (kept for backward compat)
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+import {
+  evaluateSpread,
+  evaluateTotal,
+  evaluateMoneyline,
+  evaluateProp,
+  evaluatePosition,
+  evaluateResolved,
+  evaluatePredictionResolved,
+} from "../evaluate-alerts/logic.ts";
+import type {
+  GameState,
+  UserWager,
+  UserPosition,
+  SummaryStats,
+  AlertCandidate,
+} from "../evaluate-alerts/logic.ts";
+import {
+  extractSignals,
+  computeScore,
+  meetsThreshold,
+  buildWhyNow,
+  checkMustNotify,
+  determineAlertType,
+  computeDedupHash,
+} from "../_shared/alert-scoring.ts";
+import type { WhyNow } from "../_shared/alert-scoring.ts";
+import {
+  runAuction,
+  recordAuctionResult,
+  type AuctionInput,
+} from "../_shared/auction-engine.ts";
+
+const FUNCTION_NAME = "alert-engine";
+
+// Cooldown: minimum 5 minutes between same alert_type for same game per user
+const COOLDOWN_MS = 5 * 60 * 1000;
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const { gameId } = await req.json();
+    if (!gameId) {
+      return new Response(
+        JSON.stringify({ error: "gameId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // --- Get game state with team info ---
+    const { data: game, error: gameError } = await supabase
+      .from("games")
+      .select(`
+        *,
+        home_team:teams!games_home_team_id_fkey(name, abbreviation),
+        away_team:teams!games_away_team_id_fkey(name, abbreviation)
+      `)
+      .eq("id", gameId)
+      .single();
+
+    if (gameError || !game) {
+      return new Response(
+        JSON.stringify({ error: "Game not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const gameState = game as unknown as GameState;
+
+    // ─────────────────────────────────────────────────────────
+    // Stage 0: Candidate Generation
+    // v2: Alert users who FOLLOW teams/players/game — not just wager holders
+    // ─────────────────────────────────────────────────────────
+
+    // Users with active wagers on this game
+    const { data: wagers } = await supabase
+      .from("wagers")
+      .select("id, user_id, wager_type, team_id, line, odds, description, sportsbook, parsed_target")
+      .eq("game_id", gameId)
+      .eq("status", "active");
+
+    // Users with prediction positions on this game
+    const positionQuery = supabase
+      .from("prediction_positions")
+      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target, settled")
+      .eq("game_id", gameId);
+
+    if (gameState.status !== "closed") {
+      positionQuery.eq("settled", false);
+    }
+    const { data: positions } = await positionQuery;
+
+    // Users who follow either team playing in this game
+    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean);
+    let followUsers: Array<{ user_id: string; entity_type: string; entity_id: string }> = [];
+    if (teamIds.length > 0) {
+      const { data: teamFollows } = await supabase
+        .from("follows")
+        .select("user_id, entity_type, entity_id")
+        .in("entity_id", teamIds)
+        .eq("entity_type", "team");
+      if (teamFollows) followUsers.push(...teamFollows);
+    }
+
+    // Users who follow this specific game
+    const { data: gameFollows } = await supabase
+      .from("follows")
+      .select("user_id, entity_type, entity_id")
+      .eq("entity_id", gameId)
+      .eq("entity_type", "game");
+    if (gameFollows) followUsers.push(...gameFollows);
+
+    // Build per-user maps
+    const userWagerMap = new Map<string, UserWager[]>();
+    for (const w of (wagers ?? []) as UserWager[]) {
+      const list = userWagerMap.get(w.user_id) ?? [];
+      list.push(w);
+      userWagerMap.set(w.user_id, list);
+    }
+
+    const userPositionMap = new Map<string, UserPosition[]>();
+    for (const p of (positions ?? []) as UserPosition[]) {
+      const list = userPositionMap.get(p.user_id) ?? [];
+      list.push(p);
+      userPositionMap.set(p.user_id, list);
+    }
+
+    const userFollowTeamMap = new Map<string, string[]>();
+    for (const f of followUsers) {
+      if (f.entity_type === "team") {
+        const list = userFollowTeamMap.get(f.user_id) ?? [];
+        list.push(f.entity_id);
+        userFollowTeamMap.set(f.user_id, list);
+      }
+    }
+
+    const allUserIds = new Set([
+      ...userWagerMap.keys(),
+      ...userPositionMap.keys(),
+      ...followUsers.map((f) => f.user_id),
+    ]);
+
+    if (allUserIds.size === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          alertsSent: 0,
+          reason: "No interested users for this game",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Filter to users with notifications enabled
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, notifications_enabled")
+      .in("id", Array.from(allUserIds))
+      .eq("notifications_enabled", true);
+
+    const enabledUserIds = new Set((profiles ?? []).map((p: any) => p.id));
+
+    // Per-user notification preferences (caps, quiet hours, favorite players)
+    const { data: userPrefs } = await supabase
+      .from("user_preferences")
+      .select("user_id, notification_settings, favorite_players")
+      .in("user_id", Array.from(enabledUserIds));
+
+    const prefsMap = new Map(
+      (userPrefs ?? []).map((p: any) => [p.user_id, p])
+    );
+
+    // Latest Sportradar summary snapshot for advanced signal extraction
+    let summaryStats: SummaryStats | null = null;
+    const { data: summarySnapshots } = await supabase
+      .from("game_snapshots")
+      .select("payload")
+      .eq("game_id", gameId)
+      .eq("snapshot_type", "sportradar_summary")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (summarySnapshots?.length) {
+      const payload = summarySnapshots[0].payload as any;
+      if (payload?.source === "sportradar" && payload?.home && payload?.away) {
+        summaryStats = payload as SummaryStats;
+      }
+    }
+
+    // Recent lead changes from PBP (last ~5 min of game time via last 20 scoring plays)
+    let leadChangesRecent = 0;
+    try {
+      const { data: scoringEvents } = await supabase
+        .from("game_events")
+        .select("home_score_after, away_score_after, sequence")
+        .eq("game_id", gameId)
+        .eq("scoring_play", true)
+        .order("sequence", { ascending: true });
+
+      if (scoringEvents && scoringEvents.length >= 2) {
+        const recentEvents = scoringEvents.slice(-20);
+        let prevLeader: "home" | "away" | "tie" = "tie";
+        for (const ev of recentEvents) {
+          const h = ev.home_score_after ?? 0;
+          const a = ev.away_score_after ?? 0;
+          const leader = h > a ? "home" : a > h ? "away" : "tie";
+          if (leader !== "tie" && prevLeader !== "tie" && leader !== prevLeader) {
+            leadChangesRecent++;
+          }
+          if (leader !== "tie") prevLeader = leader;
+        }
+      }
+    } catch {
+      // Non-critical — proceed with 0
+    }
+
+    let totalAlerts = 0;
+    let suppressed = 0;
+    const alertsToSendPush: number[] = [];
+
+    // ─────────────────────────────────────────────────────────
+    // Process each candidate user
+    // ─────────────────────────────────────────────────────────
+    for (const userId of enabledUserIds) {
+      const userWagers = userWagerMap.get(userId) ?? [];
+      const userPositions = userPositionMap.get(userId) ?? [];
+      const userFollowTeams = userFollowTeamMap.get(userId) ?? [];
+      const prefs = prefsMap.get(userId);
+      const notifSettings = prefs?.notification_settings ?? {};
+      const favPlayers: Array<{ player_name: string }> = prefs?.favorite_players ?? [];
+      const maxAlertsPerGame = notifSettings.max_alerts_per_game ?? 5;
+      const maxAlertsPerHour = notifSettings.max_alerts_per_hour ?? 10;
+
+      // Per-game cap check
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: gameAlertCount } = await supabase
+        .from("alerts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .gte("created_at", oneHourAgo);
+
+      if ((gameAlertCount ?? 0) >= maxAlertsPerGame) {
+        suppressed++;
+        continue;
+      }
+
+      // Per-hour cap check
+      const { count: hourAlertCount } = await supabase
+        .from("alerts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", oneHourAgo);
+
+      if ((hourAlertCount ?? 0) >= maxAlertsPerHour) {
+        suppressed++;
+        continue;
+      }
+
+      // ── Stage 1: Signal Extraction ──────────────────────────
+      const positionTargets = userPositions
+        .map((p) => p.parsed_target ?? null)
+        .filter(Boolean);
+
+      const signals = extractSignals(
+        gameState,
+        summaryStats,
+        userFollowTeams,
+        favPlayers.map((p) => p.player_name),
+        userWagers,
+        userPositions.length > 0,
+        leadChangesRecent,
+        positionTargets as any[],
+      );
+
+      // ── Stage 2: Must-Notify Rules + Weighted Scoring ───────
+      const mustNotify = checkMustNotify(gameState, summaryStats, userWagers);
+      const score = computeScore(signals);
+
+      // v1 evaluators as supplemental signal for wager holders
+      const v1Candidates: AlertCandidate[] = [];
+      if (userWagers.length > 0) {
+        for (const wager of userWagers) {
+          const spread = evaluateSpread(gameState, wager, summaryStats);
+          if (spread) v1Candidates.push(spread);
+          const total = evaluateTotal(gameState, wager);
+          if (total) v1Candidates.push(total);
+          const ml = evaluateMoneyline(gameState, wager, summaryStats);
+          if (ml) v1Candidates.push(ml);
+          const prop = evaluateProp(gameState, wager, summaryStats);
+          if (prop) v1Candidates.push(prop);
+          const resolved = evaluateResolved(gameState, wager);
+          if (resolved) v1Candidates.push(resolved);
+        }
+      }
+
+      for (const position of userPositions) {
+        if (gameState.status === "closed" && (position as any).settled) {
+          const predResolved = evaluatePredictionResolved(gameState, position, summaryStats);
+          if (predResolved) v1Candidates.push(predResolved);
+        } else {
+          const posAlert = evaluatePosition(gameState, position, summaryStats);
+          if (posAlert) v1Candidates.push(posAlert);
+        }
+      }
+
+      const shouldAlert = mustNotify != null || meetsThreshold(score) || v1Candidates.length > 0;
+
+      console.log(JSON.stringify({
+        function: FUNCTION_NAME,
+        event: "user_evaluation",
+        gameId,
+        userId,
+        gameStatus: gameState.status,
+        gamePeriod: gameState.period,
+        gameClock: gameState.clock,
+        wagerCount: userWagers.length,
+        positionCount: userPositions.length,
+        followTeamCount: userFollowTeams.length,
+        mustNotify: mustNotify?.alertType ?? null,
+        score,
+        meetsThreshold: meetsThreshold(score),
+        v1CandidateCount: v1Candidates.length,
+        shouldAlert,
+        hasSummaryData: !!summaryStats,
+      }));
+
+      if (!shouldAlert) continue;
+
+      // ── Stage 2b: "Why Now" Explanation ─────────────────────
+      const alertType = v1Candidates.length > 0
+        ? v1Candidates[0].alertType
+        : determineAlertType(signals, mustNotify, userWagers);
+
+      const whyNow = buildWhyNow(gameState, signals, score, userWagers, mustNotify);
+
+      const title = v1Candidates.length > 0 ? v1Candidates[0].title : whyNow.headline;
+      const body = v1Candidates.length > 0 ? v1Candidates[0].body : (whyNow.bullets[0] ?? "");
+      const whyText = v1Candidates.length > 0
+        ? v1Candidates[0].why
+        : whyNow.bullets.join(" ");
+
+      // ── Stage 3: Throttle + Dedup ────────────────────────────
+      const dedupHash = computeDedupHash(
+        userId,
+        gameId,
+        alertType,
+        signals.margin,
+        signals.period,
+        signals.proximity_level ?? undefined
+      );
+
+      // Dedup hash check against alert_throttle table
+      const { data: existingThrottle } = await supabase
+        .from("alert_throttle")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .eq("alert_type", alertType)
+        .eq("dedup_hash", dedupHash)
+        .limit(1);
+
+      if (existingThrottle?.length) {
+        console.log(JSON.stringify({
+          function: FUNCTION_NAME,
+          event: "dedup_blocked",
+          gameId,
+          userId,
+          alertType,
+          dedupHash,
+        }));
+        continue;
+      }
+
+      // 5-minute cooldown between same alert_type per game
+      const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
+      const { data: recentAlerts } = await supabase
+        .from("alerts")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("game_id", gameId)
+        .eq("alert_type", alertType)
+        .gte("created_at", cooldownCutoff)
+        .limit(1);
+
+      if (recentAlerts?.length) {
+        console.log(JSON.stringify({
+          function: FUNCTION_NAME,
+          event: "cooldown_blocked",
+          gameId,
+          userId,
+          alertType,
+        }));
+        continue;
+      }
+
+      // Quiet hours → suppress push, still deliver in-app
+      let suppressPush = false;
+      if (notifSettings.quiet_hours_start && notifSettings.quiet_hours_end) {
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const { quiet_hours_start: start, quiet_hours_end: end } = notifSettings;
+        suppressPush = start > end
+          ? currentTime >= start || currentTime < end   // overnight span
+          : currentTime >= start && currentTime < end;  // same-day span
+      }
+
+      // ── Stage 3.5: Ad Auction ────────────────────────────────
+      const userSegment = userWagers.length > 0
+        ? "wager_holder"
+        : userPositions.length > 0
+        ? "position_holder"
+        : "team_follower";
+
+      let auctionResult: Awaited<ReturnType<typeof runAuction>> = null;
+      try {
+        const auctionInput: AuctionInput = {
+          game_id: gameId,
+          moment_type: alertType,
+          alert_score: score,
+          user_id: userId,
+          user_segment: userSegment,
+          tournament_round: gameState.tournament_round ?? null,
+          period: gameState.period ?? null,
+        };
+        auctionResult = await runAuction(supabase, auctionInput);
+
+        if (auctionResult) {
+          console.log(JSON.stringify({
+            function: FUNCTION_NAME,
+            event: "auction_won",
+            gameId,
+            userId,
+            alertType,
+            winningBidId: auctionResult.winning_bid_id,
+            clearingPrice: auctionResult.clearing_price_cents,
+          }));
+        }
+      } catch (auctionErr) {
+        // Auction failure must never block alert delivery
+        console.warn(JSON.stringify({
+          function: FUNCTION_NAME,
+          event: "auction_error",
+          gameId,
+          userId,
+          error: (auctionErr as Error).message,
+        }));
+      }
+
+      // ── Stage 4: Insert alert + delivery ────────────────────
+      const { data: newAlert, error: insertError } = await supabase
+        .from("alerts")
+        .insert({
+          user_id: userId,
+          game_id: gameId,
+          alert_type: alertType,
+          title,
+          body,
+          why: whyText,
+          score,
+          explanation: whyNow,
+          suppressed_reason: suppressPush ? "quiet_hours" : null,
+          sponsor_bid_id: auctionResult?.winning_bid_id ?? null,
+          sponsor_text: auctionResult?.sponsor_text ?? null,
+          sponsor_cta_url: auctionResult?.sponsor_cta_url ?? null,
+          sponsor_logo_url: auctionResult?.sponsor_logo_url ?? null,
+          clearing_price_cents: auctionResult?.clearing_price_cents ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !newAlert) {
+        console.warn(JSON.stringify({
+          function: FUNCTION_NAME,
+          event: "insert_failed",
+          gameId,
+          userId,
+          alertType,
+          error: insertError?.message ?? "unknown",
+        }));
+        continue;
+      }
+
+      console.log(JSON.stringify({
+        function: FUNCTION_NAME,
+        event: "alert_created",
+        gameId,
+        userId,
+        alertId: newAlert.id,
+        alertType,
+        title,
+        score,
+        suppressPush,
+      }));
+
+      // Record auction impression + spend
+      if (auctionResult) {
+        try {
+          await recordAuctionResult(supabase, auctionResult, {
+            game_id: gameId,
+            moment_type: alertType,
+            alert_score: score,
+            user_id: userId,
+            user_segment: userSegment,
+            tournament_round: gameState.tournament_round ?? null,
+            period: gameState.period ?? null,
+          }, newAlert.id);
+        } catch (recordErr) {
+          console.warn(JSON.stringify({
+            function: FUNCTION_NAME,
+            event: "record_auction_error",
+            alertId: newAlert.id,
+            error: (recordErr as Error).message,
+          }));
+        }
+      }
+
+      // Record throttle entry to prevent duplicate alerts
+      await supabase
+        .from("alert_throttle")
+        .insert({
+          user_id: userId,
+          game_id: gameId,
+          alert_type: alertType,
+          dedup_hash: dedupHash,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.log(JSON.stringify({
+              function: FUNCTION_NAME,
+              event: "throttle_insert_ignored",
+              gameId,
+              userId,
+              error: error.message,
+            }));
+          }
+        });
+
+      totalAlerts++;
+      if (!suppressPush) alertsToSendPush.push(newAlert.id);
+    }
+
+    // Dispatch push notifications
+    for (const alertId of alertsToSendPush) {
+      try {
+        await supabase.functions.invoke("send-push", { body: { alertId } });
+      } catch (e) {
+        console.warn(JSON.stringify({
+          function: FUNCTION_NAME,
+          event: "push_dispatch_error",
+          alertId,
+          error: (e as Error).message,
+        }));
+      }
+    }
+
+    const duration_ms = Date.now() - startTime;
+    const result = {
+      success: true,
+      usersEvaluated: enabledUserIds.size,
+      usersWithWagers: userWagerMap.size,
+      usersWithPositions: userPositionMap.size,
+      usersWithFollows: userFollowTeamMap.size,
+      alertsSent: totalAlerts,
+      alertsSuppressed: suppressed,
+      pushSent: alertsToSendPush.length,
+      hasSummaryData: !!summaryStats,
+    };
+
+    console.log(JSON.stringify({
+      function: FUNCTION_NAME,
+      event: "completed",
+      gameId,
+      ...result,
+      duration_ms,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error(JSON.stringify({
+      function: FUNCTION_NAME,
+      event: "error",
+      error: (error as Error).message,
+      duration_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    }));
+    return new Response(
+      JSON.stringify({ error: (error as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

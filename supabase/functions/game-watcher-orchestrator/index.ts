@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     }
 
     // --- Step 2: Deactivate watchers for games no longer active ---
-    // IMPORTANT: Before deactivating, run a FINAL evaluate-alerts for games
+    // IMPORTANT: Before deactivating, run a FINAL alert-engine pass for games
     // that just closed so "bet_resolved" alerts fire.
     const { data: staleWatchers } = await supabase
       .from("watcher_state")
@@ -132,11 +132,11 @@ Deno.serve(async (req) => {
 
       const closedGameIds = (closedGames ?? []).map((g: any) => g.id);
 
-      // Run final evaluate-alerts for each closed game (bet_resolved alerts)
+      // Run final alert-engine pass for each closed game (bet_resolved alerts)
       let finalAlertsDispatched = 0;
       for (const gameId of closedGameIds) {
         try {
-          await supabase.functions.invoke("evaluate-alerts", {
+          await supabase.functions.invoke("alert-engine", {
             body: { gameId },
           });
           finalAlertsDispatched++;
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
 
       for (const row of alertDue ?? []) {
         try {
-          await supabase.functions.invoke("evaluate-alerts", {
+          await supabase.functions.invoke("alert-engine", {
             body: { gameId: row.game_id },
           });
 
