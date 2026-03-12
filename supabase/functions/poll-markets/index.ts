@@ -349,15 +349,12 @@ Deno.serve(async (req) => {
           const ticker = pos.market_ticker ?? pos.ticker ?? "";
           const eventTicker: string =
             pos.event_ticker ?? ticker.replace(/-[A-Z]{2,6}$/, "");
-          const qty = Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0);
+          const qty = Math.abs(pos.position_fp ?? 0);
           const existing = eventPositions[eventTicker];
           if (!existing) {
             eventPositions[eventTicker] = pos;
           } else {
-            const existingQty = Math.max(
-              existing.total_traded_yes ?? 0,
-              existing.total_traded_no ?? 0
-            );
+            const existingQty = Math.abs(existing.position_fp ?? 0);
             if (qty > existingQty) eventPositions[eventTicker] = pos;
           }
         }
@@ -383,12 +380,14 @@ Deno.serve(async (req) => {
               market_id: eventTicker,
               market_title: marketTitle,
               game_id: gameId,
-              position_side: (pos.total_traded_yes ?? 0) > 0 ? "yes" : "no",
-              quantity: Math.max(pos.total_traded_yes ?? 0, pos.total_traded_no ?? 0),
-              avg_price: pos.average_price ?? 0,
-              current_price: pos.market_price ?? null,
-              pnl: pos.realized_pnl ?? null,
-              settled: pos.is_settled ?? false,
+              position_side: (pos.position_fp ?? 0) >= 0 ? "yes" : "no",
+              quantity: Math.abs(pos.position_fp ?? 0),
+              avg_price: pos.market_exposure_dollars != null
+                ? parseFloat(pos.market_exposure_dollars) / (Math.abs(pos.position_fp ?? 1) || 1)
+                : 0,
+              current_price: null,
+              pnl: pos.realized_pnl_dollars != null ? parseFloat(pos.realized_pnl_dollars) : null,
+              settled: false,
               fetched_at: new Date().toISOString(),
             },
             { onConflict: "user_id,platform,market_id", ignoreDuplicates: false }
