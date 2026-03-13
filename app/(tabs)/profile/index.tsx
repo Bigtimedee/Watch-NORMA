@@ -3,6 +3,7 @@ import { View, Text, Pressable, Switch, Alert, ScrollView, Linking, StyleSheet }
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
@@ -209,7 +210,7 @@ export default function ProfileScreen() {
           <View style={s.settingsCard}>
             <View style={[s.settingsRow, s.settingsRowBorder]}>
               <Text style={s.aboutLabel}>Version</Text>
-              <Text style={s.settingsValue}>1.0.0</Text>
+              <Text style={s.settingsValue}>{Constants.expoConfig?.version ?? "1.0.0"}</Text>
             </View>
             <View style={[s.settingsRow, s.settingsRowBorder]}>
               <Text style={s.aboutLabel}>Data by</Text>
