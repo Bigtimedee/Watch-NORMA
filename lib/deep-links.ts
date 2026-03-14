@@ -35,15 +35,24 @@ export async function openStreamingApp(
     }
   }
 
-  // Step 2: Try universal link (DB field), then legacy watch URL fallback
-  const universalLink = provider.universal_link ?? null;
-  const watchUrl = universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
-  if (watchUrl) {
-    try {
-      await Linking.openURL(watchUrl);
-      return { opened: true, fallback: true, method: universalLink ? "universal_link" : "web_url" };
-    } catch {
-      // Fall through to app store
+  // Step 2: Try universal link (DB field), then legacy watch URL fallback.
+  // TV providers (YouTube TV, Fubo, Sling, etc.) are skipped here — their web
+  // experience requires authentication and silently redirects unauthenticated
+  // users to a welcome/sign-up page (e.g. tv.youtube.com/welcome?rd_rsn=lo).
+  // Linking.openURL never throws for HTTPS, so we would never reach the App
+  // Store fallback below. For TV providers, send straight to App Store instead.
+  const isLiveTvProvider =
+    provider.provider_type === "tv" || provider.category === "tv";
+  if (!isLiveTvProvider) {
+    const universalLink = provider.universal_link ?? null;
+    const watchUrl = universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
+    if (watchUrl) {
+      try {
+        await Linking.openURL(watchUrl);
+        return { opened: true, fallback: true, method: universalLink ? "universal_link" : "web_url" };
+      } catch {
+        // Fall through to app store
+      }
     }
   }
 
@@ -66,18 +75,12 @@ export async function openStreamingApp(
  * Get the direct watch/live URL for a provider (not marketing homepage).
  */
 function getWatchUrl(providerKey: string, defaultWebUrl: string): string {
+  // Only streaming providers (not live TV) — TV providers skip Step 2 entirely.
   const watchUrls: Record<string, string> = {
     espn_plus: "https://plus.espn.com/watch",
     paramount_plus: "https://www.paramountplus.com/live-tv/",
     peacock: "https://www.peacocktv.com/watch/live-tv",
     max: "https://play.max.com",
-    youtube_tv: "https://tv.youtube.com/live",
-    hulu_live: "https://www.hulu.com/live-tv",
-    fubo: "https://www.fubo.tv/welcome",
-    sling: "https://watch.sling.com",
-    directv_stream: "https://stream.directv.com/watchnow",
-    xfinity: "https://www.xfinity.com/stream/live-tv",
-    spectrum: "https://watch.spectrum.net/livetv",
   };
   return watchUrls[providerKey] ?? defaultWebUrl;
 }
@@ -101,15 +104,20 @@ export async function resolveDeepLinkUrl(
     return { url: provider.android_deep_link, method: "native_app" };
   }
 
-  // Step 2: Try universal link, then legacy watch URL
-  const universalLink = provider.universal_link ?? null;
-  const watchUrl =
-    universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
-  if (watchUrl) {
-    return {
-      url: watchUrl,
-      method: universalLink ? "universal_link" : "web_url",
-    };
+  // Step 2: Try universal link, then legacy watch URL.
+  // Skip for TV providers — see comment in openStreamingApp above.
+  const isLiveTvProvider =
+    provider.provider_type === "tv" || provider.category === "tv";
+  if (!isLiveTvProvider) {
+    const universalLink = provider.universal_link ?? null;
+    const watchUrl =
+      universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
+    if (watchUrl) {
+      return {
+        url: watchUrl,
+        method: universalLink ? "universal_link" : "web_url",
+      };
+    }
   }
 
   // Step 3: Fallback to App Store
