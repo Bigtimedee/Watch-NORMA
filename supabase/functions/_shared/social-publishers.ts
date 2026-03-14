@@ -24,12 +24,14 @@ export interface SocialAccount {
 export interface SocialPost {
   id: number;
   platform: string;
+  status?: string | null;
   post_type: string;
   content_text: string | null;
   image_url: string | null;
   scenario: string | null;
   post_format?: string | null;       // standard | carousel | poll | link
   format_metadata?: Record<string, unknown> | null;
+  retry_count?: number | null;       // incremented by publish-social-posts on failure
 }
 
 export interface PublishResult {

@@ -44,7 +44,7 @@ interface AnthropicResponse {
 // ---------------------------------------------------------------------------
 
 const PLATFORM = "twitter";
-const ANTHROPIC_MODEL = "claude-opus-4-5";
+const ANTHROPIC_MODEL = "claude-opus-4-6";
 const MAX_TWEET_LENGTH = 280;
 
 // Optimal posting windows in Eastern Time (converted to UTC offset logic handled at scheduling)

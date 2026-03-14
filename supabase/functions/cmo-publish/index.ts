@@ -222,26 +222,18 @@ async function countPublishedToday(
   supabase: ReturnType<typeof createClient>,
   platform: string,
 ): Promise<number> {
-  const startOfDayET = new Date();
-  // Approximate ET by subtracting 5 hours from UTC (conservative — uses EST year-round)
-  // A production implementation would use a proper timezone library.
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() - 5);
-  startOfDayET.setUTCHours(0, 0, 0, 0);
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() + 5);
-
-  const { count, error } = await supabase
-    .from("content_calendar")
-    .select("id", { count: "exact", head: true })
-    .eq("platform", platform)
-    .eq("status", "published")
-    .gte("published_at", startOfDayET.toISOString());
+  // Delegate to the SQL function which uses AT TIME ZONE 'America/New_York'
+  // and therefore handles EST/EDT transitions correctly.
+  const { data, error } = await supabase.rpc("content_calendar_published_today", {
+    p_platform: platform,
+  });
 
   if (error) {
     console.error(`[cmo-publish] Error counting today's posts: ${error.message}`);
     return 0;
   }
 
-  return count ?? 0;
+  return (data as number) ?? 0;
 }
 
 // ---------------------------------------------------------------------------
