@@ -3,6 +3,12 @@
     "name": "NORMA",
     "slug": "norma",
     "version": "1.1.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3a418868-5bb5-4852-b565-3282ee4fe91e"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
