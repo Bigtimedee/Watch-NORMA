@@ -56,6 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [client, deno, migrations]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,7 +66,9 @@ jobs:
           cache: npm
       - run: npm ci --legacy-peer-deps
       - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - run: eas update --auto --non-interactive
+        if: env.EXPO_TOKEN != ''
