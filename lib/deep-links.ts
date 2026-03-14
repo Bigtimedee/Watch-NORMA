@@ -13,26 +13,16 @@ export async function openStreamingApp(
   provider: StreamingProvider,
   _gameTitle?: string
 ): Promise<{ opened: boolean; fallback: boolean; method: string }> {
-  // Step 1: Try native app deep link
+  // Step 1: Try native app deep link.
+  // Skip canOpenURL — it requires the scheme in LSApplicationQueriesSchemes in
+  // the compiled binary, which may lag behind app.json changes. openURL itself
+  // has no such restriction and will open the app if installed, throwing if not.
   if (Platform.OS === "ios" && provider.ios_scheme) {
     try {
-      const canOpen = await Linking.canOpenURL(provider.ios_scheme);
-      if (canOpen) {
-        await Linking.openURL(provider.ios_scheme);
-        return { opened: true, fallback: false, method: "native_app" };
-      }
+      await Linking.openURL(provider.ios_scheme);
+      return { opened: true, fallback: false, method: "native_app" };
     } catch {
-      // canOpenURL can fail silently on first call after install — retry once
-      try {
-        await new Promise((r) => setTimeout(r, 100));
-        const canOpenRetry = await Linking.canOpenURL(provider.ios_scheme);
-        if (canOpenRetry) {
-          await Linking.openURL(provider.ios_scheme);
-          return { opened: true, fallback: false, method: "native_app_retry" };
-        }
-      } catch {
-        // Fall through to universal link
-      }
+      // App not installed — fall through to universal link
     }
   }
 
@@ -100,25 +90,11 @@ function getWatchUrl(providerKey: string, defaultWebUrl: string): string {
 export async function resolveDeepLinkUrl(
   provider: StreamingProvider
 ): Promise<{ url: string; method: string } | null> {
-  // Step 1: Try native app scheme
+  // Step 1: Try native app scheme.
+  // Return the scheme directly — openURL (not canOpenURL) will be used at call
+  // time, bypassing the LSApplicationQueriesSchemes binary restriction.
   if (Platform.OS === "ios" && provider.ios_scheme) {
-    try {
-      const canOpen = await Linking.canOpenURL(provider.ios_scheme);
-      if (canOpen) {
-        return { url: provider.ios_scheme, method: "native_app" };
-      }
-    } catch {
-      // canOpenURL can fail silently on first call after install — retry once
-      try {
-        await new Promise((r) => setTimeout(r, 100));
-        const canOpenRetry = await Linking.canOpenURL(provider.ios_scheme);
-        if (canOpenRetry) {
-          return { url: provider.ios_scheme, method: "native_app" };
-        }
-      } catch {
-        // Fall through to universal link
-      }
-    }
+    return { url: provider.ios_scheme, method: "native_app" };
   }
 
   if (Platform.OS === "android" && provider.android_deep_link) {
