@@ -388,8 +388,7 @@ export async function publishToFacebook(
 
   // Attach image if present
   if (post.image_url) {
-    body.set("url",        post.image_url);
-    body.set("media_fbid", ""); // Graph API will use url for photo posts
+    body.set("url", post.image_url);
   }
 
   const endpoint = post.image_url
@@ -579,11 +578,7 @@ export async function publishToReddit(
   }
 
   const data = await res.json();
-  const postUrl: string =
-    data?.jquery?.find?.((x: unknown[]) => Array.isArray(x) && x[3] === "call" && typeof x[1] === "object")
-      ?.flat()?.find((x: unknown) => typeof x === "string" && x.startsWith("https://")) ??
-    data?.data?.url ??
-    `https://reddit.com/r/${subreddit}`;
+  const postUrl: string = data?.data?.url ?? `https://reddit.com/r/${subreddit}`;
 
   return { platform_post_id: postUrl };
 }
