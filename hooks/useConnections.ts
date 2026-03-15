@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import type { Connection, StreamingProvider } from "../lib/types";
+import type { Connection, StreamingProvider, ProviderType } from "../lib/types";
 
 /** Fetch all available streaming providers from the catalog */
 export function useStreamingProviders(type?: ProviderType) {

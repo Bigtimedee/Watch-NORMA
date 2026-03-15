@@ -45,26 +45,24 @@ function logDeepLinkEvent(payload: DeepLinkEventPayload): void {
   const { data: sessionData } = supabase.auth.getSession() as any;
   const userId: string | null = sessionData?.session?.user?.id ?? null;
 
-  supabase
-    .from("deep_link_events")
-    .insert({
-      user_id: userId,
-      provider_key: payload.provider_key,
-      method: payload.method,
-      success: payload.success,
-      fallback_triggered: payload.fallback_triggered,
-      url_scheme: payload.url_scheme,
-      platform: payload.platform,
-    })
-    .then(({ error }) => {
-      if (error) {
-        // Intentionally a no-op — logging must never surface to the user.
-        // Errors here are acceptable (e.g., offline, unauthenticated).
-      }
-    })
-    .catch(() => {
-      // Same: absorb all errors silently.
-    });
+  void (async () => {
+    try {
+      await supabase
+        .from("deep_link_events")
+        .insert({
+          user_id: userId,
+          provider_key: payload.provider_key,
+          method: payload.method,
+          success: payload.success,
+          fallback_triggered: payload.fallback_triggered,
+          url_scheme: payload.url_scheme,
+          platform: payload.platform,
+        });
+    } catch {
+      // Intentionally a no-op — logging must never surface to the user.
+      // Errors here are acceptable (e.g., offline, unauthenticated).
+    }
+  })();
 }
 
 /**
