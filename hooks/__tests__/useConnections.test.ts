@@ -218,7 +218,7 @@ describe("useConnections() — regression: provider_type mismatch", () => {
       (mockSupabase.from as jest.Mock).mockReturnValue(qbOld);
 
       const { result: resultOld, unmount } = renderHook(
-        () => useConnections("tv"),
+        () => useConnections(),
         { wrapper: createWrapper() }
       );
       await waitFor(() => expect(resultOld.current.isSuccess).toBe(true));
