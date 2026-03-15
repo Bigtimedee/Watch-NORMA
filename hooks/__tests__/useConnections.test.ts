@@ -188,22 +188,23 @@ describe("useConnections() — regression: provider_type mismatch", () => {
             ? rows.filter((c) => c.provider_type === filterType)
             : rows;
 
-        const qb: Record<string, jest.Mock> = {};
+        let capturedTypeFilter: string | undefined;
+        const qb: Record<string, jest.Mock> = {} as Record<string, jest.Mock>;
         const chain = () => qb;
         qb.select = jest.fn(chain);
         qb.order = jest.fn(chain);
         qb.limit = jest.fn(chain);
-        // .eq() applies client-side filtering only for this test's simulation
-        qb.eq = jest.fn((field: string, value: unknown) => {
+        // .eq() captures provider_type filters for this test's simulation
+        qb.eq = jest.fn((field: string, value: string) => {
           if (field === "provider_type") {
-            qb._filteredByType = value;
+            capturedTypeFilter = value;
           }
           return qb;
         });
         qb.then = jest.fn((resolve: (v: unknown) => void) =>
           Promise.resolve({
-            data: qb._filteredByType !== undefined
-              ? filteredRows.filter((c) => c.provider_type === qb._filteredByType)
+            data: capturedTypeFilter !== undefined
+              ? filteredRows.filter((c) => c.provider_type === capturedTypeFilter)
               : filteredRows,
             error: null,
           }).then(resolve)
