@@ -330,16 +330,16 @@ serve(async (req: Request): Promise<Response> => {
   // ---------------------------------------------------------------------------
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const xConsumerKey = Deno.env.get("X_CONSUMER_KEY");
-  const xConsumerSecret = Deno.env.get("X_CONSUMER_SECRET");
+  const xConsumerKey = Deno.env.get("X_API_KEY");
+  const xConsumerSecret = Deno.env.get("X_API_SECRET");
   const xAccessToken = Deno.env.get("X_ACCESS_TOKEN");
   const xAccessTokenSecret = Deno.env.get("X_ACCESS_TOKEN_SECRET");
 
   const missing = [
     !supabaseUrl && "SUPABASE_URL",
     !supabaseServiceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    !xConsumerKey && "X_CONSUMER_KEY",
-    !xConsumerSecret && "X_CONSUMER_SECRET",
+    !xConsumerKey && "X_API_KEY",
+    !xConsumerSecret && "X_API_SECRET",
     !xAccessToken && "X_ACCESS_TOKEN",
     !xAccessTokenSecret && "X_ACCESS_TOKEN_SECRET",
   ].filter(Boolean);
