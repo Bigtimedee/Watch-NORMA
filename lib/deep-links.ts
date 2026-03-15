@@ -1,11 +1,77 @@
 import { Platform, Linking } from "react-native";
 import type { StreamingProvider } from "./types";
+import { supabase } from "./supabase";
+
+// ---------------------------------------------------------------------------
+// Observability: fire-and-forget structured event logging
+// ---------------------------------------------------------------------------
+
+interface DeepLinkEventPayload {
+  provider_key: string;
+  method: "native_scheme" | "universal_link" | "app_store" | "no_fallback";
+  success: boolean;
+  fallback_triggered: boolean;
+  url_scheme: string | null;
+  platform: "ios" | "android" | "web";
+}
+
+/**
+ * Extract scheme+host from a URL so we never log full URLs (which may carry
+ * tokens or other PII in path/query segments).
+ * Examples:
+ *   "youtube-tv://" -> "youtube-tv://"
+ *   "https://apps.apple.com/app/youtube-tv/id1193350206" -> "https://apps.apple.com"
+ */
+function maskUrlToSchemeHost(url: string): string {
+  try {
+    // Custom schemes like "youtube-tv://" won't parse cleanly via URL() —
+    // return the scheme portion only.
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      const colonSlash = url.indexOf("://");
+      return colonSlash !== -1 ? url.slice(0, colonSlash + 3) : url;
+    }
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return url.slice(0, 64); // best-effort truncation
+  }
+}
+
+/**
+ * Insert a single deep_link_events row. Fire-and-forget: never awaited,
+ * never throws, never blocks the deep link opening.
+ */
+function logDeepLinkEvent(payload: DeepLinkEventPayload): void {
+  const { data: sessionData } = supabase.auth.getSession() as any;
+  const userId: string | null = sessionData?.session?.user?.id ?? null;
+
+  supabase
+    .from("deep_link_events")
+    .insert({
+      user_id: userId,
+      provider_key: payload.provider_key,
+      method: payload.method,
+      success: payload.success,
+      fallback_triggered: payload.fallback_triggered,
+      url_scheme: payload.url_scheme,
+      platform: payload.platform,
+    })
+    .then(({ error }) => {
+      if (error) {
+        // Intentionally a no-op — logging must never surface to the user.
+        // Errors here are acceptable (e.g., offline, unauthenticated).
+      }
+    })
+    .catch(() => {
+      // Same: absorb all errors silently.
+    });
+}
 
 /**
  * Attempt to open a streaming app for a given provider.
  * Fallback chain:
  *   1. Native app (iOS scheme / Android deep link)
- *   2. Universal link (from DB) or legacy watch URL
+ *   2. Universal link (from DB) — only if non-null
  *   3. App Store / Play Store (fallback_store_url or ios_app_store_url)
  *   4. Nothing available
  */
@@ -35,24 +101,17 @@ export async function openStreamingApp(
     }
   }
 
-  // Step 2: Try universal link (DB field), then legacy watch URL fallback.
-  // TV providers (YouTube TV, Fubo, Sling, etc.) are skipped here — their web
-  // experience requires authentication and silently redirects unauthenticated
-  // users to a welcome/sign-up page (e.g. tv.youtube.com/welcome?rd_rsn=lo).
-  // Linking.openURL never throws for HTTPS, so we would never reach the App
-  // Store fallback below. For TV providers, send straight to App Store instead.
-  const isLiveTvProvider =
-    provider.provider_type === "tv" || provider.category === "tv";
-  if (!isLiveTvProvider) {
-    const universalLink = provider.universal_link ?? null;
-    const watchUrl = universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
-    if (watchUrl) {
-      try {
-        await Linking.openURL(watchUrl);
-        return { opened: true, fallback: true, method: universalLink ? "universal_link" : "web_url" };
-      } catch {
-        // Fall through to app store
-      }
+  // Step 2: Try universal link (DB field) only when explicitly set.
+  // Subscriber-only web URLs (tv.youtube.com/live, etc.) are intentionally
+  // left NULL in the DB — they redirect unauthenticated mobile browsers to
+  // sign-up pages. When universal_link is NULL, skip directly to App Store.
+  const universalLink = provider.universal_link ?? null;
+  if (universalLink) {
+    try {
+      await Linking.openURL(universalLink);
+      return { opened: true, fallback: true, method: "universal_link" };
+    } catch {
+      // Fall through to app store
     }
   }
 
@@ -69,20 +128,6 @@ export async function openStreamingApp(
 
   // Step 4: Nothing available
   return { opened: false, fallback: false, method: "none" };
-}
-
-/**
- * Get the direct watch/live URL for a provider (not marketing homepage).
- */
-function getWatchUrl(providerKey: string, defaultWebUrl: string): string {
-  // Only streaming providers (not live TV) — TV providers skip Step 2 entirely.
-  const watchUrls: Record<string, string> = {
-    espn_plus: "https://plus.espn.com/watch",
-    paramount_plus: "https://www.paramountplus.com/live-tv/",
-    peacock: "https://www.peacocktv.com/watch/live-tv",
-    max: "https://play.max.com",
-  };
-  return watchUrls[providerKey] ?? defaultWebUrl;
 }
 
 /**
@@ -104,20 +149,13 @@ export async function resolveDeepLinkUrl(
     return { url: provider.android_deep_link, method: "native_app" };
   }
 
-  // Step 2: Try universal link, then legacy watch URL.
-  // Skip for TV providers — see comment in openStreamingApp above.
-  const isLiveTvProvider =
-    provider.provider_type === "tv" || provider.category === "tv";
-  if (!isLiveTvProvider) {
-    const universalLink = provider.universal_link ?? null;
-    const watchUrl =
-      universalLink ?? getWatchUrl(provider.key, provider.web_url ?? "");
-    if (watchUrl) {
-      return {
-        url: watchUrl,
-        method: universalLink ? "universal_link" : "web_url",
-      };
-    }
+  // Step 2: Try universal link (DB field) only when explicitly set.
+  // Subscriber-only web URLs are intentionally NULL in the DB — they redirect
+  // unauthenticated mobile browsers to sign-up pages. When universal_link is
+  // NULL, skip directly to App Store.
+  const universalLink = provider.universal_link ?? null;
+  if (universalLink) {
+    return { url: universalLink, method: "universal_link" };
   }
 
   // Step 3: Fallback to App Store
