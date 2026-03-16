@@ -76,8 +76,16 @@ Deno.serve(async (req) => {
     // -----------------------------------------------------------------------
     // Cadence guard — 4 min / 8 max per day across X, Instagram, Facebook
     // -----------------------------------------------------------------------
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    // Use ET midnight as the day boundary (consistent with the Postgres RPCs).
+    // "America/New_York" handles EST/EDT automatically.
+    const _now = new Date();
+    // Express current time as ET wall-clock values treated as UTC (to extract date/time components).
+    const _etWall = new Date(_now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    // Compute the ET-to-UTC offset in ms (negative for behind UTC, e.g. -4h during EDT).
+    const _etOffsetMs = _etWall.getTime() - _now.getTime();
+    // Set to ET midnight, then shift back to actual UTC.
+    _etWall.setHours(0, 0, 0, 0);
+    const todayStart = new Date(_etWall.getTime() - _etOffsetMs);
 
     const queuedCount = await countQueuedToday(supabase, [...CADENCE_PLATFORMS]);
 
