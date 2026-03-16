@@ -14,6 +14,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
+  countQueuedToday,
+  CADENCE_PLATFORMS,
+  DAILY_MAX,
+} from "../_shared/daily-cadence.ts";
+import {
   generatePostContent,
   buildImagePromptForVariant,
   getOptimalPublishTime,
@@ -53,10 +58,12 @@ Deno.serve(async (req) => {
     // Allow manual invocation to override defaults
     let reqPostType: string | null = null;
     let reqScenario: Scenario | null = null;
+    let reqCatchUp = false;
     try {
       const body = await req.json();
       reqPostType = body?.post_type ?? null;
       reqScenario = body?.scenario ?? null;
+      reqCatchUp  = body?.catch_up === true;
     } catch {
       // No body — pg_cron sends empty body
     }
@@ -67,30 +74,39 @@ Deno.serve(async (req) => {
     );
 
     // -----------------------------------------------------------------------
-    // Idempotency guard — skip if we already generated posts today
+    // Cadence guard — 4 min / 8 max per day across X, Instagram, Facebook
     // -----------------------------------------------------------------------
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
 
-    const { count: existingCount } = await supabase
-      .from("social_posts")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", todayStart.toISOString())
-      .in("status", ["generated", "published"])
-      .in("post_type", ["game_preview", "app_promo"]); // Only check regular posts, not recap posts
+    const queuedCount = await countQueuedToday(supabase, [...CADENCE_PLATFORMS]);
 
-    if ((existingCount ?? 0) > 0) {
+    if (queuedCount >= DAILY_MAX) {
       console.log(JSON.stringify({
-        function: "generate-social-content",
-        event: "skipped_already_generated",
-        existing_posts: existingCount,
-        timestamp: new Date().toISOString(),
+        function:     "generate-social-content",
+        event:        "skipped_at_daily_cap",
+        queued_today: queuedCount,
+        daily_max:    DAILY_MAX,
+        timestamp:    new Date().toISOString(),
       }));
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "already_generated_today", existing_posts: existingCount }),
+        JSON.stringify({ success: true, skipped: true, reason: "daily_cap_reached", queued_today: queuedCount }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Determine which platforms already have a post queued today (for dedup)
+    const { data: todayPostRows } = await supabase
+      .from("social_posts")
+      .select("platform")
+      .gte("created_at", todayStart.toISOString())
+      .in("status", ["generated", "published"])
+      .in("post_type", ["game_preview", "app_promo"]);
+
+    const platformsWithPostsToday = new Set(
+      (todayPostRows ?? []).map((r: { platform: string }) => r.platform),
+    );
+    let remainingCadenceSlots = DAILY_MAX - queuedCount;
 
     // -----------------------------------------------------------------------
     // Fetch active social accounts
@@ -157,6 +173,17 @@ Deno.serve(async (req) => {
 
     for (const platform of PLATFORMS) {
       if (!activeAccounts.has(platform)) continue;
+
+      const isCadencePlatform = (CADENCE_PLATFORMS as readonly string[]).includes(platform);
+      if (isCadencePlatform) {
+        // Stop generating for cadence platforms once we've filled remaining slots
+        if (remainingCadenceSlots <= 0) continue;
+        // In normal (non-catch-up) mode, skip platforms that already have a post today
+        if (!reqCatchUp && platformsWithPostsToday.has(platform)) continue;
+      } else {
+        // TikTok / Reddit: keep original per-platform dedup (one post per day)
+        if (platformsWithPostsToday.has(platform)) continue;
+      }
 
       const account = activeAccounts.get(platform)!;
       const postFormat: PostFormat = getPostFormat(platform, postType);
@@ -271,6 +298,7 @@ Deno.serve(async (req) => {
         }
 
         results.push({ platform, status: "generated" });
+        if (isCadencePlatform) remainingCadenceSlots--;
       } catch (err) {
         const errMsg = (err as Error).message;
         console.error(`generate-social-content: ${platform} error:`, errMsg);
