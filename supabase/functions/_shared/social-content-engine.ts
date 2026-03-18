@@ -82,57 +82,6 @@ export function getImageVariant(dayOfYear: number): ImageVariant {
   return variants[dayOfYear % 3];
 }
 
-/** Build a DALL-E 3 prompt for the given image style variant */
-export function buildImagePromptForVariant(
-  variant: ImageVariant,
-  scenario: Scenario,
-  games: GameData[],
-): string {
-  const visual = SCENARIO_VISUAL_MAP[scenario] ?? {
-    lighting: "warm ambient lighting",
-    context: "casual everyday setting",
-  };
-  const gameContext = games.length > 0
-    ? `${games[0]?.away_team ?? "Away Team"} vs ${games[0]?.home_team ?? "Home Team"} NCAA basketball`
-    : "NCAA basketball alert";
-
-  switch (variant) {
-    case "cinematic":
-      return (
-        `Cinematic Apple-aesthetic smartphone screen close-up, ` +
-        `${visual.lighting}, ` +
-        `thin glowing NORMA notification line on phone display, ` +
-        `close-up finger-tap moment on screen, ` +
-        `${gameContext}, ` +
-        `${visual.context}, ` +
-        `broadcast sports color palette (deep navy, bright white, electric orange accent), ` +
-        `premium minimalist photography style, no visible text overlays, ` +
-        `shallow depth of field, 8K resolution quality`
-      );
-
-    case "graphic":
-      return (
-        `Bold graphic design sports poster, deep navy background, ` +
-        `electric orange geometric accent lines, ` +
-        `large clean modern sans-serif typography layout, ` +
-        `NORMA app icon centered, ` +
-        `${gameContext} — stats and matchup displayed as clean data visualization, ` +
-        `premium broadcast graphic design aesthetic, ` +
-        `no real text overlays — only design shapes and color blocks`
-      );
-
-    case "lifestyle":
-      return (
-        `Authentic lifestyle photograph, ${visual.context}, ` +
-        `${visual.lighting}, ` +
-        `person casually holding smartphone in a natural ${scenario.replace(/_/g, " ")} setting, ` +
-        `phone screen subtly illuminated with an alert glow, ` +
-        `warm candid moment, unposed and genuine, ` +
-        `premium lifestyle photography with shallow depth of field, ` +
-        `no visible text or app UI details`
-      );
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Platform-native post format selection
@@ -145,21 +94,6 @@ export function getPostFormat(platform: string, postType: string): PostFormat {
   if (platform === "reddit"    && postType === "app_promo")    return "link";
   return "standard";
 }
-
-// ---------------------------------------------------------------------------
-// Visual context for DALL-E prompts per scenario
-// ---------------------------------------------------------------------------
-
-const SCENARIO_VISUAL_MAP: Record<Scenario, { lighting: string; context: string }> = {
-  dinner:            { lighting: "warm restaurant candlelight",       context: "elegant dinner table, wine glasses, soft bokeh background" },
-  gym:               { lighting: "cool gym fluorescent lighting",     context: "blurred weight racks, water bottle, wireless earbuds on bench" },
-  grocery_store:     { lighting: "bright grocery store lighting",     context: "shopping cart handle, produce aisle color, casual setting" },
-  wedding_reception: { lighting: "warm golden reception lighting",    context: "dance floor background, elegant table setting, formal attire" },
-  work_meeting:      { lighting: "soft office overhead lighting",     context: "blurred conference room, laptop edge, coffee cup" },
-  bar_trivia:        { lighting: "dim bar neon lighting",             context: "bar counter, neon sign glow, blurred TV screens" },
-  kids_soccer_game:  { lighting: "bright afternoon outdoor sunlight", context: "soccer field sideline, bleachers, grass, casual sportswear" },
-  treadmill:         { lighting: "gym mirror reflection lighting",    context: "treadmill display edge, running shoes, gym floor" },
-};
 
 // ---------------------------------------------------------------------------
 // Platform rules
@@ -209,9 +143,9 @@ FORMAT: CAROUSEL (3 slides — each gets its own image and caption)
 Return ONLY this JSON structure (no "text" key for carousels):
 {
   "slides": [
-    { "caption": "Slide 1 — the hook, shown on feed preview. Make this the best line.", "image_prompt": "DALL-E prompt for slide 1 image" },
-    { "caption": "Slide 2 — the key stat, game detail, or NORMA's insight.", "image_prompt": "DALL-E prompt for slide 2 (different angle from slide 1)" },
-    { "caption": "Slide 3 — CTA: download NORMA, be like the hero. End strong.", "image_prompt": "DALL-E prompt for slide 3 (lifestyle or graphic style)" }
+    { "caption": "Slide 1 — the hook, shown on feed preview. Make this the best line." },
+    { "caption": "Slide 2 — the key stat, game detail, or NORMA's insight." },
+    { "caption": "Slide 3 — CTA: download NORMA, be like the hero. End strong." }
   ]
 }
 Use all Instagram platform rules for each caption. Include the full hashtag block only on slide 3.`;
@@ -224,8 +158,7 @@ FORMAT: TWEET + POLL
 Return ONLY this JSON structure:
 {
   "text": "The tweet body (max 220 chars — leave room for the poll). End before the poll choices.",
-  "poll_options": ["Option A (max 25 chars)", "Option B (max 25 chars)"],
-  "image_prompt": "DALL-E prompt or null"
+  "poll_options": ["Option A (max 25 chars)", "Option B (max 25 chars)"]
 }
 The poll should ask fans to predict a game outcome or pick a winner. 2 options only. Keep each option under 25 characters.`;
   }
@@ -237,16 +170,14 @@ FORMAT: REDDIT LINK POST
 Return ONLY this JSON structure:
 {
   "text": "The post body — community-first, genuine value, mention NORMA naturally. No hashtags.",
-  "link_title": "A compelling Reddit title (max 100 chars) — hook without clickbait",
-  "image_prompt": null
+  "link_title": "A compelling Reddit title (max 100 chars) — hook without clickbait"
 }`;
   }
 
   return `
 OUTPUT FORMAT — return ONLY valid JSON, no markdown, no explanation:
 {
-  "text": "[complete post content ready to publish]",
-  "image_prompt": "[DALL-E 3 prompt for a branded image, or null if not needed]"
+  "text": "[complete post content ready to publish]"
 }`;
 }
 
@@ -377,9 +308,7 @@ The scene is set at a ${scenarioLabel}. Ground the NORMA moment in this real-lif
 
 CHARACTER ANGLE: ${angleDescriptions[characterAngle]}
 
-Create content that feels completely native to ${platform}. The scenario sets the scene. The character angle tells you whose story this is. Make it feel real, not like an ad.
-
-For image prompts: describe a cinematic, Apple-aesthetic close-up of a phone screen showing a NORMA notification, set in a ${scenarioLabel} environment. Premium minimalist style. No text overlays. Broadcast colors.`;
+Create content that feels completely native to ${platform}. The scenario sets the scene. The character angle tells you whose story this is. Make it feel real, not like an ad.`;
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
@@ -458,11 +387,39 @@ For image prompts: describe a cinematic, Apple-aesthetic close-up of a phone scr
 }
 
 // ---------------------------------------------------------------------------
-// generateImagePrompt — fallback DALL-E 3 prompt (standard cinematic)
+// Screenshot selection — maps post type to real app screenshot URLs
 // ---------------------------------------------------------------------------
 
-export function generateImagePrompt(scenario: Scenario, gameData: GameData[]): string {
-  return buildImagePromptForVariant("cinematic", scenario, gameData);
+const SCREENSHOT_BASE = "screenshots";
+
+const SCREENSHOTS = {
+  games_list:         "games-list.png",
+  alerts:             "alerts.png",
+  game_detail:        "game-detail.png",
+  connections:        "connections.png",
+  sportsbooks:        "sportsbooks.png",
+  prediction_markets: "prediction-markets.png",
+  profile:            "profile.png",
+  tv_providers:       "tv-providers.png",
+  streaming:          "streaming.png",
+} as const;
+
+type ScreenshotKey = keyof typeof SCREENSHOTS;
+
+const POST_TYPE_SCREENSHOTS: Record<string, ScreenshotKey[]> = {
+  game_preview: ["game_detail", "games_list", "alerts"],
+  norma_knew:   ["alerts", "game_detail", "games_list"],
+  recap:        ["game_detail", "alerts", "games_list"],
+  app_promo:    ["connections", "profile", "games_list"],
+};
+
+/** Returns a public Supabase Storage URL for the screenshot that best fits
+ *  the post type. slideIndex allows carousel slides to get different images. */
+export function selectScreenshotUrl(supabaseUrl: string, postType: string, slideIndex = 0): string {
+  const preferred = POST_TYPE_SCREENSHOTS[postType] ?? POST_TYPE_SCREENSHOTS.app_promo;
+  const key = preferred[slideIndex % preferred.length];
+  const filename = SCREENSHOTS[key];
+  return `${supabaseUrl}/storage/v1/object/public/social-images/${SCREENSHOT_BASE}/${filename}`;
 }
 
 // ---------------------------------------------------------------------------

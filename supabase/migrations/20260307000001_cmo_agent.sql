@@ -76,27 +76,57 @@ CREATE TRIGGER trg_content_calendar_updated_at
 ALTER TABLE public.content_calendar ENABLE ROW LEVEL SECURITY;
 
 -- Service role: unrestricted access (used by Edge Functions)
-CREATE POLICY "service_role_full_access" ON public.content_calendar
-    FOR ALL
-    TO service_role
-    USING (true)
-    WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'content_calendar'
+      AND policyname = 'service_role_full_access'
+  ) THEN
+    CREATE POLICY "service_role_full_access" ON public.content_calendar
+        FOR ALL
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+  END IF;
+END
+$$;
 
 -- Authenticated users: read and update (for the human-review dashboard)
-CREATE POLICY "authenticated_select" ON public.content_calendar
-    FOR SELECT
-    TO authenticated
-    USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'content_calendar'
+      AND policyname = 'authenticated_select'
+  ) THEN
+    CREATE POLICY "authenticated_select" ON public.content_calendar
+        FOR SELECT
+        TO authenticated
+        USING (true);
+  END IF;
+END
+$$;
 
-CREATE POLICY "authenticated_update" ON public.content_calendar
-    FOR UPDATE
-    TO authenticated
-    USING (true)
-    WITH CHECK (
-        -- Authenticated users may only move posts to 'paused' or 'deleted',
-        -- or update human_notes. They cannot publish directly from the dashboard.
-        status IN ('paused', 'deleted', 'draft', 'scheduled')
-    );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'content_calendar'
+      AND policyname = 'authenticated_update'
+  ) THEN
+    CREATE POLICY "authenticated_update" ON public.content_calendar
+        FOR UPDATE
+        TO authenticated
+        USING (true)
+        WITH CHECK (
+            -- Authenticated users may only move posts to 'paused' or 'deleted',
+            -- or update human_notes. They cannot publish directly from the dashboard.
+            status IN ('paused', 'deleted', 'draft', 'scheduled')
+        );
+  END IF;
+END
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 4. Helper view: upcoming drafts (convenience for the dashboard)

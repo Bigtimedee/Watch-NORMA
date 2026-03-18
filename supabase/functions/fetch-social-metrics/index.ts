@@ -156,8 +156,8 @@ Deno.serve(async (req) => {
 // ---------------------------------------------------------------------------
 
 async function fetchXMetrics(tweetId: string): Promise<PostMetrics | null> {
-  const apiKey       = Deno.env.get("X_API_KEY")!;
-  const apiSecret    = Deno.env.get("X_API_SECRET")!;
+  const apiKey       = Deno.env.get("X_CONSUMER_KEY")!;
+  const apiSecret    = Deno.env.get("X_CONSUMER_SECRET")!;
   const accessToken  = Deno.env.get("X_ACCESS_TOKEN")!;
   const accessSecret = Deno.env.get("X_ACCESS_TOKEN_SECRET")!;
 
