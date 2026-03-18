@@ -1,4 +1,4 @@
-// generate-social-content: Daily 6am UTC — build platform-native posts via Claude + DALL-E
+// generate-social-content: Daily 6am UTC — build platform-native posts via Claude
 // Trigger: pg_cron job 'generate-social-content' (migration 029)
 //
 // Enhancement Pack (migration 030):
@@ -7,7 +7,7 @@
 //   - Top-performing hashtag injection per platform
 //   - Image style A/B variant rotation (cinematic | graphic | lifestyle)
 //   - Platform-native format generation (carousel for IG, poll for X, link for Reddit)
-//   - Carousel: generates 2 DALL-E images for slide variety
+//   - Images: real NORMA app screenshots from Supabase Storage (replaces DALL-E)
 //   - Content approval workflow (requires_approval flag per account)
 //   - Slack notification for posts held for approval
 
@@ -20,7 +20,7 @@ import {
 } from "../_shared/daily-cadence.ts";
 import {
   generatePostContent,
-  buildImagePromptForVariant,
+  selectScreenshotUrl,
   getOptimalPublishTime,
   getImageVariant,
   getPostFormat,
@@ -219,16 +219,12 @@ Deno.serve(async (req) => {
         let formatMetadata: Record<string, unknown> = {};
 
         if (postFormat === "carousel" && generated.slides && generated.slides.length > 0) {
-          // Generate one image per slide (up to 2 to control cost)
-          const slidesWithImages = await generateCarouselImages(
-            supabase,
-            generated.slides,
-            imageVariant,
-            scenario,
-            games,
-            todayStr,
-            platform,
-          );
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const slidesWithImages = generated.slides.map((slide, i) => ({
+            caption:      slide.caption,
+            image_prompt: null,
+            image_url:    selectScreenshotUrl(supabaseUrl, postType, i),
+          }));
           finalImageUrl = slidesWithImages[0]?.image_url ?? null;
           formatMetadata = { slides: slidesWithImages };
 
@@ -239,13 +235,7 @@ Deno.serve(async (req) => {
             duration_minutes: 1440,
           };
           if (VISUAL_PLATFORMS.has(platform)) {
-            try {
-              const imgPrompt = generated.image_prompt ??
-                buildImagePromptForVariant(imageVariant, scenario, games);
-              finalImageUrl = await generateAndUploadImage(supabase, imgPrompt, todayStr, platform, "0");
-            } catch (imgErr) {
-              console.warn(`Poll image generation failed for ${platform}:`, (imgErr as Error).message);
-            }
+            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
           }
 
         } else if (postFormat === "link") {
@@ -256,15 +246,9 @@ Deno.serve(async (req) => {
           };
 
         } else {
-          // Standard post: generate single image
-          if (VISUAL_PLATFORMS.has(platform) && (generated.image_prompt || games.length > 0)) {
-            try {
-              const imgPrompt = generated.image_prompt ??
-                buildImagePromptForVariant(imageVariant, scenario, games);
-              finalImageUrl = await generateAndUploadImage(supabase, imgPrompt, todayStr, platform, "0");
-            } catch (imgErr) {
-              console.warn(`Image generation failed for ${platform}:`, (imgErr as Error).message);
-            }
+          // Standard post: use real app screenshot
+          if (VISUAL_PLATFORMS.has(platform)) {
+            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
           }
         }
 
@@ -357,114 +341,6 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-// ---------------------------------------------------------------------------
-// generateAndUploadImage — DALL-E 3 + Supabase Storage
-// ---------------------------------------------------------------------------
-
-async function generateAndUploadImage(
-  supabase: SupabaseClient,
-  prompt: string,
-  dateStr: string,
-  platform: string,
-  suffix: string,
-): Promise<string> {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!openaiKey) throw new Error("OPENAI_API_KEY not set");
-
-  const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      Authorization:  `Bearer ${openaiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model:           "dall-e-3",
-      prompt,
-      n:               1,
-      size:            "1024x1024",
-      quality:         "standard",
-      response_format: "url",
-    }),
-  });
-
-  if (!dalleRes.ok) {
-    const err = await dalleRes.text();
-    throw new Error(`DALL-E 3 failed ${dalleRes.status}: ${err.slice(0, 200)}`);
-  }
-
-  const dalleData = await dalleRes.json();
-  const tempUrl: string = dalleData?.data?.[0]?.url;
-  if (!tempUrl) throw new Error("DALL-E 3: no url in response");
-
-  const imgRes = await fetch(tempUrl);
-  if (!imgRes.ok) throw new Error(`Failed to download DALL-E image: ${imgRes.status}`);
-  const imgBytes = await imgRes.arrayBuffer();
-
-  // Path: {date}/{platform}-{suffix}.png (suffix differentiates carousel slides)
-  const storagePath = `${dateStr}/${platform}-${suffix}.png`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("social-images")
-    .upload(storagePath, imgBytes, {
-      contentType: "image/png",
-      upsert:      true,
-    });
-
-  if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
-
-  const { data: publicData } = supabase.storage
-    .from("social-images")
-    .getPublicUrl(storagePath);
-
-  return publicData.publicUrl as string;
-}
-
-// ---------------------------------------------------------------------------
-// generateCarouselImages — generates images for each slide
-// ---------------------------------------------------------------------------
-
-async function generateCarouselImages(
-  supabase: SupabaseClient,
-  slides: Array<{ caption: string; image_prompt: string | null; image_url?: string | null }>,
-  imageVariant: ImageVariant,
-  scenario: Scenario,
-  games: GameData[],
-  dateStr: string,
-  platform: string,
-): Promise<Array<{ caption: string; image_prompt: string | null; image_url: string | null }>> {
-  const result = [];
-
-  // Generate images for first 2 slides (control cost — slide 3 reuses slide 2 or a static graphic)
-  for (let i = 0; i < Math.min(slides.length, 3); i++) {
-    const slide = slides[i];
-    let imageUrl: string | null = null;
-
-    if (i < 2) {
-      // Slides 0 and 1 get unique images
-      // Slide 0: primary variant, slide 1: alternate variant for visual variety
-      const variant: ImageVariant = i === 0 ? imageVariant : "graphic";
-      const prompt = slide.image_prompt ?? buildImagePromptForVariant(variant, scenario, games);
-
-      try {
-        imageUrl = await generateAndUploadImage(supabase, prompt, dateStr, platform, String(i));
-      } catch (err) {
-        console.warn(`Carousel slide ${i} image failed:`, (err as Error).message);
-      }
-    } else {
-      // Slide 2 (CTA): reuse slide 0's image URL (avoid 3rd DALL-E call)
-      imageUrl = result[0]?.image_url ?? null;
-    }
-
-    result.push({
-      caption:      slide.caption,
-      image_prompt: slide.image_prompt,
-      image_url:    imageUrl,
-    });
-  }
-
-  return result;
-}
 
 // ---------------------------------------------------------------------------
 // Feedback-based scenario selection (biased toward historically high engagement)
