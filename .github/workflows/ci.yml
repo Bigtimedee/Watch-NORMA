@@ -36,6 +36,8 @@ jobs:
           deno check supabase/functions/_shared/kalshi-crypto.ts
           deno check supabase/functions/_shared/polling-state.ts
           deno check supabase/functions/_shared/team-matching.ts
+          deno check supabase/functions/_shared/template-vars.ts
+          deno check supabase/functions/resolve-predictions/index.ts
       - name: Run tests
         run: deno test --allow-env --allow-net=none supabase/functions/
 

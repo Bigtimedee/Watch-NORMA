@@ -50,6 +50,8 @@ export function makePosition(overrides: Partial<UserPosition> = {}): UserPositio
     position_side: "yes",
     quantity: 10,
     avg_price: 0.62,
+    outcome: null,
+    payout_amount: null,
     ...overrides,
   };
 }
