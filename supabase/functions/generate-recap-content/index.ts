@@ -12,7 +12,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
   generatePostContent,
-  buildImagePromptForVariant,
   getOptimalPublishTime,
   getImageVariant,
   getDayOfYear,
@@ -160,18 +159,11 @@ Deno.serve(async (req) => {
           topHashtags,
         );
 
-        // Generate image for visual platforms
+        // Select screenshot for visual platforms
         let finalImageUrl: string | null = null;
         if (VISUAL_PLATFORMS.has(platform)) {
           try {
-            const imgPrompt = generated.image_prompt ??
-              buildImagePromptForVariant(imageVariant, scenario, games);
-            finalImageUrl = await generateAndUploadImage(
-              supabase,
-              imgPrompt,
-              `${tomorrowStr}-recap`,
-              platform,
-            );
+            finalImageUrl = await queryRecapMediaAsset(supabase);
           } catch (imgErr) {
             console.warn(`Recap image failed for ${platform}:`, (imgErr as Error).message);
           }
@@ -262,61 +254,37 @@ function pickRecapScenario(games: GameData[]): Scenario {
 }
 
 // ---------------------------------------------------------------------------
-// generateAndUploadImage — DALL-E 3 + Supabase Storage
+// queryRecapMediaAsset — selects a real screenshot from media_assets
 // ---------------------------------------------------------------------------
 
-async function generateAndUploadImage(
+async function queryRecapMediaAsset(
   // deno-lint-ignore no-explicit-any
   supabase: any,
-  prompt: string,
-  datePrefix: string,
-  platform: string,
-): Promise<string> {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!openaiKey) throw new Error("OPENAI_API_KEY not set");
+): Promise<string | null> {
+  try {
+    // Use PostgREST array overlap (&&) to match rows tagged with either theme
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("public_url")
+      .eq("is_active", true)
+      .not("public_url", "is", null)
+      .overlaps("theme_tags", ["never_miss", "user_benefit"])
+      .order("created_at", { ascending: false })
+      .limit(10);
 
-  const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      Authorization:  `Bearer ${openaiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model:           "dall-e-3",
-      prompt,
-      n:               1,
-      size:            "1024x1024",
-      quality:         "standard",
-      response_format: "url",
-    }),
-  });
+    if (error) {
+      console.warn("media_assets query error:", error.message);
+      return null;
+    }
 
-  if (!dalleRes.ok) {
-    const err = await dalleRes.text();
-    throw new Error(`DALL-E 3 failed ${dalleRes.status}: ${err.slice(0, 200)}`);
+    if (!data || data.length === 0) return null;
+
+    const pick = data[Math.floor(Math.random() * data.length)];
+    return pick.public_url as string;
+  } catch (err) {
+    console.warn("queryRecapMediaAsset failed:", (err as Error).message);
+    return null;
   }
-
-  const dalleData = await dalleRes.json();
-  const tempUrl: string = dalleData?.data?.[0]?.url;
-  if (!tempUrl) throw new Error("DALL-E 3: no url in response");
-
-  const imgRes = await fetch(tempUrl);
-  if (!imgRes.ok) throw new Error(`Failed to download DALL-E image: ${imgRes.status}`);
-  const imgBytes = await imgRes.arrayBuffer();
-
-  const storagePath = `${datePrefix}/${platform}-recap.png`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("social-images")
-    .upload(storagePath, imgBytes, { contentType: "image/png", upsert: true });
-
-  if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
-
-  const { data: publicData } = supabase.storage
-    .from("social-images")
-    .getPublicUrl(storagePath);
-
-  return publicData.publicUrl as string;
 }
 
 // ---------------------------------------------------------------------------

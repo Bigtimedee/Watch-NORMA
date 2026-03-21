@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -424,6 +424,52 @@ async function generatePostsWithClaude(
 }
 
 // ---------------------------------------------------------------------------
+// Map a content theme to a media_assets theme_tag
+// ---------------------------------------------------------------------------
+
+function themeToTag(theme: string): string {
+  if (theme === "user_benefit_never_miss") return "never_miss";
+  if (theme === "streaming") return "streaming";
+  if (theme === "prediction_markets") return "prediction_markets";
+  if (theme === "sportsbooks" || theme === "wager_tracking") return "sportsbooks";
+  return "user_benefit";
+}
+
+// ---------------------------------------------------------------------------
+// Query media_assets for a matching screenshot URL
+// Returns null if none found or if the table does not exist yet
+// ---------------------------------------------------------------------------
+
+async function queryMediaAsset(
+  supabase: SupabaseClient,
+  theme: string,
+): Promise<string | null> {
+  try {
+    const tag = themeToTag(theme);
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("public_url")
+      .eq("is_active", true)
+      .contains("theme_tags", [tag])
+      .not("public_url", "is", null)
+      .order("id") // deterministic fallback; random() not available via JS client filter
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`[cmo-generate] media_assets query failed for tag "${tag}": ${error.message}`);
+      return null;
+    }
+
+    return data?.public_url ?? null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[cmo-generate] media_assets lookup threw: ${msg}`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -518,16 +564,24 @@ serve(async (req: Request): Promise<Response> => {
   // Build database records
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const records: ContentCalendarInsert[] = generatedPosts.map((post, idx) => ({
-    platform: PLATFORM,
-    content_type: post.content_type,
-    body: post.body,
-    media_urls: [],
-    hashtags: post.hashtags,
-    status: "draft",
-    scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
-    generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
-  }));
+  // Fetch one screenshot per post in parallel; fall back to empty array if unavailable
+  const mediaUrls: (string | null)[] = await Promise.all(
+    generatedPosts.map((post) => queryMediaAsset(supabase, post.theme)),
+  );
+
+  const records: ContentCalendarInsert[] = generatedPosts.map((post, idx) => {
+    const mediaUrl = mediaUrls[idx];
+    return {
+      platform: PLATFORM,
+      content_type: post.content_type,
+      body: post.body,
+      media_urls: mediaUrl ? [mediaUrl] : [],
+      hashtags: post.hashtags,
+      status: "draft",
+      scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
+      generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
+    };
+  });
 
   // Insert into Supabase
   const { data: insertedRows, error: insertError } = await supabase

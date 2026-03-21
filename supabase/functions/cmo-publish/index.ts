@@ -38,6 +38,11 @@ interface TwitterV2Response {
   errors?: Array<{ message: string; code?: number }>;
 }
 
+interface TwitterMediaUploadResponse {
+  media_id_string?: string;
+  error?: string;
+}
+
 interface PublishResult {
   id: string;
   success: boolean;
@@ -145,6 +150,105 @@ async function buildOAuthHeader(
 }
 
 // ---------------------------------------------------------------------------
+// Upload an image to Twitter v1.1 media upload endpoint
+// Returns the media_id_string on success, or null on any failure (graceful degradation)
+// ---------------------------------------------------------------------------
+
+const TWITTER_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
+
+async function uploadMediaToTwitter(
+  imageUrl: string,
+  credentials: {
+    consumerKey: string;
+    consumerSecret: string;
+    accessToken: string;
+    accessTokenSecret: string;
+  },
+): Promise<string | null> {
+  try {
+    // Fetch the image bytes from the CDN URL
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      console.warn(
+        `[cmo-publish] Failed to fetch image for upload (status ${imageResponse.status}): ${imageUrl}`,
+      );
+      return null;
+    }
+
+    const imageBytes = await imageResponse.arrayBuffer();
+
+    // Build multipart/form-data body with field name "media"
+    const boundary = `NORMABoundary${Date.now()}`;
+    const imageBuffer = new Uint8Array(imageBytes);
+
+    // Detect MIME type from Content-Type header; default to jpeg
+    const contentType = imageResponse.headers.get("content-type") ?? "image/jpeg";
+    const mimeType = contentType.split(";")[0].trim();
+
+    const encoder = new TextEncoder();
+    const preamble = encoder.encode(
+      `--${boundary}\r\nContent-Disposition: form-data; name="media"\r\nContent-Type: ${mimeType}\r\n\r\n`,
+    );
+    const epilogue = encoder.encode(`\r\n--${boundary}--\r\n`);
+
+    const multipartBody = new Uint8Array(
+      preamble.byteLength + imageBuffer.byteLength + epilogue.byteLength,
+    );
+    multipartBody.set(preamble, 0);
+    multipartBody.set(imageBuffer, preamble.byteLength);
+    multipartBody.set(epilogue, preamble.byteLength + imageBuffer.byteLength);
+
+    // OAuth signature for the upload endpoint uses no body params
+    // (multipart bodies are excluded from OAuth signature per spec)
+    const authHeader = await buildOAuthHeader(
+      "POST",
+      TWITTER_UPLOAD_URL,
+      {},
+      credentials.consumerKey,
+      credentials.consumerSecret,
+      credentials.accessToken,
+      credentials.accessTokenSecret,
+    );
+
+    const uploadResponse = await fetch(TWITTER_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        "User-Agent": "NORMA-CMO-Bot/1.0",
+      },
+      body: multipartBody,
+    });
+
+    const uploadText = await uploadResponse.text();
+    let uploadData: TwitterMediaUploadResponse;
+
+    try {
+      uploadData = JSON.parse(uploadText);
+    } catch {
+      console.warn(
+        `[cmo-publish] Media upload returned non-JSON (status ${uploadResponse.status}): ${uploadText.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    if (!uploadResponse.ok || !uploadData.media_id_string) {
+      console.warn(
+        `[cmo-publish] Media upload failed (status ${uploadResponse.status}): ${uploadText.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    console.log(`[cmo-publish] Media uploaded. ID: ${uploadData.media_id_string}`);
+    return uploadData.media_id_string;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[cmo-publish] Media upload threw an error: ${message}`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Post a single tweet via Twitter v2 API
 // ---------------------------------------------------------------------------
 
@@ -156,24 +260,30 @@ async function postTweet(
     accessToken: string;
     accessTokenSecret: string;
   },
+  mediaIds?: string[],
 ): Promise<{ tweetId: string }> {
   const url = `${TWITTER_API_BASE}/tweets`;
   const method = "POST";
 
-  // For JSON body requests, body params are NOT included in OAuth signature
+  // For JSON body requests, body params are NOT included in OAuth signature.
   // The OAuth spec only includes application/x-www-form-urlencoded body params.
   // With JSON bodies, we sign only OAuth params + query params (none here).
   const authHeader = await buildOAuthHeader(
     method,
     url,
-    {}, // No form body params — we're sending JSON
+    {}, // No form body params: we are sending JSON
     credentials.consumerKey,
     credentials.consumerSecret,
     credentials.accessToken,
     credentials.accessTokenSecret,
   );
 
-  const body = JSON.stringify({ text });
+  const payload: Record<string, unknown> = { text };
+  if (mediaIds && mediaIds.length > 0) {
+    payload.media = { media_ids: mediaIds };
+  }
+
+  const body = JSON.stringify(payload);
 
   const response = await fetch(url, {
     method,
@@ -472,7 +582,16 @@ serve(async (req: Request): Promise<Response> => {
         `[cmo-publish] Publishing post ${post.id}: "${post.body.slice(0, 60)}..."`,
       );
 
-      const { tweetId } = await postTweet(post.body, credentials);
+      // Attempt to upload the first media attachment if present
+      const mediaIds: string[] = [];
+      if (Array.isArray(post.media_urls) && post.media_urls.length > 0) {
+        const mediaId = await uploadMediaToTwitter(post.media_urls[0], credentials);
+        if (mediaId) {
+          mediaIds.push(mediaId);
+        }
+      }
+
+      const { tweetId } = await postTweet(post.body, credentials, mediaIds.length > 0 ? mediaIds : undefined);
 
       await markPublished(supabase, post.id, tweetId);
 
