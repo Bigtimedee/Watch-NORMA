@@ -16,6 +16,7 @@ function localDateStr(date?: string): string {
 /** Fetch today's games with team data, subscribing to realtime updates */
 export function useGames(date?: string) {
   const queryClient = useQueryClient();
+  const todayStr = localDateStr();
   const today = localDateStr(date);
 
   const query = useQuery<Game[]>({
@@ -43,31 +44,34 @@ export function useGames(date?: string) {
       if (error) throw error;
       return (data ?? []) as Game[];
     },
-    refetchInterval: 30_000, // fallback poll every 30s
+    // Poll frequently for today's live games; future dates only need occasional refreshes
+    refetchInterval: date === todayStr ? 30_000 : 5 * 60 * 1000,
   });
 
-  // Subscribe to realtime game updates
+  // Subscribe to realtime game updates — only for today's games
   useEffect(() => {
-    const channel = supabase
-      .channel("games-realtime")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "games" },
-        (payload) => {
-          queryClient.setQueryData<Game[]>(["games", today], (old) => {
-            if (!old) return old;
-            return old.map((g) =>
-              g.id === payload.new.id ? { ...g, ...payload.new } : g
-            );
-          });
-        }
-      )
-      .subscribe();
+    if (date === todayStr || !date) {
+      const channel = supabase
+        .channel("games-realtime")
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "games" },
+          (payload) => {
+            queryClient.setQueryData<Game[]>(["games", today], (old) => {
+              if (!old) return old;
+              return old.map((g) =>
+                g.id === payload.new.id ? { ...g, ...payload.new } : g
+              );
+            });
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [today, queryClient]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [today, todayStr, date, queryClient]);
 
   return query;
 }
