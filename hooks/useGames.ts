@@ -3,13 +3,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Game } from "../lib/types";
 
-/** Get the local calendar date as YYYY-MM-DD (avoids UTC midnight rollover bug) */
+/** Get the Eastern-timezone calendar date as YYYY-MM-DD (matches DatePicker's Eastern-based today) */
 function localDateStr(date?: string): string {
   if (date) return date;
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
   return `${y}-${m}-${d}`;
 }
 

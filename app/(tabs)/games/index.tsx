@@ -33,9 +33,22 @@ export default function GamesScreen() {
   } = useGames(selectedDateStr);
   const { data: followedGamesRaw } = useFollowedGames();
 
-  // Filter followed games to the selected date
+  const toEasternDateStr = (isoStr: string): string => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(isoStr));
+    const y = parts.find((p) => p.type === "year")!.value;
+    const m = parts.find((p) => p.type === "month")!.value;
+    const d = parts.find((p) => p.type === "day")!.value;
+    return `${y}-${m}-${d}`;
+  };
+
+  // Filter followed games to the selected date using Eastern timezone
   const followedGames = (followedGamesRaw ?? []).filter(
-    (g) => g.scheduled_at.slice(0, 10) === selectedDateStr
+    (g) => toEasternDateStr(g.scheduled_at) === selectedDateStr
   );
 
   // When navigating away from today, force off the Live tab
