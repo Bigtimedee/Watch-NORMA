@@ -17,6 +17,7 @@
       "channel": "preview"
     },
     "production": {
+      "image": "macos-sequoia-15.2-xcode-16.2:latest",
       "autoIncrement": true,
       "node": "22.14.0",
       "channel": "production"
