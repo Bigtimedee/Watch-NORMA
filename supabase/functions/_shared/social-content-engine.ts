@@ -55,21 +55,45 @@ export const DEFAULT_SUBREDDIT = "sportsbook";
 export const VISUAL_PLATFORMS = new Set(["instagram", "tiktok", "x"]);
 
 // ---------------------------------------------------------------------------
-// Platform-optimal publish times (UTC)
-// Targeting US Eastern audience (EST = UTC-5, EDT = UTC-4)
+// Platform-optimal publish times (Central Time, DST-aware)
+// Four daily CT windows: 7 AM, 11 AM, 3 PM, 7 PM
 // ---------------------------------------------------------------------------
 
-/** Returns an ISO timestamp for a post to be published at the platform's optimal time */
+/** Returns -5 (CDT, summer) or -6 (CST, winter) for the given UTC date */
+function getCTOffsetHours(date: Date): number {
+  const year = date.getUTCFullYear();
+  // Second Sunday in March at 2 AM CST = 8 AM UTC
+  const mar1Day = new Date(Date.UTC(year, 2, 1)).getUTCDay();
+  const dstStart = new Date(Date.UTC(year, 2, 1 + ((7 - mar1Day) % 7) + 7, 8, 0, 0));
+  // First Sunday in November at 2 AM CDT = 7 AM UTC
+  const nov1Day = new Date(Date.UTC(year, 10, 1)).getUTCDay();
+  const dstEnd = new Date(Date.UTC(year, 10, 1 + ((7 - nov1Day) % 7), 7, 0, 0));
+  return (date >= dstStart && date < dstEnd) ? -5 : -6;
+}
+
+/** Each platform is assigned to one of the four daily CT posting windows */
+const PLATFORM_CT_HOURS: Record<string, number> = {
+  x:         7,  // 7 AM CT — morning news cycle
+  instagram: 11, // 11 AM CT — midday engagement peak
+  facebook:  15, // 3 PM CT — afternoon peak
+  tiktok:    19, // 7 PM CT — evening scroll session
+  reddit:    11, // 11 AM CT — active discussion window
+};
+
+/** Returns an ISO timestamp for a post to be published at the platform's CT posting window */
 export function getOptimalPublishTime(platform: string, dateStr: string): string {
-  const PLATFORM_UTC_HOURS: Record<string, number> = {
-    x:         13, // 8 AM EST — morning news cycle
-    instagram: 14, // 9 AM EST — morning engagement peak
-    facebook:  18, // 1 PM EST — lunch-hour peak
-    tiktok:    23, // 6 PM EST — evening scroll session
-    reddit:    14, // 9 AM EST — active discussion window
-  };
-  const hour = PLATFORM_UTC_HOURS[platform] ?? 14;
-  return `${dateStr}T${String(hour).padStart(2, "0")}:00:00.000Z`;
+  const ctHour = PLATFORM_CT_HOURS[platform] ?? 11;
+  const refDate = new Date(`${dateStr}T00:00:00.000Z`);
+  const ctOffset = getCTOffsetHours(refDate); // -5 or -6
+  const utcHour = ctHour - ctOffset;          // e.g. 7 - (-5) = 12 in CDT
+  if (utcHour >= 24) {
+    // 7 PM CT rolls past UTC midnight — publish on the next UTC day
+    const next = new Date(refDate);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const nextStr = next.toISOString().split("T")[0];
+    return `${nextStr}T${String(utcHour - 24).padStart(2, "0")}:00:00.000Z`;
+  }
+  return `${dateStr}T${String(utcHour).padStart(2, "0")}:00:00.000Z`;
 }
 
 // ---------------------------------------------------------------------------
@@ -236,7 +260,7 @@ export interface GameData {
 export interface CarouselSlide {
   caption: string;
   image_prompt: string | null;
-  image_url?: string | null; // filled in after DALL-E generation
+  image_url?: string | null; // filled in by selectScreenshotUrl
 }
 
 export interface GeneratedContent {
@@ -390,18 +414,18 @@ Create content that feels completely native to ${platform}. The scenario sets th
 // Screenshot selection — maps post type to real app screenshot URLs
 // ---------------------------------------------------------------------------
 
-const SCREENSHOT_BASE = "screenshots";
+const SCREENSHOT_BASE = "norma-screenshots";
 
 const SCREENSHOTS = {
   games_list:         "games-list.png",
-  alerts:             "alerts.png",
-  game_detail:        "game-detail.png",
-  connections:        "connections.png",
-  sportsbooks:        "sportsbooks.png",
+  alerts:             "game-detail-watch.png",
+  game_detail:        "game-detail-watch.png",
+  connections:        "sportsbooks-manual.png",
+  sportsbooks:        "sportsbooks-manual.png",
   prediction_markets: "prediction-markets.png",
-  profile:            "profile.png",
+  profile:            "prediction-markets.png",
   tv_providers:       "tv-providers.png",
-  streaming:          "streaming.png",
+  streaming:          "streaming-services.png",
 } as const;
 
 type ScreenshotKey = keyof typeof SCREENSHOTS;
