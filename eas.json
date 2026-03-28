@@ -21,7 +21,7 @@
       "node": "22.14.0",
       "channel": "production",
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-sequoia-15.2-xcode-16.2"
       }
     }
   },
