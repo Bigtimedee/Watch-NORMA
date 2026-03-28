@@ -605,7 +605,7 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  console.log(`[cmo-generate] Successfully inserted ${insertedRows?.length ?? 0} draft posts.`);
+  console.log(`[cmo-generate] Successfully inserted ${insertedRows?.length ?? 0} scheduled posts.`);
 
   return new Response(
     JSON.stringify({
