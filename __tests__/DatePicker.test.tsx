@@ -48,11 +48,11 @@ function expectedLabel(offset: number): string {
 describe("DatePicker", () => {
   describe("chip rendering", () => {
     it("renders exactly 5 chips", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
       // Each chip is a Pressable, exposed as 'button' role in RNTL
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       expect(chips).toHaveLength(5);
     });
 
@@ -75,20 +75,20 @@ describe("DatePicker", () => {
     });
 
     it("today chip is the last (rightmost) chip", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       const lastChip = chips[chips.length - 1];
       // The last chip's accessibility label should be "Today"
       expect(lastChip.props.accessibilityLabel).toBe("Today");
     });
 
     it("the oldest chip (4 days ago) is first (leftmost)", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       const firstChip = chips[0];
       expect(firstChip.props.accessibilityLabel).toBe(expectedLabel(-4));
     });
@@ -96,10 +96,10 @@ describe("DatePicker", () => {
 
   describe("active state", () => {
     it("marks the chip matching selectedOffset as selected", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       // offset 0 is the last chip (index 4)
       expect(chips[4].props.accessibilityState.selected).toBe(true);
       // All other chips are not selected
@@ -109,10 +109,10 @@ describe("DatePicker", () => {
     });
 
     it("marks a past day chip as selected when selectedOffset is -2", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={-2} onSelectOffset={() => {}} />
       );
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       // offsets array is [-4, -3, -2, -1, 0], so offset -2 is index 2
       expect(chips[2].props.accessibilityState.selected).toBe(true);
       [0, 1, 3, 4].forEach((i) => {
@@ -121,10 +121,10 @@ describe("DatePicker", () => {
     });
 
     it("marks the oldest chip (offset -4) as selected when selectedOffset is -4", () => {
-      const { getAllByTestId } = render(
+      const { getAllByRole } = render(
         <DatePicker selectedOffset={-4} onSelectOffset={() => {}} />
       );
-      const chips = getAllByTestId("date-chip");
+      const chips = getAllByRole("button");
       expect(chips[0].props.accessibilityState.selected).toBe(true);
       [1, 2, 3, 4].forEach((i) => {
         expect(chips[i].props.accessibilityState.selected).toBe(false);
