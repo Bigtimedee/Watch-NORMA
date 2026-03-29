@@ -62,6 +62,7 @@ export default function DatePicker({ selectedOffset, onSelectOffset }: DatePicke
             key={offset}
             style={[s.pill, isActive ? s.pillActive : s.pillInactive]}
             onPress={() => onSelectOffset(offset)}
+            accessibilityRole="button"
             accessibilityLabel={pillLabel(offset)}
             accessibilityState={{ selected: isActive }}
           >
