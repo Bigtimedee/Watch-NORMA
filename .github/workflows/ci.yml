@@ -74,5 +74,5 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: eas update --branch main --channel production --non-interactive
+      - run: eas update --auto --channel production --non-interactive
         if: env.EXPO_TOKEN != ''
