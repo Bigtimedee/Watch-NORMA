@@ -157,8 +157,8 @@ export default function GamesScreen() {
                   ? "No followed games yet.\nTap a game to follow it!"
                   : activeTab === "live"
                     ? "No live games right now."
-                    : selectedOffset > 0
-                      ? `Games for ${selectedDayName} will appear here soon.`
+                    : selectedOffset < 0
+                      ? `No games on ${selectedDayName}.`
                       : "No games scheduled today."}
               </Text>
             </View>

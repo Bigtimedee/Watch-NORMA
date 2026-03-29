@@ -30,8 +30,7 @@ const WEEKDAY_ABBREVS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function pillLabel(offset: number): string {
   if (offset === 0) return "Today";
-  if (offset === 1) return "Tomorrow";
-  // For offsets 2-5: weekday abbreviation + day number
+  // For past days (negative offsets): weekday abbreviation + M/D
   const now = new Date();
   const eastern = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -43,11 +42,11 @@ function pillLabel(offset: number): string {
   const m = parseInt(eastern.find((p) => p.type === "month")!.value);
   const d = parseInt(eastern.find((p) => p.type === "day")!.value);
   const target = new Date(y, m - 1, d + offset);
-  return `${WEEKDAY_ABBREVS[target.getDay()]} ${target.getDate()}`;
+  return `${WEEKDAY_ABBREVS[target.getDay()]} ${target.getMonth() + 1}/${target.getDate()}`;
 }
 
 export default function DatePicker({ selectedOffset, onSelectOffset }: DatePickerProps) {
-  const offsets = [0, 1, 2, 3, 4, 5];
+  const offsets = [-4, -3, -2, -1, 0];
 
   return (
     <ScrollView
