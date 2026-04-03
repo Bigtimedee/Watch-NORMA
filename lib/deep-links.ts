@@ -94,10 +94,30 @@ export async function resolveDeepLinkUrl(
   provider: StreamingProvider
 ): Promise<{ url: string; method: string } | null> {
   // Step 1: Try native app scheme.
-  // Return the scheme directly — openURL (not canOpenURL) will be used at call
-  // time, bypassing the LSApplicationQueriesSchemes binary restriction.
+  //
+  // IMPORTANT: Unlike openStreamingApp (which opens a URL and handles fallbacks
+  // inline in a catch block), resolveDeepLinkUrl pre-selects a SINGLE URL that
+  // useTapToStream will fire with no fallback chain of its own. If we return the
+  // ios_scheme here unconditionally and the app is not installed, Linking.openURL
+  // silently resolves without opening anything on iOS (no throw, no dialog), the
+  // 5-second failsafe fires, and the user sees the full animation play out then
+  // nothing — they can't reach the App Store. We MUST use canOpenURL here so we
+  // can fall through to the App Store URL (Step 3) when the app is absent.
+  //
+  // canOpenURL requires the scheme in LSApplicationQueriesSchemes. 'youtube-tv'
+  // and all other provider schemes ARE registered in app.json, so canOpenURL
+  // returns the correct answer for any binary built from this repo.
   if (Platform.OS === "ios" && provider.ios_scheme) {
-    return { url: provider.ios_scheme, method: "native_app" };
+    try {
+      const canOpen = await Linking.canOpenURL(provider.ios_scheme);
+      if (canOpen) {
+        return { url: provider.ios_scheme, method: "native_app" };
+      }
+      // canOpen = false → app not installed → fall through to App Store (Step 3)
+    } catch {
+      // canOpenURL can throw on the very first call after a fresh install before
+      // iOS has finished registering the app's schemes. Fall through to App Store.
+    }
   }
 
   if (Platform.OS === "android" && provider.android_deep_link) {
