@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.208.0/crypto/mod.ts";
 import { encodeHex } from "https://deno.land/std@0.208.0/encoding/hex.ts";
 
@@ -329,7 +329,7 @@ async function postTweet(
 // ---------------------------------------------------------------------------
 
 async function countPublishedToday(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   platform: string,
 ): Promise<number> {
   // Delegate to the SQL function which uses AT TIME ZONE 'America/New_York'
@@ -354,7 +354,7 @@ async function countPublishedToday(
 // ---------------------------------------------------------------------------
 
 async function fetchDuePosts(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   limit: number,
 ): Promise<ContentCalendarRow[]> {
   const now = new Date().toISOString();
@@ -379,7 +379,7 @@ async function fetchDuePosts(
 // ---------------------------------------------------------------------------
 
 async function markPublished(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   postId: string,
   tweetId: string,
 ): Promise<void> {
@@ -398,7 +398,7 @@ async function markPublished(
 }
 
 async function markFailed(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   postId: string,
   reason: string,
 ): Promise<void> {
