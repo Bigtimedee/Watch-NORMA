@@ -45,7 +45,7 @@ function EmailImportBanner() {
 export default function SportsbooksScreen() {
   const router = useRouter();
   const { data: providers, isLoading } = useStreamingProviders("sportsbook");
-  const { data: connections } = useConnections("sportsbook");
+  const { data: connections } = useConnections();
 
   const sportsbookProviders = (providers ?? []).filter(
     (p) => p.key !== "kalshi" && p.key !== "polymarket"

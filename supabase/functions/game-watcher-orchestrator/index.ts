@@ -132,9 +132,32 @@ Deno.serve(async (req) => {
 
       const closedGameIds = (closedGames ?? []).map((g: any) => g.id);
 
-      // Run final evaluate-alerts for each closed game (bet_resolved alerts)
+      // Run final resolution + alert evaluation for each closed game
       let finalAlertsDispatched = 0;
       for (const gameId of closedGameIds) {
+        // Step 2A: Settle prediction positions before evaluating alerts
+        try {
+          await supabase.functions.invoke("resolve-predictions", {
+            body: { gameId },
+          });
+          console.log(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "predictions_resolved",
+            gameId,
+            timestamp: nowIso,
+          }));
+        } catch (e) {
+          // Non-fatal: log and proceed. evaluate-alerts handles unknown outcomes.
+          console.warn(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "resolve_predictions_failed",
+            gameId,
+            error: (e as Error).message,
+            timestamp: nowIso,
+          }));
+        }
+
+        // Step 2B: Evaluate alerts now that positions are settled
         try {
           await supabase.functions.invoke("evaluate-alerts", {
             body: { gameId },

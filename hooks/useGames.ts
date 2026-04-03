@@ -3,19 +3,25 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Game } from "../lib/types";
 
-/** Get the local calendar date as YYYY-MM-DD (avoids UTC midnight rollover bug) */
+/** Get the Eastern-timezone calendar date as YYYY-MM-DD (matches DatePicker's Eastern-based today) */
 function localDateStr(date?: string): string {
   if (date) return date;
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
   return `${y}-${m}-${d}`;
 }
 
 /** Fetch today's games with team data, subscribing to realtime updates */
 export function useGames(date?: string) {
   const queryClient = useQueryClient();
+  const todayStr = localDateStr();
   const today = localDateStr(date);
 
   const query = useQuery<Game[]>({
@@ -43,31 +49,34 @@ export function useGames(date?: string) {
       if (error) throw error;
       return (data ?? []) as Game[];
     },
-    refetchInterval: 30_000, // fallback poll every 30s
+    // Poll frequently for today's live games; future dates only need occasional refreshes
+    refetchInterval: date === todayStr ? 30_000 : 5 * 60 * 1000,
   });
 
-  // Subscribe to realtime game updates
+  // Subscribe to realtime game updates — only for today's games
   useEffect(() => {
-    const channel = supabase
-      .channel("games-realtime")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "games" },
-        (payload) => {
-          queryClient.setQueryData<Game[]>(["games", today], (old) => {
-            if (!old) return old;
-            return old.map((g) =>
-              g.id === payload.new.id ? { ...g, ...payload.new } : g
-            );
-          });
-        }
-      )
-      .subscribe();
+    if (date === todayStr || !date) {
+      const channel = supabase
+        .channel("games-realtime")
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "games" },
+          (payload) => {
+            queryClient.setQueryData<Game[]>(["games", today], (old) => {
+              if (!old) return old;
+              return old.map((g) =>
+                g.id === payload.new.id ? { ...g, ...payload.new } : g
+              );
+            });
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [today, queryClient]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [today, todayStr, date, queryClient]);
 
   return query;
 }

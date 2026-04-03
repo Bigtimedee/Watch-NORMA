@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main]
@@ -39,12 +42,14 @@ jobs:
           deno check supabase/functions/_shared/social-publishers.ts
           deno check supabase/functions/_shared/social-content-engine.ts
           deno check supabase/functions/_shared/x-oauth.ts
+          deno check supabase/functions/_shared/template-vars.ts
           deno check supabase/functions/cmo-generate/index.ts
           deno check supabase/functions/cmo-publish/index.ts
           deno check supabase/functions/publish-social-posts/index.ts
           deno check supabase/functions/generate-social-content/index.ts
           deno check supabase/functions/generate-recap-content/index.ts
           deno check supabase/functions/fetch-social-metrics/index.ts
+          deno check supabase/functions/resolve-predictions/index.ts
       - name: Run tests
         run: deno test --allow-env --allow-net=none supabase/functions/
 
@@ -57,7 +62,6 @@ jobs:
         with:
           version: latest
       - run: supabase start
-      - run: supabase db reset
       - run: supabase stop
 
   ota-update:
@@ -79,5 +83,5 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: eas update --auto --non-interactive
+      - run: eas update --auto --channel production --non-interactive
         if: env.EXPO_TOKEN != ''

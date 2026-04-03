@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,19 +14,49 @@ const normaLogo = require("../../../assets/norma-logo.png");
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useGames, useFollowedGames } from "../../../hooks/useGames";
 import { GameCard } from "../../../components/GameCard";
+import DatePicker, { offsetToDateStr } from "../../../components/DatePicker";
 import { LIVE_STATUSES } from "../../../lib/constants";
 
 type Tab = "all" | "live" | "following";
 
 export default function GamesScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
+  const [selectedOffset, setSelectedOffset] = useState<number>(0);
+
+  const selectedDateStr = offsetToDateStr(selectedOffset);
+
   const {
     data: allGames,
     isLoading,
     refetch,
     isRefetching,
-  } = useGames();
-  const { data: followedGames } = useFollowedGames();
+  } = useGames(selectedDateStr);
+  const { data: followedGamesRaw } = useFollowedGames();
+
+  const toEasternDateStr = (isoStr: string): string => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(isoStr));
+    const y = parts.find((p) => p.type === "year")!.value;
+    const m = parts.find((p) => p.type === "month")!.value;
+    const d = parts.find((p) => p.type === "day")!.value;
+    return `${y}-${m}-${d}`;
+  };
+
+  // Filter followed games to the selected date using Eastern timezone
+  const followedGames = (followedGamesRaw ?? []).filter(
+    (g) => toEasternDateStr(g.scheduled_at) === selectedDateStr
+  );
+
+  // When navigating away from today, force off the Live tab
+  useEffect(() => {
+    if (selectedOffset !== 0 && activeTab === "live") {
+      setActiveTab("all");
+    }
+  }, [selectedOffset, activeTab]);
 
   const games = (() => {
     switch (activeTab) {
@@ -35,7 +65,7 @@ export default function GamesScreen() {
           LIVE_STATUSES.includes(g.status as any)
         );
       case "following":
-        return followedGames ?? [];
+        return followedGames;
       default:
         return allGames ?? [];
     }
@@ -45,13 +75,17 @@ export default function GamesScreen() {
     LIVE_STATUSES.includes(g.status as any)
   ).length;
 
+  const selectedDayName = new Date(
+    selectedDateStr + "T12:00:00"
+  ).toLocaleDateString("en-US", { weekday: "long" });
+
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
       {/* Header */}
       <View style={s.header}>
         <Image source={normaLogo} style={s.headerLogo} resizeMode="contain" />
         <Text style={s.headerDate}>
-          {new Date().toLocaleDateString("en-US", {
+          {new Date(selectedDateStr + "T12:00:00").toLocaleDateString("en-US", {
             weekday: "long",
             month: "long",
             day: "numeric",
@@ -59,15 +93,25 @@ export default function GamesScreen() {
         </Text>
       </View>
 
+      {/* Date picker */}
+      <DatePicker
+        selectedOffset={selectedOffset}
+        onSelectOffset={setSelectedOffset}
+      />
+
       {/* Tabs */}
       <View style={s.tabs}>
         {(
           [
             { key: "all", label: "All Games" },
-            {
-              key: "live",
-              label: `Live${liveCount > 0 ? ` (${liveCount})` : ""}`,
-            },
+            ...(selectedOffset === 0
+              ? [
+                  {
+                    key: "live" as Tab,
+                    label: `Live${liveCount > 0 ? ` (${liveCount})` : ""}`,
+                  },
+                ]
+              : []),
             { key: "following", label: "Following" },
           ] as const
         ).map((tab) => (
@@ -113,7 +157,9 @@ export default function GamesScreen() {
                   ? "No followed games yet.\nTap a game to follow it!"
                   : activeTab === "live"
                     ? "No live games right now."
-                    : "No games scheduled today."}
+                    : selectedOffset < 0
+                      ? `No games on ${selectedDayName}.`
+                      : "No games scheduled today."}
               </Text>
             </View>
           }

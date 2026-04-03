@@ -6,7 +6,13 @@
 -- Each post now carries its own platform-optimal scheduled_for timestamp.
 -- The hourly job picks up any post where scheduled_for <= now().
 -- ---------------------------------------------------------------------------
-SELECT cron.unschedule('publish-social-posts');
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'publish-social-posts') THEN
+    PERFORM cron.unschedule('publish-social-posts');
+  END IF;
+END
+$$;
 
 SELECT cron.schedule(
   'publish-social-posts',

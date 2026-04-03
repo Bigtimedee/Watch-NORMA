@@ -19,7 +19,10 @@
     "production": {
       "autoIncrement": true,
       "node": "22.14.0",
-      "channel": "production"
+      "channel": "production",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-16.4"
+      }
     }
   },
   "submit": {

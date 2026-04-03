@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,12 +47,9 @@ const PLATFORM = "twitter";
 const ANTHROPIC_MODEL = "claude-opus-4-6";
 const MAX_TWEET_LENGTH = 280;
 
-// Optimal posting windows in Eastern Time (converted to UTC offset logic handled at scheduling)
-// 11:00 AM ET = 16:00 UTC (EST) / 15:00 UTC (EDT)
-// 2:00 PM ET  = 19:00 UTC (EST) / 18:00 UTC (EDT)
-// 6:00 PM ET  = 23:00 UTC (EST) / 22:00 UTC (EDT)
-// 9:00 PM ET  = 02:00 UTC next day (EST) / 01:00 UTC (EDT)
-const POSTING_WINDOWS_UTC_EST = [16, 19, 23, 26]; // 26 = 02:00 next day
+// Target posting windows in Central Time (CT)
+// DST-aware: CDT = UTC-5 (Mar 2nd Sun → Nov 1st Sun), CST = UTC-6 otherwise
+const CT_POSTING_HOURS = [7, 11, 15, 19]; // 7 AM, 11 AM, 3 PM, 7 PM CT
 
 // Content theme rotation — we pick themes based on the day of week + hour
 // so content stays varied across the week.
@@ -297,36 +294,47 @@ function selectThemes(now: Date, count: number): ContentTheme[] {
 }
 
 // ---------------------------------------------------------------------------
-// Calculate next optimal posting windows
+// Calculate next optimal posting windows in Central Time (DST-aware)
 // Returns an array of ISO timestamp strings for the next `count` windows.
 // ---------------------------------------------------------------------------
+
+function getCTOffsetHours(date: Date): number {
+  const year = date.getUTCFullYear();
+  // Second Sunday in March at 2 AM CST = 8 AM UTC
+  const mar1Day = new Date(Date.UTC(year, 2, 1)).getUTCDay();
+  const dstStart = new Date(Date.UTC(year, 2, 1 + ((7 - mar1Day) % 7) + 7, 8, 0, 0));
+  // First Sunday in November at 2 AM CDT = 7 AM UTC
+  const nov1Day = new Date(Date.UTC(year, 10, 1)).getUTCDay();
+  const dstEnd = new Date(Date.UTC(year, 10, 1 + ((7 - nov1Day) % 7), 7, 0, 0));
+  return (date >= dstStart && date < dstEnd) ? -5 : -6; // CDT or CST
+}
 
 function getNextPostingWindows(count: number): string[] {
   const now = new Date();
   const windows: Date[] = [];
 
-  // We define windows in UTC hours, approximating ET (EST = UTC-5)
-  // 11 AM ET => 16:00 UTC, 2 PM ET => 19:00 UTC,
-  // 6 PM ET => 23:00 UTC, 9 PM ET => 02:00 UTC next day
-  const windowHoursUTC = [16, 19, 23, 26]; // 26 means next day 02:00
-
-  // Start from today (UTC)
+  // Start from today midnight UTC
   const baseDate = new Date(now);
   baseDate.setUTCHours(0, 0, 0, 0);
 
   let dayOffset = 0;
   while (windows.length < count) {
-    for (const hour of windowHoursUTC) {
+    for (const ctHour of CT_POSTING_HOURS) {
       if (windows.length >= count) break;
-      const candidate = new Date(baseDate);
-      candidate.setUTCDate(baseDate.getUTCDate() + dayOffset);
-      // Handle hour >= 24 (wraps to next day)
-      if (hour >= 24) {
+      const dayBase = new Date(baseDate);
+      dayBase.setUTCDate(baseDate.getUTCDate() + dayOffset);
+
+      const ctOffset = getCTOffsetHours(dayBase); // -5 (CDT) or -6 (CST)
+      const utcHour = ctHour - ctOffset;           // e.g. 7 - (-5) = 12 in CDT
+
+      const candidate = new Date(dayBase);
+      if (utcHour >= 24) {
         candidate.setUTCDate(candidate.getUTCDate() + 1);
-        candidate.setUTCHours(hour - 24, 0, 0, 0);
+        candidate.setUTCHours(utcHour - 24, 0, 0, 0);
       } else {
-        candidate.setUTCHours(hour, 0, 0, 0);
+        candidate.setUTCHours(utcHour, 0, 0, 0);
       }
+
       // Only include future windows (at least 5 minutes from now)
       if (candidate.getTime() > now.getTime() + 5 * 60 * 1000) {
         windows.push(candidate);
@@ -424,6 +432,52 @@ async function generatePostsWithClaude(
 }
 
 // ---------------------------------------------------------------------------
+// Map a content theme to a media_assets theme_tag
+// ---------------------------------------------------------------------------
+
+function themeToTag(theme: string): string {
+  if (theme === "user_benefit_never_miss") return "never_miss";
+  if (theme === "streaming") return "streaming";
+  if (theme === "prediction_markets") return "prediction_markets";
+  if (theme === "sportsbooks" || theme === "wager_tracking") return "sportsbooks";
+  return "user_benefit";
+}
+
+// ---------------------------------------------------------------------------
+// Query media_assets for a matching screenshot URL
+// Returns null if none found or if the table does not exist yet
+// ---------------------------------------------------------------------------
+
+async function queryMediaAsset(
+  supabase: SupabaseClient,
+  theme: string,
+): Promise<string | null> {
+  try {
+    const tag = themeToTag(theme);
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("public_url")
+      .eq("is_active", true)
+      .contains("theme_tags", [tag])
+      .not("public_url", "is", null)
+      .order("id") // deterministic fallback; random() not available via JS client filter
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`[cmo-generate] media_assets query failed for tag "${tag}": ${error.message}`);
+      return null;
+    }
+
+    return data?.public_url ?? null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[cmo-generate] media_assets lookup threw: ${msg}`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -518,16 +572,24 @@ serve(async (req: Request): Promise<Response> => {
   // Build database records
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const records: ContentCalendarInsert[] = generatedPosts.map((post, idx) => ({
-    platform: PLATFORM,
-    content_type: post.content_type,
-    body: post.body,
-    media_urls: [],
-    hashtags: post.hashtags,
-    status: "draft",
-    scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
-    generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
-  }));
+  // Fetch one screenshot per post in parallel; fall back to empty array if unavailable
+  const mediaUrls: (string | null)[] = await Promise.all(
+    generatedPosts.map((post) => queryMediaAsset(supabase, post.theme)),
+  );
+
+  const records: ContentCalendarInsert[] = generatedPosts.map((post, idx) => {
+    const mediaUrl = mediaUrls[idx];
+    return {
+      platform: PLATFORM,
+      content_type: post.content_type,
+      body: post.body,
+      media_urls: mediaUrl ? [mediaUrl] : [],
+      hashtags: post.hashtags,
+      status: "draft",
+      scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
+      generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
+    };
+  });
 
   // Insert into Supabase
   const { data: insertedRows, error: insertError } = await supabase
@@ -543,7 +605,7 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  console.log(`[cmo-generate] Successfully inserted ${insertedRows?.length ?? 0} draft posts.`);
+  console.log(`[cmo-generate] Successfully inserted ${insertedRows?.length ?? 0} scheduled posts.`);
 
   return new Response(
     JSON.stringify({

@@ -4,7 +4,7 @@
 -- ---------------------------------------------------------------------------
 -- social_accounts: one row per platform, holds OAuth credentials + metadata
 -- ---------------------------------------------------------------------------
-CREATE TABLE public.social_accounts (
+CREATE TABLE IF NOT EXISTS public.social_accounts (
   id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   platform          TEXT NOT NULL UNIQUE,        -- x | instagram | facebook | tiktok | reddit
   account_id        TEXT,                         -- platform's user/page ID
@@ -24,7 +24,7 @@ CREATE TABLE public.social_accounts (
 -- ---------------------------------------------------------------------------
 -- social_posts: generated + published content, one row per platform per day
 -- ---------------------------------------------------------------------------
-CREATE TABLE public.social_posts (
+CREATE TABLE IF NOT EXISTS public.social_posts (
   id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   platform           TEXT NOT NULL,               -- x | instagram | facebook | tiktok | reddit
   status             TEXT NOT NULL DEFAULT 'pending',
@@ -44,9 +44,9 @@ CREATE TABLE public.social_posts (
   created_at         TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_social_posts_status   ON public.social_posts(status, scheduled_for);
-CREATE INDEX idx_social_posts_platform ON public.social_posts(platform, status);
-CREATE INDEX idx_social_posts_game     ON public.social_posts(game_id) WHERE game_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_social_posts_status   ON public.social_posts(status, scheduled_for);
+CREATE INDEX IF NOT EXISTS idx_social_posts_platform ON public.social_posts(platform, status);
+CREATE INDEX IF NOT EXISTS idx_social_posts_game     ON public.social_posts(game_id) WHERE game_id IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- Supabase Storage bucket for generated images (public, served via CDN)
@@ -57,11 +57,31 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Allow service role to upload (Edge Functions run as service role, which bypasses RLS,
 -- but explicit policies make intent clear and handle future anon uploads if needed)
-CREATE POLICY "Service role can upload social images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'social-images');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'Service role can upload social images'
+  ) THEN
+    CREATE POLICY "Service role can upload social images"
+      ON storage.objects FOR INSERT
+      WITH CHECK (bucket_id = 'social-images');
+  END IF;
+END
+$$;
 
 -- Public CDN read access so image_url works without auth
-CREATE POLICY "Public can read social images"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'social-images');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'Public can read social images'
+  ) THEN
+    CREATE POLICY "Public can read social images"
+      ON storage.objects FOR SELECT
+      USING (bucket_id = 'social-images');
+  END IF;
+END
+$$;

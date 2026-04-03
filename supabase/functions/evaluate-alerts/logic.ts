@@ -49,6 +49,8 @@ export interface UserPosition {
   avg_price: number;
   parsed_target?: WagerTarget | null;
   settled?: boolean;
+  outcome?: string | null;       // "yes" | "no" | "unknown" — set by resolve-predictions
+  payout_amount?: number | null; // net dollar amount; positive = profit, negative = loss
 }
 
 export interface SummaryStats {
@@ -403,7 +405,32 @@ export function evaluatePredictionResolved(
     ? (game.home_team?.name ?? "Home")
     : (game.away_team?.name ?? "Away");
 
-  // Try to determine outcome from proximity if we have summary stats
+  // Build outcome-aware copy when resolve-predictions has settled this position
+  const won = position.outcome === "yes";
+  const lost = position.outcome === "no";
+  const hasSettledOutcome = won || lost;
+
+  if (hasSettledOutcome) {
+    const payoutAbs = Math.abs(position.payout_amount ?? 0);
+    const payoutStr = payoutAbs > 0
+      ? ` $${Number.isInteger(payoutAbs) ? payoutAbs : payoutAbs.toFixed(2)}`
+      : "";
+    const resultWord = won ? "won" : "lost";
+    const payoutClause = won && payoutStr
+      ? ` You won${payoutStr}!`
+      : lost && payoutStr
+        ? ` You lost${payoutStr}.`
+        : "";
+
+    return {
+      alertType: "prediction_resolved",
+      title: `${position.platform} — You ${won ? "Won" : "Lost"}`,
+      body: `${scoreStr}.${payoutClause}`,
+      why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" ${resultWord}.${payoutClause} Final: ${scoreStr}.`,
+    };
+  }
+
+  // Fallback: outcome unknown — use proximity inference if available
   const target = position.parsed_target ?? parseWagerTarget(position.market_title);
   let outcomeDetail = "";
 

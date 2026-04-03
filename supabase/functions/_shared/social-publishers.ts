@@ -116,8 +116,8 @@ export async function publishToX(
   post: SocialPost,
 ): Promise<PublishResult> {
   const creds: XCredentials = {
-    apiKey:       Deno.env.get("X_API_KEY")!,
-    apiSecret:    Deno.env.get("X_API_SECRET")!,
+    apiKey:       Deno.env.get("X_CONSUMER_KEY")!,
+    apiSecret:    Deno.env.get("X_CONSUMER_SECRET")!,
     accessToken:  Deno.env.get("X_ACCESS_TOKEN")!,
     accessSecret: Deno.env.get("X_ACCESS_TOKEN_SECRET")!,
   };
@@ -211,11 +211,16 @@ async function publishInstagramStandard(
   account: SocialAccount,
   post: SocialPost,
 ): Promise<PublishResult> {
-  const igUserId = (account.metadata?.ig_user_id as string) ??
-    Deno.env.get("META_INSTAGRAM_USER_ID");
+  const igUserIdFromMeta = account.metadata?.ig_user_id as string | undefined;
+  const igUserId = (igUserIdFromMeta && igUserIdFromMeta.trim())
+    ? igUserIdFromMeta.trim()
+    : Deno.env.get("META_INSTAGRAM_USER_ID");
   if (!igUserId) throw new Error("Instagram: ig_user_id not configured");
 
-  const token = account.access_token || Deno.env.get("META_INSTAGRAM_ACCESS_TOKEN")!;
+  const envToken = Deno.env.get("META_INSTAGRAM_ACCESS_TOKEN")?.replace(/\s+/g, "");
+  const dbToken  = account.access_token?.replace(/\s+/g, "");
+  const token    = envToken || dbToken;
+  if (!token) throw new Error("Instagram: access_token not configured");
   const caption = post.content_text ?? "";
   const baseUrl = "https://graph.facebook.com/v18.0";
 
@@ -223,7 +228,7 @@ async function publishInstagramStandard(
 
   const createParams = new URLSearchParams({
     caption,
-    image_url: post.image_url,
+    image_url: (post.image_url ?? "").replace(/\s+/g, ""),
     media_type: "IMAGE",
     access_token: token,
   });
@@ -270,11 +275,15 @@ async function publishInstagramCarousel(
   account: SocialAccount,
   post: SocialPost,
 ): Promise<PublishResult> {
-  const igUserId = (account.metadata?.ig_user_id as string) ??
-    Deno.env.get("META_INSTAGRAM_USER_ID");
+  const igUserIdFromMeta = account.metadata?.ig_user_id as string | undefined;
+  const igUserId = (igUserIdFromMeta && igUserIdFromMeta.trim())
+    ? igUserIdFromMeta.trim()
+    : Deno.env.get("META_INSTAGRAM_USER_ID");
   if (!igUserId) throw new Error("Instagram carousel: ig_user_id not configured");
 
-  const token = account.access_token || Deno.env.get("META_INSTAGRAM_ACCESS_TOKEN")!;
+  const token = Deno.env.get("META_INSTAGRAM_ACCESS_TOKEN")?.replace(/\s+/g, "") ||
+    account.access_token?.replace(/\s+/g, "");
+  if (!token) throw new Error("Instagram carousel: access_token not configured");
   const baseUrl = "https://graph.facebook.com/v18.0";
 
   // Read slides from format_metadata (set by generate-social-content)
@@ -376,11 +385,16 @@ export async function publishToFacebook(
   account: SocialAccount,
   post: SocialPost,
 ): Promise<PublishResult> {
-  const pageId = (account.metadata?.page_id as string) ??
-    Deno.env.get("META_FACEBOOK_PAGE_ID");
+  const pageIdFromMeta = account.metadata?.page_id as string | undefined;
+  const pageId = (pageIdFromMeta && pageIdFromMeta.trim())
+    ? pageIdFromMeta.trim()
+    : Deno.env.get("META_FACEBOOK_PAGE_ID");
   if (!pageId) throw new Error("Facebook: page_id not configured");
 
-  const token = account.access_token || Deno.env.get("META_FACEBOOK_PAGE_ACCESS_TOKEN")!;
+  const envToken = Deno.env.get("META_FACEBOOK_PAGE_ACCESS_TOKEN")?.replace(/\s+/g, "");
+  const dbToken  = account.access_token?.replace(/\s+/g, "");
+  const token    = envToken || dbToken;
+  if (!token) throw new Error("Facebook: access_token not configured");
   const baseUrl = "https://graph.facebook.com/v18.0";
 
   const body = new URLSearchParams({
@@ -390,8 +404,7 @@ export async function publishToFacebook(
 
   // Attach image if present
   if (post.image_url) {
-    body.set("url",        post.image_url);
-    body.set("media_fbid", ""); // Graph API will use url for photo posts
+    body.set("url", post.image_url);
   }
 
   const endpoint = post.image_url
@@ -581,11 +594,7 @@ export async function publishToReddit(
   }
 
   const data = await res.json();
-  const postUrl: string =
-    data?.jquery?.find?.((x: unknown[]) => Array.isArray(x) && x[3] === "call" && typeof x[1] === "object")
-      ?.flat()?.find((x: unknown) => typeof x === "string" && x.startsWith("https://")) ??
-    data?.data?.url ??
-    `https://reddit.com/r/${subreddit}`;
+  const postUrl: string = data?.data?.url ?? `https://reddit.com/r/${subreddit}`;
 
   return { platform_post_id: postUrl };
 }

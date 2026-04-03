@@ -12,7 +12,7 @@ import { useAppDetection } from "../../../hooks/useAppDetection";
 export default function StreamingScreen() {
   const router = useRouter();
   const { data: providers, isLoading } = useStreamingProviders("streaming");
-  const { data: connections } = useConnections("streaming");
+  const { data: connections } = useConnections();
   const { detectApps, detecting, detectedCount } = useAppDetection();
 
   return (

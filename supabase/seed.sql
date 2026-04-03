@@ -143,6 +143,6 @@ ON CONFLICT (game_id, sportsbook, market_type) DO NOTHING;
 -- ─── Connections (3) ───
 INSERT INTO public.connections (user_id, provider_type, provider_key, provider_name, connected, metadata) VALUES
   ('00000000-0000-0000-0000-000000000001', 'streaming', 'espn_plus', 'ESPN+', true, NULL),
-  ('00000000-0000-0000-0000-000000000001', 'streaming', 'youtube_tv', 'YouTube TV', true, NULL),
+  ('00000000-0000-0000-0000-000000000001', 'tv', 'youtube_tv', 'YouTube TV', true, NULL),
   ('00000000-0000-0000-0000-000000000001', 'sportsbook', 'draftkings', 'DraftKings', true, NULL)
 ON CONFLICT (user_id, provider_type, provider_key) DO NOTHING;

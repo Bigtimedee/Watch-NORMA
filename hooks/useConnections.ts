@@ -25,26 +25,26 @@ export function useStreamingProviders(type?: ProviderType) {
   });
 }
 
-/** Fetch user's connections */
-export function useConnections(type?: ProviderType) {
+/** Fetch all of the user's connections regardless of provider type.
+ * Both connection screens filter by catalog (streaming vs tv), so they only
+ * need to match by provider_key — filtering by type here caused phantom
+ * disconnects when a connection row's provider_type differed from the
+ * catalog-defined type (e.g. youtube_tv typed 'streaming' vs catalog 'tv').
+ */
+export function useConnections() {
   return useQuery<Connection[]>({
-    queryKey: ["connections", type],
+    queryKey: ["connections"],
     queryFn: async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return [];
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("connections")
         .select("*")
         .eq("user_id", user.id);
 
-      if (type) {
-        query = query.eq("provider_type", type);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as Connection[];
     },
