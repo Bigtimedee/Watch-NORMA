@@ -1,5 +1,5 @@
 -- NORMA Social Media — Activate pipeline for today
--- Migration 038
+-- Migration 048
 --
 -- Migration 037 seeded social_accounts with placeholder access_token strings
 -- (e.g. 'REPLACE_WITH_IG_ACCESS_TOKEN'). social-publishers.ts uses the
