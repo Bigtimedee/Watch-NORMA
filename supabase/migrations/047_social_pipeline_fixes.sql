@@ -1,5 +1,5 @@
 -- NORMA Social Media — Pipeline Fixes
--- Migration 038
+-- Migration 047
 --
 -- Fixes three root causes that prevented all social media posts from being
 -- created or published:
@@ -41,62 +41,74 @@
 --    Unschedule any existing version first (safe no-op if absent), then
 --    re-create with the canonical settings keys.
 -- ---------------------------------------------------------------------------
-SELECT cron.unschedule(jobid)
-FROM   cron.job
-WHERE  jobname = 'generate-social-content';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule(jobid)
+    FROM cron.job
+    WHERE jobname = 'generate-social-content';
 
-SELECT cron.schedule(
-  'generate-social-content',
-  '0 6 * * *',
-  $$
-    SELECT net.http_post(
-      url     := current_setting('app.settings.supabase_url') || '/functions/v1/generate-social-content',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-      ),
-      body    := '{}'::jsonb
+    PERFORM cron.schedule(
+      'generate-social-content',
+      '0 6 * * *',
+      $cron$
+        SELECT net.http_post(
+          url     := current_setting('app.settings.supabase_url') || '/functions/v1/generate-social-content',
+          headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+          ),
+          body    := '{}'::jsonb
+        );
+      $cron$
     );
-  $$
-);
+  END IF;
+END
+$$;
 
 
 -- ---------------------------------------------------------------------------
 -- 2. Fix CMO cron jobs
 -- ---------------------------------------------------------------------------
-SELECT cron.unschedule(jobid)
-FROM   cron.job
-WHERE  jobname IN ('cmo-generate-content', 'cmo-publish-content');
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule(jobid)
+    FROM cron.job
+    WHERE jobname IN ('cmo-generate-content', 'cmo-publish-content');
 
-SELECT cron.schedule(
-  'cmo-generate-content',
-  '0 */6 * * *',
-  $$
-    SELECT net.http_post(
-      url     := current_setting('app.settings.supabase_url') || '/functions/v1/cmo-generate',
-      headers := jsonb_build_object(
-        'Content-Type',  'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-      ),
-      body    := '{"source":"pg_cron"}'::jsonb
+    PERFORM cron.schedule(
+      'cmo-generate-content',
+      '0 */6 * * *',
+      $cron$
+        SELECT net.http_post(
+          url     := current_setting('app.settings.supabase_url') || '/functions/v1/cmo-generate',
+          headers := jsonb_build_object(
+            'Content-Type',  'application/json',
+            'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+          ),
+          body    := '{"source":"pg_cron"}'::jsonb
+        );
+      $cron$
     );
-  $$
-);
 
-SELECT cron.schedule(
-  'cmo-publish-content',
-  '*/30 * * * *',
-  $$
-    SELECT net.http_post(
-      url     := current_setting('app.settings.supabase_url') || '/functions/v1/cmo-publish',
-      headers := jsonb_build_object(
-        'Content-Type',  'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-      ),
-      body    := '{"source":"pg_cron"}'::jsonb
+    PERFORM cron.schedule(
+      'cmo-publish-content',
+      '*/30 * * * *',
+      $cron$
+        SELECT net.http_post(
+          url     := current_setting('app.settings.supabase_url') || '/functions/v1/cmo-publish',
+          headers := jsonb_build_object(
+            'Content-Type',  'application/json',
+            'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+          ),
+          body    := '{"source":"pg_cron"}'::jsonb
+        );
+      $cron$
     );
-  $$
-);
+  END IF;
+END
+$$;
 
 
 -- ---------------------------------------------------------------------------

@@ -46,11 +46,19 @@ UPDATE public.social_accounts
 --    the Edge Function runtime. Errors are logged in Supabase Edge Function
 --    logs — they do not abort this migration.
 -- ---------------------------------------------------------------------------
-SELECT net.http_post(
-  url     := current_setting('app.settings.supabase_url') || '/functions/v1/generate-social-content',
-  headers := jsonb_build_object(
-    'Content-Type',  'application/json',
-    'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-  ),
-  body    := '{}'::jsonb
-);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net')
+     AND current_setting('app.settings.supabase_url', true) IS NOT NULL
+     AND current_setting('app.settings.service_role_key', true) IS NOT NULL THEN
+    PERFORM net.http_post(
+      url     := current_setting('app.settings.supabase_url') || '/functions/v1/generate-social-content',
+      headers := jsonb_build_object(
+        'Content-Type',  'application/json',
+        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+      ),
+      body    := '{}'::jsonb
+    );
+  END IF;
+END
+$$;
