@@ -44,7 +44,7 @@ interface AnthropicResponse {
 // ---------------------------------------------------------------------------
 
 const PLATFORM = "twitter";
-const ANTHROPIC_MODEL = "claude-opus-4-5";
+const ANTHROPIC_MODEL = "claude-opus-4-6";
 const MAX_TWEET_LENGTH = 280;
 
 // Target posting windows in Central Time (CT)

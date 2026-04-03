@@ -8,12 +8,17 @@
  *   - https://tv.youtube.com/live is a subscriber-only URL that silently
  *     redirects unauthenticated mobile browsers to a free-trial sign-up page
  *
- * Fix:
- *   - universal_link is now NULL in the DB for all TV/streaming providers
- *     whose web experience requires authentication
- *   - When universal_link is NULL and native scheme fails, the code falls
- *     through directly to the App Store — never opens a subscriber-only URL
- *   - resolveDeepLinkUrl (used by useTapToStream) follows the same chain
+ * Fix (two separate issues addressed):
+ *   1. universal_link is now NULL in the DB for all TV/streaming providers
+ *      whose web experience requires authentication — no subscriber-only URLs
+ *      are ever opened as a fallback in openStreamingApp.
+ *   2. resolveDeepLinkUrl (used by useTapToStream) MUST use canOpenURL to
+ *      gate on the native scheme. useTapToStream fires openURL with a single
+ *      pre-resolved URL and has NO fallback chain of its own. If resolveDeepLinkUrl
+ *      returns ios_scheme unconditionally and the app is not installed,
+ *      Linking.openURL silently does nothing on iOS — the App Store is unreachable.
+ *      Regression: commit ccc9de5 removed canOpenURL gating; this test suite
+ *      would have caught it immediately.
  */
 
 import { Platform, Linking } from "react-native";
@@ -71,9 +76,11 @@ jest.mock("react-native", () => ({
 }));
 
 const mockOpenURL = Linking.openURL as jest.Mock;
+const mockCanOpenURL = Linking.canOpenURL as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (Platform as unknown as { OS: string }).OS = "ios";
 });
 
 // ─── openStreamingApp — happy path ──────────────────────────────────────────
@@ -263,11 +270,19 @@ describe("openStreamingApp — no subscriber-only URLs across all live-TV provid
 });
 
 // ─── resolveDeepLinkUrl ──────────────────────────────────────────────────────
+//
+// CRITICAL: resolveDeepLinkUrl is used by useTapToStream to pre-select a
+// SINGLE URL. useTapToStream fires Linking.openURL with that URL and has NO
+// fallback chain of its own. If ios_scheme is returned when the app is not
+// installed, Linking.openURL silently does nothing on iOS — the App Store is
+// unreachable and the user sees the full animation play out then nothing.
+//
+// resolveDeepLinkUrl MUST use canOpenURL to gate on the native scheme so it
+// can fall through to the App Store when the app is absent.
 
 describe("resolveDeepLinkUrl", () => {
-  it("returns native scheme URL on iOS when ios_scheme is set", async () => {
-    // resolveDeepLinkUrl returns ios_scheme immediately on iOS without calling
-    // openURL — it does not gate on canOpenURL in the fixed version
+  it("returns native scheme URL on iOS when canOpenURL returns true (app installed)", async () => {
+    mockCanOpenURL.mockResolvedValue(true);
     const provider = makeProvider();
 
     const result = await resolveDeepLinkUrl(provider);
@@ -275,8 +290,41 @@ describe("resolveDeepLinkUrl", () => {
     expect(result).not.toBeNull();
     expect(result!.url).toBe("youtube-tv://");
     expect(result!.method).toBe("native_app");
+    expect(mockCanOpenURL).toHaveBeenCalledWith("youtube-tv://");
     // openURL should NOT have been called — this is a resolution step only
     expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  it(
+    "returns App Store URL when YouTube TV app is NOT installed (canOpenURL = false)",
+    async () => {
+      // REGRESSION TEST: commit ccc9de5 removed canOpenURL gating, making this
+      // path unreachable. useTapToStream would then call Linking.openURL with
+      // 'youtube-tv://', which silently does nothing on iOS when the app is
+      // absent (no throw, no App Store redirect — just a dead end).
+      mockCanOpenURL.mockResolvedValue(false);
+      const provider = makeProvider();
+
+      const result = await resolveDeepLinkUrl(provider);
+
+      expect(result).not.toBeNull();
+      expect(result!.method).toBe("app_store");
+      expect(result!.url).toBe("https://apps.apple.com/app/youtube-tv/id1193350206");
+      // ios_scheme must NOT be returned when the app is absent
+      expect(result!.url).not.toBe("youtube-tv://");
+    }
+  );
+
+  it("falls through to App Store when canOpenURL throws (first-install edge case)", async () => {
+    // canOpenURL can throw on the very first call after a fresh install before
+    // iOS has finished registering the app's schemes.
+    mockCanOpenURL.mockRejectedValue(new Error("canOpenURL failed"));
+    const provider = makeProvider();
+
+    const result = await resolveDeepLinkUrl(provider);
+
+    expect(result).not.toBeNull();
+    expect(result!.method).toBe("app_store");
   });
 
   it("returns the App Store URL when ios_scheme is null and universal_link is NULL", async () => {
@@ -299,8 +347,8 @@ describe("resolveDeepLinkUrl", () => {
       // Regression: before the fix, resolveDeepLinkUrl would return
       // { url: 'https://tv.youtube.com/live', method: 'web_url' }
       // because getWatchUrl('youtube_tv', ...) was in the fallback chain.
+      mockCanOpenURL.mockResolvedValue(false);
       const provider = makeProvider({
-        ios_scheme: null,
         universal_link: null,
         fallback_store_url: "https://apps.apple.com/app/youtube-tv/id1193350206",
       });

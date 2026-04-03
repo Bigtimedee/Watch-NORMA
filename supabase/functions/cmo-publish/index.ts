@@ -332,26 +332,18 @@ async function countPublishedToday(
   supabase: ReturnType<typeof createClient>,
   platform: string,
 ): Promise<number> {
-  const startOfDayET = new Date();
-  // Approximate ET by subtracting 5 hours from UTC (conservative — uses EST year-round)
-  // A production implementation would use a proper timezone library.
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() - 5);
-  startOfDayET.setUTCHours(0, 0, 0, 0);
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() + 5);
-
-  const { count, error } = await supabase
-    .from("content_calendar")
-    .select("id", { count: "exact", head: true })
-    .eq("platform", platform)
-    .eq("status", "published")
-    .gte("published_at", startOfDayET.toISOString());
+  // Delegate to the SQL function which uses AT TIME ZONE 'America/New_York'
+  // and therefore handles EST/EDT transitions correctly.
+  const { data, error } = await supabase.rpc("content_calendar_published_today", {
+    p_platform: platform,
+  });
 
   if (error) {
     console.error(`[cmo-publish] Error counting today's posts: ${error.message}`);
     return 0;
   }
 
-  return count ?? 0;
+  return (data as number) ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -448,16 +440,16 @@ serve(async (req: Request): Promise<Response> => {
   // ---------------------------------------------------------------------------
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const xConsumerKey = Deno.env.get("X_CONSUMER_KEY");
-  const xConsumerSecret = Deno.env.get("X_CONSUMER_SECRET");
+  const xConsumerKey = Deno.env.get("X_API_KEY");
+  const xConsumerSecret = Deno.env.get("X_API_SECRET");
   const xAccessToken = Deno.env.get("X_ACCESS_TOKEN");
   const xAccessTokenSecret = Deno.env.get("X_ACCESS_TOKEN_SECRET");
 
   const missing = [
     !supabaseUrl && "SUPABASE_URL",
     !supabaseServiceKey && "SUPABASE_SERVICE_ROLE_KEY",
-    !xConsumerKey && "X_CONSUMER_KEY",
-    !xConsumerSecret && "X_CONSUMER_SECRET",
+    !xConsumerKey && "X_API_KEY",
+    !xConsumerSecret && "X_API_SECRET",
     !xAccessToken && "X_ACCESS_TOKEN",
     !xAccessTokenSecret && "X_ACCESS_TOKEN_SECRET",
   ].filter(Boolean);
