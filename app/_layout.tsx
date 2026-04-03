@@ -4,6 +4,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
+import * as Updates from "expo-updates";
 import { supabase } from "../lib/supabase";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
 import { TransitionOverlay } from "../components/TransitionOverlay";
@@ -203,7 +204,39 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+/**
+ * On every launch, check for a pending OTA update and apply it immediately.
+ *
+ * Default expo-updates behavior requires two close+reopens to get a fix:
+ *   Launch 1 → downloads update in background, still runs old bundle
+ *   Launch 2 → runs the new bundle
+ *
+ * With reloadAsync(), the app restarts in the same session, so ONE
+ * close+reopen is all users need to get any OTA fix (including the
+ * YouTube TV deep-link fix).
+ *
+ * Fire-and-forget: errors are swallowed so startup is never blocked.
+ * In development __DEV__ is true and Updates.checkForUpdateAsync() would
+ * throw, so we bail early.
+ */
+async function applyOtaUpdateIfAvailable(): Promise<void> {
+  if (__DEV__) return;
+  try {
+    const check = await Updates.checkForUpdateAsync();
+    if (!check.isAvailable) return;
+    await Updates.fetchUpdateAsync();
+    await Updates.reloadAsync();
+  } catch {
+    // Offline, EAS unreachable, or native build mismatch — ignore.
+    // The default background check will apply the update on next launch.
+  }
+}
+
 export default function RootLayout() {
+  useEffect(() => {
+    applyOtaUpdateIfAvailable();
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
