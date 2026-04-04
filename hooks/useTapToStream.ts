@@ -97,6 +97,11 @@ export function useTapToStreamEngine() {
       } catch {
         // URL failed — show waiting/failsafe state
       }
+    } else {
+      // URL resolution returned null — no app, no fallback. Reset immediately
+      // instead of leaving the overlay blocking the UI for 5 seconds.
+      resetToIdle();
+      return;
     }
 
     // Set up waiting state in case deep link is slow

@@ -5,7 +5,6 @@ import type { Game } from "../lib/types";
 import {
   getBestWatchProvider,
   getBroadcastProviderKeys,
-  resolveDeepLinkUrl,
 } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
@@ -38,19 +37,8 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
     allProviders ?? []
   );
 
-  const handlePress = async () => {
+  const handlePress = () => {
     if (bestProvider) {
-      // Pre-flight check: if no URL can be resolved for this provider, show an
-      // actionable message instead of silently doing nothing. This surfaces the
-      // no_fallback failure class to the user before the animation fires.
-      const resolved = await resolveDeepLinkUrl(bestProvider);
-      if (!resolved) {
-        RNAlert.alert(
-          `${bestProvider.name} app not found`,
-          `Search for "${bestProvider.name}" in the App Store to watch.`
-        );
-        return;
-      }
       triggerStream(bestProvider);
     } else if (game.broadcast) {
       const broadcastKeys = getBroadcastProviderKeys(game.broadcast);
