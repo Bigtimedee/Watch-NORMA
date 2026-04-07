@@ -6,12 +6,12 @@ const path = require('path');
  * Forces React-RCTAppDelegate to be built with modular headers.
  *
  * Without this, __has_include(<React_RCTAppDelegate/...>) returns false in
- * RCTAppDelegateUmbrella.h, the import is silently skipped, and Swift/ObjC
- * compilation fails with "cannot find type 'RCTAppDelegate' in scope".
+ * RCTAppDelegateUmbrella.h, the import is silently skipped, and compilation
+ * fails with "cannot find type 'RCTAppDelegate' in scope".
  *
- * DEFINES_MODULE = YES in the podspec alone is insufficient — CocoaPods
- * requires an explicit :modular_headers => true directive in the Podfile to
- * generate the module map.
+ * IMPORTANT: CocoaPods forbids multiple post_install blocks.
+ * This plugin inserts code INTO the existing post_install block that Expo
+ * generates, rather than adding a second one.
  */
 function withRCTAppDelegateModularHeaders(config) {
   return withDangerousMod(config, [
@@ -30,32 +30,7 @@ function withRCTAppDelegateModularHeaders(config) {
         return config;
       }
 
-      // Inject a post_install hook that enables modular headers for the target
-      const hook = `
-${marker}
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    if target.name == 'React-RCTAppDelegate'
-      target.build_configurations.each do |config|
-        config.build_settings['DEFINES_MODULE'] = 'YES'
-        config.build_settings['SWIFT_INSTALL_OBJC_HEADER'] = 'YES'
-      end
-    end
-  end
-end
-`;
-
-      // If there is already a post_install block, merge into it rather than
-      // adding a second one (multiple post_install blocks are not allowed in
-      // CocoaPods >= 1.x without use_frameworks! merge). Inject just before
-      // the closing 'end' of the last post_install block if one exists,
-      // otherwise append at end of file.
-      const postInstallMatch = contents.match(/^post_install\s+do\s+\|installer\|([\s\S]*?)^end/m);
-
-      if (postInstallMatch) {
-        // Insert our target loop just before the closing `end` of the existing block
-        const insertionPoint = postInstallMatch.index + postInstallMatch[0].lastIndexOf('end');
-        const injection = `  ${marker}
+      const injection = `  ${marker}
   installer.pods_project.targets.each do |target|
     if target.name == 'React-RCTAppDelegate'
       target.build_configurations.each do |cfg|
@@ -65,12 +40,19 @@ end
     end
   end
 `;
-        contents =
-          contents.slice(0, insertionPoint) +
-          injection +
-          contents.slice(insertionPoint);
+
+      // Expo always generates: post_install do |installer|
+      // Insert our code right after that opening line.
+      const openingLine = 'post_install do |installer|';
+
+      if (contents.includes(openingLine)) {
+        contents = contents.replace(
+          openingLine,
+          openingLine + '\n' + injection
+        );
       } else {
-        contents += hook;
+        // No existing post_install block — add one at the end
+        contents += `\npost_install do |installer|\n${injection}end\n`;
       }
 
       fs.writeFileSync(podfilePath, contents);
