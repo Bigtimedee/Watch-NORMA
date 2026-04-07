@@ -22,7 +22,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.norma.app",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -69,6 +69,7 @@
       ]
     },
     "plugins": [
+      "./plugins/withRCTAppDelegateModularHeaders",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
