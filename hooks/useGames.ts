@@ -27,10 +27,10 @@ export function useGames(date?: string, sport?: SportKey) {
   const query = useQuery<Game[]>({
     queryKey: ["games", today, sport ?? "all"],
     queryFn: async () => {
-      // Use local midnight boundaries converted to UTC for the query range.
-      // This ensures "today" means the user's local calendar day.
-      const startOfDay = new Date(`${today}T00:00:00`).toISOString();
-      const endOfDay = new Date(`${today}T23:59:59`).toISOString();
+      // Anchor boundaries to Eastern timezone so the query always matches
+      // the Eastern calendar day regardless of the user's device timezone.
+      const startOfDay = new Date(`${today}T00:00:00-04:00`).toISOString();
+      const endOfDay = new Date(`${today}T23:59:59-04:00`).toISOString();
 
       let query = supabase
         .from("games")

@@ -504,6 +504,7 @@ Deno.serve(async (req) => {
         const gameData: Record<string, unknown> = {
           id: `espn-${espn.espnId}`,
           sportsdataio_id: null,
+          sport: "ncaam",
           status,
           home_team_id: homeTeamId,
           away_team_id: awayTeamId,
@@ -564,6 +565,7 @@ Deno.serve(async (req) => {
       const gameData: Record<string, unknown> = {
         id: `sdio-${g.GameID}`,
         sportsdataio_id: g.GameID,
+        sport: "ncaam",
         status: mapStatus(g.Status, g.IsClosed),
         home_team_id: homeId ?? null,
         away_team_id: awayId ?? null,
@@ -599,11 +601,146 @@ Deno.serve(async (req) => {
       else console.error(`Failed to upsert game ${g.GameID}:`, error);
     }
 
+    // 9. Ingest NBA and MLB games from ESPN (always available, no SDIO key needed)
+    let multiSportCount = 0;
+    {
+      const espnDateMulti = dateStr.replace(/-/g, "");
+
+      function mapEspnStatusMulti(desc: string): string {
+        const s = desc.toLowerCase();
+        if (s.includes("scheduled") || s.includes("pre")) return "scheduled";
+        if (s.includes("in progress") || s.includes("in_progress")) return "inprogress";
+        if (s.includes("halftime")) return "halftime";
+        if (s.includes("final") || s.includes("end of")) return "closed";
+        if (s.includes("canceled") || s.includes("cancelled")) return "cancelled";
+        if (s.includes("postponed")) return "postponed";
+        if (s.includes("delayed")) return "scheduled";
+        return "scheduled";
+      }
+
+      const { data: allTeamsForMulti } = await supabase
+        .from("teams")
+        .select("id, name, market, abbreviation, sportsdataio_id");
+      const multiTeamCache: Array<{ id: string; name: string | null; market: string | null; abbreviation: string | null; sportsdataio_id: number | null }> = allTeamsForMulti ?? [];
+
+      async function ensureTeamForSport(displayName: string, abbreviation: string, sportKey: string): Promise<string | null> {
+        const teamId = `espn-${sportKey}-${abbreviation.toLowerCase()}`;
+        const words = displayName.split(" ");
+        const market = words.length > 1 ? words.slice(0, -1).join(" ") : displayName;
+        const teamRow = {
+          id: teamId,
+          name: displayName,
+          market,
+          abbreviation: abbreviation.slice(0, 4).toUpperCase(),
+        };
+        const { error } = await supabase
+          .from("teams")
+          .upsert(teamRow, { onConflict: "id", ignoreDuplicates: true });
+        if (error) {
+          console.warn(`[MultiSport] Failed to create team ${displayName}:`, error);
+          return null;
+        }
+        multiTeamCache.push({ ...teamRow, sportsdataio_id: null });
+        return teamId;
+      }
+
+      for (const sport of ENABLED_SPORTS.filter((s) => s.key !== "ncaam")) {
+        const sportKey = sport.key;
+        const espnBase = ESPN_BASES[sportKey];
+        if (!espnBase) continue;
+
+        try {
+          const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`);
+          if (!res.ok) {
+            console.warn(`[MultiSport] ESPN ${sportKey} scoreboard returned ${res.status}`);
+            continue;
+          }
+          const data = await res.json();
+          const events: any[] = data.events ?? [];
+          console.log(`[MultiSport] ESPN ${sportKey}: ${events.length} events`);
+
+          for (const event of events) {
+            const comp = event.competitions?.[0];
+            if (!comp) continue;
+            const away = comp.competitors?.find((c: any) => c.homeAway === "away");
+            const home = comp.competitors?.find((c: any) => c.homeAway === "home");
+            if (!away || !home) continue;
+
+            const status = mapEspnStatusMulti(comp.status?.type?.description ?? "");
+            if (status === "cancelled") continue;
+
+            const awayS = away.score;
+            const homeS = home.score;
+            const awayPts = typeof awayS === "object" ? parseInt(awayS?.displayValue ?? "0") : parseInt(awayS ?? "0");
+            const homePts = typeof homeS === "object" ? parseInt(homeS?.displayValue ?? "0") : parseInt(homeS ?? "0");
+            const broadcast = comp.broadcasts?.[0]?.names?.[0]
+              ? comp.broadcasts[0].names.join(", ") : null;
+            const venue = comp.venue
+              ? `${comp.venue.fullName ?? ""}, ${comp.venue.address?.city ?? ""}, ${comp.venue.address?.state ?? ""}`.replace(/, ,/g, ",").replace(/^, |, $/g, "")
+              : null;
+
+            const homeDisplayName: string = home.team?.displayName ?? "";
+            const awayDisplayName: string = away.team?.displayName ?? "";
+            const homeAbbr: string = home.team?.abbreviation ?? "";
+            const awayAbbr: string = away.team?.abbreviation ?? "";
+
+            let homeTeamId: string | null = null;
+            let awayTeamId: string | null = null;
+            let homeBest = 0;
+            let awayBest = 0;
+
+            for (const t of multiTeamCache) {
+              const hs = teamMatchScore(t.market ?? "", t.name ?? "", homeDisplayName);
+              if (hs > homeBest) { homeBest = hs; homeTeamId = t.id; }
+              const as2 = teamMatchScore(t.market ?? "", t.name ?? "", awayDisplayName);
+              if (as2 > awayBest) { awayBest = as2; awayTeamId = t.id; }
+            }
+
+            if (homeTeamId && homeTeamId === awayTeamId) {
+              homeTeamId = null;
+              awayTeamId = null;
+            }
+            if (!homeTeamId) homeTeamId = await ensureTeamForSport(homeDisplayName, homeAbbr, sportKey);
+            if (!awayTeamId) awayTeamId = await ensureTeamForSport(awayDisplayName, awayAbbr, sportKey);
+
+            const gameData: Record<string, unknown> = {
+              id: `espn-${sportKey}-${event.id}`,
+              sportsdataio_id: null,
+              sport: sportKey,
+              status,
+              home_team_id: homeTeamId,
+              away_team_id: awayTeamId,
+              home_score: homePts,
+              away_score: awayPts,
+              clock: comp.status?.displayClock ?? null,
+              period: comp.status?.period ?? null,
+              scheduled_at: event.date ?? null,
+              venue,
+              broadcast,
+              title: `${awayDisplayName} at ${homeDisplayName}`,
+              updated_at: new Date().toISOString(),
+            };
+
+            const { error } = await supabase
+              .from("games")
+              .upsert(gameData, { onConflict: "id" });
+            if (!error) multiSportCount++;
+            else console.error(`[MultiSport] Failed to upsert ${sportKey} game ${event.id}:`, error);
+          }
+        } catch (e) {
+          console.warn(`[MultiSport] ESPN ${sportKey} fetch failed:`, e);
+        }
+      }
+
+      console.log(`[MultiSport] Upserted ${multiSportCount} NBA/MLB games`);
+    }
+
     const result = {
       success: true,
       sdioAvailable,
       gamesFound: sdioAvailable ? sdioGames.length : espnGames.length,
       gamesUpserted: upsertedCount,
+      multiSportGames: multiSportCount,
       espnOnlyGames: espnOnlyCount,
       sportradarGames: sportradarGames.length,
       sportradarTeamsMapped: sportradarMapped,

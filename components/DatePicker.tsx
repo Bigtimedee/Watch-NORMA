@@ -83,6 +83,7 @@ const s = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingVertical: 0,
+    alignItems: "center",
   },
   pill: {
     paddingHorizontal: 16,
