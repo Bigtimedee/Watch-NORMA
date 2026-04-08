@@ -1,22 +1,23 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import type { Alert } from "../lib/types";
+import type { Alert, SportKey } from "../lib/types";
 import { sortAlerts } from "../lib/alert-helpers";
 
-/** Fetch user's alerts with realtime subscription for new alerts */
-export function useAlerts() {
+/** Fetch user's alerts with realtime subscription for new alerts.
+ *  Pass sport to filter to a specific sport; omit for all alerts. */
+export function useAlerts(sport?: SportKey) {
   const queryClient = useQueryClient();
 
   const query = useQuery<Alert[]>({
-    queryKey: ["alerts"],
+    queryKey: ["alerts", sport ?? "all"],
     queryFn: async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return [];
 
-      const { data, error } = await supabase
+      let q = supabase
         .from("alerts")
         .select(
           `
@@ -32,6 +33,11 @@ export function useAlerts() {
         .order("created_at", { ascending: false })
         .limit(100);
 
+      if (sport) {
+        q = q.eq("sport", sport);
+      }
+
+      const { data, error } = await q;
       if (error) throw error;
       return sortAlerts((data ?? []) as Alert[]);
     },

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import type { Game } from "../lib/types";
+import type { Game, SportKey } from "../lib/types";
 
 /** Get the Eastern-timezone calendar date as YYYY-MM-DD (matches DatePicker's Eastern-based today) */
 function localDateStr(date?: string): string {
@@ -19,20 +19,20 @@ function localDateStr(date?: string): string {
 }
 
 /** Fetch today's games with team data, subscribing to realtime updates */
-export function useGames(date?: string) {
+export function useGames(date?: string, sport?: SportKey) {
   const queryClient = useQueryClient();
   const todayStr = localDateStr();
   const today = localDateStr(date);
 
   const query = useQuery<Game[]>({
-    queryKey: ["games", today],
+    queryKey: ["games", today, sport ?? "all"],
     queryFn: async () => {
       // Use local midnight boundaries converted to UTC for the query range.
       // This ensures "today" means the user's local calendar day.
       const startOfDay = new Date(`${today}T00:00:00`).toISOString();
       const endOfDay = new Date(`${today}T23:59:59`).toISOString();
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("games")
         .select(
           `
@@ -45,6 +45,13 @@ export function useGames(date?: string) {
         .lte("scheduled_at", endOfDay)
         .not("status", "in", "(cancelled,postponed)")
         .order("scheduled_at", { ascending: true });
+
+      // Filter by sport when provided
+      if (sport) {
+        query = query.eq("sport", sport);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data ?? []) as Game[];
@@ -62,8 +69,10 @@ export function useGames(date?: string) {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "games" },
           (payload) => {
-            queryClient.setQueryData<Game[]>(["games", today], (old) => {
+            queryClient.setQueryData<Game[]>(["games", today, sport ?? "all"], (old) => {
               if (!old) return old;
+              // Only update games that match the current sport filter
+              if (sport && payload.new.sport && payload.new.sport !== sport) return old;
               return old.map((g) =>
                 g.id === payload.new.id ? { ...g, ...payload.new } : g
               );

@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import type { Game } from "../lib/types";
+import { SPORT_LABELS } from "../lib/sport-context";
 import { formatClock } from "../lib/alert-helpers";
 import { LIVE_STATUSES } from "../lib/constants";
 
@@ -12,6 +13,18 @@ export function GameCard({ game }: GameCardProps) {
   const router = useRouter();
   const isLive = LIVE_STATUSES.includes(game.status as any);
   const isFinal = game.status === "closed";
+  const isMlb = game.sport === "mlb";
+
+  // For MLB: show run/hit/error instead of a single score
+  const awayDisplay = isMlb
+    ? (game.status !== "scheduled" ? String(game.away_score) : "-")
+    : (game.status !== "scheduled" ? String(game.away_score) : "-");
+  const homeDisplay = isMlb
+    ? (game.status !== "scheduled" ? String(game.home_score) : "-")
+    : (game.status !== "scheduled" ? String(game.home_score) : "-");
+
+  // Sport label badge (show for NBA and MLB but not NCAA to avoid clutter)
+  const sportBadge = game.sport !== "ncaam" ? SPORT_LABELS[game.sport] : null;
 
   return (
     <Pressable
@@ -21,10 +34,17 @@ export function GameCard({ game }: GameCardProps) {
     >
       {/* Header: broadcast + status */}
       <View style={s.header}>
-        <Text style={s.broadcastText}>
-          {game.broadcast ?? ""}
-          {game.tournament_round ? ` \u00B7 ${game.tournament_round}` : ""}
-        </Text>
+        <View style={s.headerLeft}>
+          {sportBadge && (
+            <View style={s.sportBadge}>
+              <Text style={s.sportBadgeText}>{sportBadge}</Text>
+            </View>
+          )}
+          <Text style={s.broadcastText} numberOfLines={1}>
+            {game.broadcast ?? ""}
+            {game.tournament_round ? ` \u00B7 ${game.tournament_round}` : ""}
+          </Text>
+        </View>
         <View
           style={[
             s.statusBadge,
@@ -54,7 +74,7 @@ export function GameCard({ game }: GameCardProps) {
         <Text
           style={[s.score, isLive || isFinal ? s.scoreActive : s.scoreInactive]}
         >
-          {game.status !== "scheduled" ? game.away_score : "-"}
+          {awayDisplay}
         </Text>
       </View>
 
@@ -73,7 +93,7 @@ export function GameCard({ game }: GameCardProps) {
         <Text
           style={[s.score, isLive || isFinal ? s.scoreActive : s.scoreInactive]}
         >
-          {game.status !== "scheduled" ? game.home_score : "-"}
+          {homeDisplay}
         </Text>
       </View>
 
@@ -97,10 +117,28 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 6,
+  },
+  sportBadge: {
+    backgroundColor: "#1e40af",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  sportBadgeText: {
+    color: "#93c5fd",
+    fontSize: 10,
+    fontWeight: "700",
+  },
   broadcastText: {
     color: "#94a3b8",
     fontSize: 12,
     fontWeight: "500",
+    flex: 1,
   },
   statusBadge: {
     paddingHorizontal: 8,

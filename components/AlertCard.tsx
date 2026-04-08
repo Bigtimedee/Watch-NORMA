@@ -2,6 +2,7 @@ import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Alert } from "../lib/types";
+import { SPORT_LABELS } from "../lib/sport-context";
 import {
   alertTypeLabel,
   alertTypeColor,
@@ -83,6 +84,14 @@ export function AlertCard({ alert }: AlertCardProps) {
                   {alertTypeLabel(alert.alert_type)}
                 </Text>
               </View>
+              {/* Sport badge — shown for NBA and MLB to distinguish from NCAA */}
+              {alert.sport && alert.sport !== "ncaam" && (
+                <View style={s.sportBadge}>
+                  <Text style={s.sportBadgeText}>
+                    {SPORT_LABELS[alert.sport]}
+                  </Text>
+                </View>
+              )}
               {!alert.read && <View style={s.unreadDot} />}
             </View>
             <Text style={s.time}>{timeAgo(alert.created_at)}</Text>
@@ -243,5 +252,17 @@ const s = StyleSheet.create({
     gap: 8,
     marginTop: 10,
     flexWrap: "wrap",
+  },
+  sportBadge: {
+    backgroundColor: "#1e40af",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginRight: 8,
+  },
+  sportBadgeText: {
+    color: "#93c5fd",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

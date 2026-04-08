@@ -9,6 +9,9 @@ export type GameStatus =
   | "postponed"
   | "forfeit";
 
+/** Sport discriminator — matches the sport_key Postgres enum */
+export type SportKey = "ncaam" | "nba" | "mlb";
+
 export type FollowType = "game" | "team";
 
 export type ProviderType = "streaming" | "tv" | "sportsbook";
@@ -48,12 +51,15 @@ export interface Team {
   logo_url: string | null;
   sportsdataio_id: number | null;
   sportradar_id: string | null;
+  sport: SportKey;
   created_at: string;
 }
 
 export interface Game {
   id: string;
+  sport: SportKey;
   sportsdataio_id: number | null;
+  espn_id: string | null;
   sportradar_id: string | null;
   status: GameStatus;
   title: string | null;
@@ -76,6 +82,52 @@ export interface Game {
   // Joined relations
   home_team?: Team;
   away_team?: Team;
+}
+
+/** MLB per-game stats from mlb_game_stats table */
+export interface MLBGameStats {
+  id: number;
+  game_id: string;
+  home_innings: Array<{ inning: number; runs: number }>;
+  away_innings: Array<{ inning: number; runs: number }>;
+  home_runs: number;
+  away_runs: number;
+  home_hits: number;
+  away_hits: number;
+  home_errors: number;
+  away_errors: number;
+  current_inning: number | null;
+  inning_half: "T" | "B" | null;
+  outs: number;
+  balls: number;
+  strikes: number;
+  runners_on_base: Array<{ base: number; player_name: string }>;
+  home_starter_name: string | null;
+  home_starter_pitches: number;
+  home_starter_ip: number | null;
+  home_starter_era: number | null;
+  home_starter_whip: number | null;
+  home_starter_strikeouts: number;
+  home_starter_walks: number;
+  home_starter_hits_allowed: number;
+  home_starter_runs_allowed: number;
+  home_starter_still_pitching: boolean;
+  away_starter_name: string | null;
+  away_starter_pitches: number;
+  away_starter_ip: number | null;
+  away_starter_era: number | null;
+  away_starter_whip: number | null;
+  away_starter_strikeouts: number;
+  away_starter_walks: number;
+  away_starter_hits_allowed: number;
+  away_starter_runs_allowed: number;
+  away_starter_still_pitching: boolean;
+  home_no_hitter_active: boolean;
+  away_no_hitter_active: boolean;
+  home_perfect_game_active: boolean;
+  away_perfect_game_active: boolean;
+  payload_hash: string | null;
+  updated_at: string;
 }
 
 export interface GameSnapshot {
@@ -160,6 +212,7 @@ export interface Alert {
   id: number;
   user_id: string;
   game_id: string | null;
+  sport: SportKey;
   alert_type: AlertType;
   title: string;
   body: string;
@@ -185,6 +238,7 @@ export interface Wager {
   id: number;
   user_id: string;
   game_id: string | null;
+  sport: SportKey;
   sportsbook: string | null;
   wager_type: WagerType | null;
   description: string;

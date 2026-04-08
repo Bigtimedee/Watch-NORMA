@@ -77,6 +77,23 @@ export function timeAgo(dateStr: string): string {
 }
 
 /** Format game clock display */
+/** Format ordinal inning label: 1 -> 1st, 7 -> 7th, 11 -> 11th */
+function ordinalInning(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** Parse MLB clock string (e.g., "T7" or "B9") into human-readable form */
+function formatMLBClock(clock: string | null, period: number | null): string {
+  if (!clock) return period ? `Inn ${period}` : "LIVE";
+  const match = clock.match(/^([TB])(\d+)$/);
+  if (!match) return clock;
+  const half = match[1] === "T" ? "Top" : "Bot";
+  const inning = parseInt(match[2]);
+  return `${half} ${ordinalInning(inning)}`;
+}
+
 export function formatClock(game: Game): string {
   if (game.status === "scheduled") {
     return new Date(game.scheduled_at).toLocaleTimeString("en-US", {
@@ -84,14 +101,33 @@ export function formatClock(game: Game): string {
       minute: "2-digit",
     });
   }
-  if (game.status === "halftime") return "HALF";
+  if (game.status === "halftime") {
+    // For MLB, halftime means between half-innings — show the inning context
+    if (game.sport === "mlb" && game.clock) {
+      return formatMLBClock(game.clock, game.period);
+    }
+    return "HALF";
+  }
   if (game.status === "closed") return "FINAL";
   if (game.status === "cancelled") return "CANCELLED";
   if (game.status === "postponed") return "PPD";
 
+  // MLB: clock is encoded as T/B + inning number
+  if (game.sport === "mlb") {
+    return formatMLBClock(game.clock, game.period);
+  }
+
+  // Basketball (NCAA and NBA)
   if (!game.period) return game.clock ?? "LIVE";
-  const periodLabel =
-    game.period > 2 ? `OT${game.period - 2}` : `H${game.period}`;
+  // NBA has 4 quarters; NCAA has 2 halves
+  let periodLabel: string;
+  if (game.sport === "nba") {
+    periodLabel = game.period > 4
+      ? `OT${game.period - 4 > 1 ? game.period - 4 : ""}`
+      : `Q${game.period}`;
+  } else {
+    periodLabel = game.period > 2 ? `OT${game.period - 2}` : `H${game.period}`;
+  }
   return game.clock ? `${game.clock} ${periodLabel}` : periodLabel;
 }
 
