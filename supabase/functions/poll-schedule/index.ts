@@ -632,6 +632,7 @@ Deno.serve(async (req) => {
           name: displayName,
           market,
           abbreviation: abbreviation.slice(0, 4).toUpperCase(),
+          sport: sportKey,
         };
         const { error } = await supabase
           .from("teams")
