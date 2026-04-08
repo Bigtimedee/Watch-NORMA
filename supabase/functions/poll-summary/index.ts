@@ -6,10 +6,22 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { hashPayload } from "../_shared/utils.ts";
 import {
   fetchSummary as fetchSportradarSummary,
+  fetchSummaryForSport,
+  fetchMLBSummary,
   resetCallCount,
   getCallCount,
 } from "../_shared/sportradar.ts";
-import type { SportradarSummaryResponse } from "../_shared/sportradar.ts";
+import type {
+  SportradarSummaryResponse,
+  SportradarMLBSummaryResponse,
+} from "../_shared/sportradar.ts";
+
+const SPORTSDATAIO_BASES: Record<string, string> = {
+  ncaam: "https://api.sportsdata.io/v3/cbb",
+  nba:   "https://api.sportsdata.io/v3/nba",
+  mlb:   "https://api.sportsdata.io/v3/mlb",
+};
+const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
 /** Extract the most useful stats from a Sportradar summary for alert evaluation */
 function extractSportradarSummary(
@@ -64,6 +76,61 @@ function extractSportradarSummary(
   };
 }
 
+/** Extract and structure an MLB Sportradar summary for storage and alert evaluation */
+function extractMLBSummary(sr: SportradarMLBSummaryResponse): Record<string, unknown> {
+  const extractPitcher = (p: any) => ({
+    name: p?.full_name ?? "",
+    pitch_count: p?.statistics?.pitching?.pitch_count ?? 0,
+    innings_pitched: p?.statistics?.pitching?.innings_pitched ?? 0,
+    earned_runs: p?.statistics?.pitching?.earned_runs ?? 0,
+    hits_allowed: p?.statistics?.pitching?.hits ?? 0,
+    walks: p?.statistics?.pitching?.walks ?? 0,
+    strikeouts: p?.statistics?.pitching?.strikeouts ?? 0,
+    era: p?.statistics?.pitching?.era ?? null,
+    whip: p?.statistics?.pitching?.whip ?? null,
+  });
+
+  const extractBatter = (b: any) => ({
+    name: b?.full_name ?? "",
+    at_bats: b?.statistics?.hitting?.at_bats ?? 0,
+    hits: b?.statistics?.hitting?.hits ?? 0,
+    rbi: b?.statistics?.hitting?.rbi ?? 0,
+    home_runs: b?.statistics?.hitting?.home_runs ?? 0,
+    walks: b?.statistics?.hitting?.walks ?? 0,
+    avg: b?.statistics?.hitting?.avg ?? null,
+    ops: b?.statistics?.hitting?.ops ?? null,
+  });
+
+  return {
+    source: "sportradar_mlb",
+    game_id: sr.id,
+    status: sr.status,
+    current_inning: sr.inning,
+    inning_half: sr.inning_half,
+    outs: sr.outs,
+    runners_on_base: (sr.runners_on_base ?? []).map((r: any) => ({
+      base: r.base,
+      player: r.player?.full_name ?? "",
+    })),
+    home: {
+      runs: sr.home?.runs ?? 0,
+      hits: sr.home?.hits ?? 0,
+      errors: sr.home?.errors ?? 0,
+      starting_pitcher: extractPitcher(sr.home?.starting_pitcher),
+      pitchers: (sr.home?.pitchers ?? []).map(extractPitcher),
+      lineup: (sr.home?.batters ?? []).slice(0, 9).map(extractBatter),
+    },
+    away: {
+      runs: sr.away?.runs ?? 0,
+      hits: sr.away?.hits ?? 0,
+      errors: sr.away?.errors ?? 0,
+      starting_pitcher: extractPitcher(sr.away?.starting_pitcher),
+      pitchers: (sr.away?.pitchers ?? []).map(extractPitcher),
+      lineup: (sr.away?.batters ?? []).slice(0, 9).map(extractBatter),
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -87,6 +154,7 @@ Deno.serve(async (req) => {
 
     let gamesToPoll: Array<{
       id: string;
+      sport: string;
       sportsdataio_id: number | null;
       sportradar_id: string | null;
       coverage_level: string | null;
@@ -95,7 +163,7 @@ Deno.serve(async (req) => {
     if (body.gameId) {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
         .eq("id", body.gameId)
         .single();
       if (error || !data) {
@@ -108,7 +176,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
         .in("status", ["inprogress", "halftime"]);
       if (error) throw error;
       gamesToPoll = data ?? [];
@@ -127,14 +195,63 @@ Deno.serve(async (req) => {
 
     for (const game of gamesToPoll) {
       try {
+        const sport = game.sport ?? "ncaam";
+        const isMlb = sport === "mlb";
         let payloadToStore: Record<string, unknown> | null = null;
         let snapshotType = "summary";
         let source = "sportsdataio";
 
-        // Try Sportradar first for games with sportradar_id
-        if (game.sportradar_id) {
+        if (isMlb && game.sportradar_id) {
+          // MLB: use MLB-specific Sportradar summary endpoint
           try {
-            const summary = await fetchSportradarSummary(game.sportradar_id);
+            const mlbSummary = await fetchMLBSummary(game.sportradar_id);
+            payloadToStore = extractMLBSummary(mlbSummary);
+            snapshotType = "sportradar_summary_mlb";
+            source = "sportradar_mlb";
+            sportradarCount++;
+
+            // Upsert mlb_game_stats table from this summary
+            const p = payloadToStore as any;
+            const newHash = hashPayload(p);
+            await supabase.from("mlb_game_stats").upsert({
+              game_id: game.id,
+              home_runs: p.home?.runs ?? 0,
+              away_runs: p.away?.runs ?? 0,
+              home_hits: p.home?.hits ?? 0,
+              away_hits: p.away?.hits ?? 0,
+              home_errors: p.home?.errors ?? 0,
+              away_errors: p.away?.errors ?? 0,
+              current_inning: p.current_inning ?? null,
+              inning_half: p.inning_half ?? null,
+              outs: p.outs ?? 0,
+              runners_on_base: p.runners_on_base ?? [],
+              home_starter_name: p.home?.starting_pitcher?.name ?? null,
+              home_starter_pitches: p.home?.starting_pitcher?.pitch_count ?? 0,
+              home_starter_hits_allowed: p.home?.starting_pitcher?.hits_allowed ?? 0,
+              home_starter_runs_allowed: p.home?.starting_pitcher?.earned_runs ?? 0,
+              home_starter_strikeouts: p.home?.starting_pitcher?.strikeouts ?? 0,
+              home_starter_walks: p.home?.starting_pitcher?.walks ?? 0,
+              away_starter_name: p.away?.starting_pitcher?.name ?? null,
+              away_starter_pitches: p.away?.starting_pitcher?.pitch_count ?? 0,
+              away_starter_hits_allowed: p.away?.starting_pitcher?.hits_allowed ?? 0,
+              away_starter_runs_allowed: p.away?.starting_pitcher?.earned_runs ?? 0,
+              away_starter_strikeouts: p.away?.starting_pitcher?.strikeouts ?? 0,
+              away_starter_walks: p.away?.starting_pitcher?.walks ?? 0,
+              // No-hitter: if hits_allowed == 0 after inning 6
+              home_no_hitter_active: (p.away?.starting_pitcher?.hits_allowed ?? 0) === 0 && (p.current_inning ?? 0) >= 7,
+              away_no_hitter_active: (p.home?.starting_pitcher?.hits_allowed ?? 0) === 0 && (p.current_inning ?? 0) >= 7,
+              payload_hash: newHash,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "game_id" });
+          } catch (e) {
+            console.warn(`Sportradar MLB summary failed for ${game.sportradar_id}:`, e);
+          }
+        } else if (!isMlb && game.sportradar_id) {
+          // Basketball (NCAA or NBA) — use sport-aware endpoint
+          try {
+            const summary = sport === "nba"
+              ? await fetchSummaryForSport("nba", game.sportradar_id)
+              : await fetchSportradarSummary(game.sportradar_id);
             payloadToStore = extractSportradarSummary(summary);
             snapshotType = "sportradar_summary";
             source = "sportradar";
@@ -147,9 +264,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // SportsDataIO fallback
-        if (!payloadToStore && game.sportsdataio_id) {
-          const url = `${SPORTSDATAIO_BASE}/stats/json/BoxScore/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
+        // SportsDataIO fallback (basketball only; MLB box score endpoint exists but structure differs)
+        if (!payloadToStore && !isMlb && game.sportsdataio_id) {
+          const sdioBase = SPORTSDATAIO_BASES[sport] ?? SPORTSDATAIO_BASES.ncaam;
+          const url = `${sdioBase}/stats/json/BoxScore/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
           const res = await fetch(url);
 
           if (!res.ok) {

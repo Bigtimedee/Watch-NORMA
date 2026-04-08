@@ -6,17 +6,37 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { mapStatus } from "../_shared/utils.ts";
 import {
   fetchSchedule as fetchSportradarSchedule,
+  fetchScheduleForSport,
   resetCallCount,
   getCallCount,
 } from "../_shared/sportradar.ts";
 import type { SportradarScheduleGame } from "../_shared/sportradar.ts";
 import { matchTeamName } from "../_shared/team-matching.ts";
 
-const SPORTSDATAIO_BASE = "https://api.sportsdata.io/v3/cbb";
+// Sport-specific base URLs
+const SPORTSDATAIO_BASES: Record<string, string> = {
+  ncaam: "https://api.sportsdata.io/v3/cbb",
+  nba:   "https://api.sportsdata.io/v3/nba",
+  mlb:   "https://api.sportsdata.io/v3/mlb",
+};
+const ESPN_BASES: Record<string, string> = {
+  ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
+  nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+  mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+};
+
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
-const ESPN_BASE =
-  "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
+// Legacy constants for backward compatibility in NCAA-only code paths
+const SPORTSDATAIO_BASE = SPORTSDATAIO_BASES.ncaam;
+const ESPN_BASE = ESPN_BASES.ncaam;
 const HAS_SPORTRADAR = !!Deno.env.get("SPORTRADAR_API_KEY");
+
+// Which sports to ingest (driven by env vars — if key missing, sport is skipped)
+const ENABLED_SPORTS: Array<{ key: string; hasSportradar: boolean }> = [
+  { key: "ncaam", hasSportradar: HAS_SPORTRADAR },
+  { key: "nba",   hasSportradar: !!Deno.env.get("SPORTRADAR_NBA_API_KEY") || HAS_SPORTRADAR },
+  { key: "mlb",   hasSportradar: !!Deno.env.get("SPORTRADAR_MLB_API_KEY") || HAS_SPORTRADAR },
+];
 
 interface SportsDataIOGame {
   GameID: number;

@@ -12,9 +12,24 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { hashPayload, mapStatus } from "../_shared/utils.ts";
 import { isTerminalStatus } from "../_shared/polling-state.ts";
 
-const SPORTSDATAIO_BASE = "https://api.sportsdata.io/v3/cbb";
+// Sport-specific SportsDataIO base URLs
+const SPORTSDATAIO_BASES: Record<string, string> = {
+  ncaam: "https://api.sportsdata.io/v3/cbb",
+  nba:   "https://api.sportsdata.io/v3/nba",
+  mlb:   "https://api.sportsdata.io/v3/mlb",
+};
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
-const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
+
+// Sport-specific ESPN base URLs
+const ESPN_BASES: Record<string, string> = {
+  ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
+  nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+  mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+};
+
+// Kept for the SportsDataIO date format: CBB uses YYYY-MMM-DD
+const SPORTSDATAIO_BASE = SPORTSDATAIO_BASES.ncaam;
+const ESPN_BASE = ESPN_BASES.ncaam;
 
 /** Convert a UTC ISO timestamp to an Eastern-date YYYY-MM-DD string.
  *  SportsDataIO indexes games by Eastern date, so we must convert. */
@@ -45,14 +60,35 @@ interface ESPNGameData {
   awayDisplayName: string;
   clock: string | null;
   period: number;
+  espnEventId?: string;
 }
 
-/** Fetch all scores from ESPN for a given Eastern date */
-async function fetchEspnGames(easternDate: string): Promise<ESPNGameData[]> {
+/** Derive clock and period for MLB from ESPN status */
+function parseMLBClockAndPeriod(status: any): { clock: string | null; period: number } {
+  // ESPN MLB: status.period = inning number, displayClock = "Top 7th" etc.
+  const inning = status?.period ?? 0;
+  const displayClock = status?.displayClock ?? null;
+  // Encode as "{T|B}{inning}" e.g. "T7", "B9"
+  let clock: string | null = null;
+  if (displayClock) {
+    const isTop = /top/i.test(displayClock);
+    const isBot = /bot|mid|end/i.test(displayClock);
+    if (isTop) clock = `T${inning}`;
+    else if (isBot) clock = `B${inning}`;
+    else clock = displayClock;
+  }
+  return { clock, period: inning };
+}
+
+/** Fetch all scores from ESPN for a given Eastern date and sport */
+async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESPNGameData[]> {
   const games: ESPNGameData[] = [];
+  const espnBase = ESPN_BASES[sport] ?? ESPN_BASES.ncaam;
   try {
     const espnDate = toEspnDate(easternDate);
-    const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${espnDate}&groups=50&limit=300`);
+    // NCAA uses groups=50; NBA and MLB use simpler limit param
+    const groupsParam = sport === "ncaam" ? "&groups=50" : "";
+    const res = await fetch(`${espnBase}/scoreboard?dates=${espnDate}${groupsParam}&limit=300`);
     if (!res.ok) return games;
     const data = await res.json();
     for (const event of data.events ?? []) {
@@ -63,18 +99,32 @@ async function fetchEspnGames(easternDate: string): Promise<ESPNGameData[]> {
       if (!away || !home) continue;
       const awayS = away.score;
       const homeS = home.score;
+
+      let clock: string | null;
+      let period: number;
+
+      if (sport === "mlb") {
+        const parsed = parseMLBClockAndPeriod(comp.status);
+        clock = parsed.clock;
+        period = parsed.period;
+      } else {
+        clock = comp.status?.displayClock ?? null;
+        period = comp.status?.period ?? 0;
+      }
+
       games.push({
         homeScore: typeof homeS === "object" ? parseInt(homeS?.displayValue ?? "0") : parseInt(homeS ?? "0"),
         awayScore: typeof awayS === "object" ? parseInt(awayS?.displayValue ?? "0") : parseInt(awayS ?? "0"),
-        status: comp.status?.type?.description ?? "Unknown",
+        status: comp.status?.type?.name ?? comp.status?.type?.description ?? "Unknown",
         homeDisplayName: home.team?.displayName ?? "",
         awayDisplayName: away.team?.displayName ?? "",
-        clock: comp.status?.displayClock ?? null,
-        period: comp.status?.period ?? 0,
+        clock,
+        period,
+        espnEventId: event.id ?? undefined,
       });
     }
   } catch (e) {
-    console.warn("ESPN fetch failed (non-critical):", e);
+    console.warn(`ESPN fetch failed for sport=${sport} (non-critical):`, e);
   }
   return games;
 }
@@ -155,10 +205,11 @@ Deno.serve(async (req) => {
     );
 
     // Get active games + scheduled games whose start time has passed (they may have started)
+    // Now includes sport column so we can route to the right ESPN/SportsDataIO endpoint.
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: activeGames, error: fetchError } = await supabase
       .from("games")
-      .select("id, sportsdataio_id, sportradar_id, coverage_level, snapshot_hash, status, scheduled_at, home_team:teams!games_home_team_id_fkey(abbreviation,market,name), away_team:teams!games_away_team_id_fkey(abbreviation,market,name)")
+      .select("id, sport, sportsdataio_id, espn_id, sportradar_id, coverage_level, snapshot_hash, status, scheduled_at, home_team:teams!games_home_team_id_fkey(abbreviation,market,name), away_team:teams!games_away_team_id_fkey(abbreviation,market,name)")
       .or(`status.in.("inprogress","halftime"),and(status.eq.scheduled,scheduled_at.lte.${fiveMinAgo})`);
 
     if (fetchError) throw fetchError;
@@ -169,8 +220,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Collect all unique EASTERN dates we need to fetch scores for.
-    const datesToFetch = new Set<string>();
+    // Collect all unique (sport, date) combos we need to fetch ESPN/SportsDataIO scores for.
+    const sportDatesToFetch = new Set<string>(); // encoded as "sport|date"
+    const datesToFetch = new Set<string>(); // legacy: used below for SportsDataIO
     for (const game of activeGames) {
       if (game.scheduled_at) {
         const easternDate = utcToEasternDate(game.scheduled_at);
@@ -178,17 +230,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch ESPN scores for all relevant dates (primary source — always accurate)
-    const espnGamesByDate: Map<string, ESPNGameData[]> = new Map();
-    for (const dateStr of datesToFetch) {
-      const espnGames = await fetchEspnGames(dateStr);
-      espnGamesByDate.set(dateStr, espnGames);
+    // Collect unique sport+date combos for ESPN fetches
+    for (const game of activeGames) {
+      if (game.scheduled_at) {
+        const sport = (game as any).sport ?? "ncaam";
+        const easternDate = utcToEasternDate(game.scheduled_at);
+        sportDatesToFetch.add(`${sport}|${easternDate}`);
+        datesToFetch.add(easternDate);
+      }
     }
 
-    // Fetch SportsDataIO scores as fallback
+    // Fetch ESPN scores for all relevant sport+date combos (primary source)
+    const espnGamesBySportDate: Map<string, ESPNGameData[]> = new Map();
+    for (const key of sportDatesToFetch) {
+      const [sport, dateStr] = key.split("|");
+      const espnGames = await fetchEspnGames(dateStr, sport);
+      espnGamesBySportDate.set(key, espnGames);
+    }
+
+    // Fetch SportsDataIO scores as fallback (sport-routed)
     const scoresByGameId: Record<number, {
       HomeTeamScore: number | null;
       AwayTeamScore: number | null;
+      // MLB specific
+      HomeTeamRuns?: number | null;
+      AwayTeamRuns?: number | null;
+      Inning?: number | null;
+      InningHalf?: string | null;
+      Outs?: number | null;
       Status: string;
       IsClosed: boolean;
       Period: string | null;
@@ -198,23 +267,30 @@ Deno.serve(async (req) => {
       AwayTeam: string;
     }> = {};
 
-    for (const dateStr of datesToFetch) {
-      const url = `${SPORTSDATAIO_BASE}/scores/json/GamesByDate/${dateStr}?key=${SPORTSDATAIO_KEY}`;
+    for (const key of sportDatesToFetch) {
+      const [sport, dateStr] = key.split("|");
+      const sdioBase = SPORTSDATAIO_BASES[sport] ?? SPORTSDATAIO_BASES.ncaam;
+      const url = `${sdioBase}/scores/json/GamesByDate/${dateStr}?key=${SPORTSDATAIO_KEY}`;
       const res = await fetch(url);
       if (!res.ok) {
-        console.warn(`GamesByDate fetch failed for ${dateStr}: ${res.status}`);
+        console.warn(`GamesByDate fetch failed for sport=${sport} date=${dateStr}: ${res.status}`);
         continue;
       }
       const games = await res.json();
       for (const g of games) {
         scoresByGameId[g.GameID] = {
-          HomeTeamScore: g.HomeTeamScore,
-          AwayTeamScore: g.AwayTeamScore,
+          HomeTeamScore: g.HomeTeamScore ?? g.HomeTeamRuns ?? null,
+          AwayTeamScore: g.AwayTeamScore ?? g.AwayTeamRuns ?? null,
+          HomeTeamRuns: g.HomeTeamRuns ?? null,
+          AwayTeamRuns: g.AwayTeamRuns ?? null,
+          Inning: g.Inning ?? null,
+          InningHalf: g.InningHalf ?? null,
+          Outs: g.Outs ?? null,
           Status: g.Status,
           IsClosed: g.IsClosed,
-          Period: g.Period,
-          TimeRemainingMinutes: g.TimeRemainingMinutes,
-          TimeRemainingSeconds: g.TimeRemainingSeconds,
+          Period: g.Period ?? (g.Inning != null ? String(g.Inning) : null),
+          TimeRemainingMinutes: g.TimeRemainingMinutes ?? null,
+          TimeRemainingSeconds: g.TimeRemainingSeconds ?? null,
           HomeTeam: g.HomeTeam,
           AwayTeam: g.AwayTeam,
         };
@@ -226,8 +302,11 @@ Deno.serve(async (req) => {
 
     for (const game of activeGames) {
       try {
+        const sport: string = (game as any).sport ?? "ncaam";
+        const isMlb = sport === "mlb";
         const easternDate = game.scheduled_at ? utcToEasternDate(game.scheduled_at) : null;
-        const espnDateGames = easternDate ? espnGamesByDate.get(easternDate) ?? [] : [];
+        const espnKey = easternDate ? `${sport}|${easternDate}` : null;
+        const espnDateGames = espnKey ? espnGamesBySportDate.get(espnKey) ?? [] : [];
 
         const homeMarket = (game as any).home_team?.market ?? "";
         const awayMarket = (game as any).away_team?.market ?? "";
@@ -248,7 +327,25 @@ Deno.serve(async (req) => {
         let clock: string | null = null;
         let period: number | null = null;
 
-        if (espnData && gameData) {
+        if (isMlb) {
+          // MLB: use SportsDataIO for inning/half state; ESPN for scores
+          bestHomeScore = espnData?.homeScore ?? gameData?.HomeTeamRuns ?? gameData?.HomeTeamScore ?? 0;
+          bestAwayScore = espnData?.awayScore ?? gameData?.AwayTeamRuns ?? gameData?.AwayTeamScore ?? 0;
+          if (gameData) {
+            newStatus = mapStatus(gameData.Status, gameData.IsClosed);
+            // Encode clock as T/B + inning (e.g., "T7", "B9")
+            const half = gameData.InningHalf ?? "T";
+            const inning = gameData.Inning ?? 0;
+            clock = inning > 0 ? `${half}${inning}` : null;
+            period = inning || null;
+          } else if (espnData) {
+            newStatus = mapStatus(espnData.status, false);
+            clock = espnData.clock;
+            period = espnData.period || null;
+          } else {
+            continue;
+          }
+        } else if (espnData && gameData) {
           // Both sources available — ESPN scores are more accurate, SDIO for status/clock
           bestHomeScore = espnData.homeScore;
           bestAwayScore = espnData.awayScore;
