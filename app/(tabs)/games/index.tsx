@@ -16,12 +16,14 @@ import { useGames, useFollowedGames } from "../../../hooks/useGames";
 import { GameCard } from "../../../components/GameCard";
 import DatePicker, { offsetToDateStr } from "../../../components/DatePicker";
 import { LIVE_STATUSES } from "../../../lib/constants";
+import type { SportKey } from "../../../lib/types";
 
 type Tab = "all" | "live" | "following";
 
 export default function GamesScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [selectedOffset, setSelectedOffset] = useState<number>(0);
+  const [selectedSport, setSelectedSport] = useState<SportKey | undefined>(undefined);
 
   const selectedDateStr = offsetToDateStr(selectedOffset);
 
@@ -30,7 +32,7 @@ export default function GamesScreen() {
     isLoading,
     refetch,
     isRefetching,
-  } = useGames(selectedDateStr);
+  } = useGames(selectedDateStr, selectedSport);
   const { data: followedGamesRaw } = useFollowedGames();
 
   const toEasternDateStr = (isoStr: string): string => {
@@ -48,7 +50,9 @@ export default function GamesScreen() {
 
   // Filter followed games to the selected date using Eastern timezone
   const followedGames = (followedGamesRaw ?? []).filter(
-    (g) => toEasternDateStr(g.scheduled_at) === selectedDateStr
+    (g) =>
+      toEasternDateStr(g.scheduled_at) === selectedDateStr &&
+      (selectedSport === undefined || g.sport === selectedSport)
   );
 
   // When navigating away from today, force off the Live tab
@@ -79,6 +83,19 @@ export default function GamesScreen() {
     selectedDateStr + "T12:00:00"
   ).toLocaleDateString("en-US", { weekday: "long" });
 
+  const SPORT_PILLS: Array<{ key: SportKey | undefined; label: string }> = [
+    { key: undefined, label: "All Sports" },
+    { key: "ncaam",  label: "NCAA" },
+    { key: "nba",    label: "NBA" },
+    { key: "mlb",    label: "MLB" },
+  ];
+
+  const selectedSportLabel =
+    selectedSport === "ncaam" ? "NCAA" :
+    selectedSport === "nba"   ? "NBA" :
+    selectedSport === "mlb"   ? "MLB" :
+    null;
+
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
       {/* Header */}
@@ -98,6 +115,27 @@ export default function GamesScreen() {
         selectedOffset={selectedOffset}
         onSelectOffset={setSelectedOffset}
       />
+
+      {/* Sport selector */}
+      <View style={s.sportRow}>
+        {SPORT_PILLS.map((pill) => {
+          const isActive = pill.key === selectedSport;
+          return (
+            <Pressable
+              key={pill.key ?? "all"}
+              style={[s.sportPill, isActive ? s.sportPillActive : s.sportPillInactive]}
+              onPress={() => setSelectedSport(pill.key)}
+              accessibilityRole="button"
+              accessibilityLabel={pill.label}
+              accessibilityState={{ selected: isActive }}
+            >
+              <Text style={[s.sportPillText, isActive ? s.sportPillTextActive : s.sportPillTextInactive]}>
+                {pill.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {/* Tabs */}
       <View style={s.tabs}>
@@ -158,8 +196,8 @@ export default function GamesScreen() {
                   : activeTab === "live"
                     ? "No live games right now."
                     : selectedOffset !== 0
-                      ? `No games on ${selectedDayName}.`
-                      : "No games scheduled today."}
+                      ? `No ${selectedSportLabel ? selectedSportLabel + " " : ""}games on ${selectedDayName}.`
+                      : `No ${selectedSportLabel ? selectedSportLabel + " " : ""}games scheduled today.`}
               </Text>
             </View>
           }
@@ -186,4 +224,11 @@ const s = StyleSheet.create({
   loadingText: { color: "#94a3b8", marginTop: 16 },
   emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
   emptyText: { color: "#94a3b8", fontSize: 16, textAlign: "center" },
+  sportRow: { flexDirection: "row", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  sportPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 9999 },
+  sportPillActive: { backgroundColor: "#f97316" },
+  sportPillInactive: { backgroundColor: "#1e293b" },
+  sportPillText: { fontSize: 13, fontWeight: "600" },
+  sportPillTextActive: { color: "#ffffff" },
+  sportPillTextInactive: { color: "#94a3b8" },
 });
