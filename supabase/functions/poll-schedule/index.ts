@@ -690,7 +690,11 @@ Deno.serve(async (req) => {
             let homeBest = 0;
             let awayBest = 0;
 
-            for (const t of multiTeamCache) {
+            // Only match against teams of the same sport to prevent NCAA teams
+            // (e.g., "Arizona Wildcats") from matching pro teams via shared market
+            // (e.g., "Arizona Diamondbacks" → market "Arizona").
+            const sportTeams = multiTeamCache.filter((t) => !t.sport || t.sport === sportKey);
+            for (const t of sportTeams) {
               const hs = teamMatchScore(t.market ?? "", t.name ?? "", homeDisplayName);
               if (hs > homeBest) { homeBest = hs; homeTeamId = t.id; }
               const as2 = teamMatchScore(t.market ?? "", t.name ?? "", awayDisplayName);
