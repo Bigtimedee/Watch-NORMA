@@ -61,27 +61,27 @@ describe("DatePicker", () => {
     });
 
     it("renders today chip with label 'Today'", () => {
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      expect(getByText("Today")).toBeTruthy();
+      expect(getByLabelText("Today")).toBeTruthy();
     });
 
     it("renders past day chips with 'Weekday M/D' format", () => {
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
       [-5, -4, -3, -2, -1].forEach((offset) => {
-        expect(getByText(expectedLabel(offset))).toBeTruthy();
+        expect(getByLabelText(expectedLabel(offset))).toBeTruthy();
       });
     });
 
     it("renders future day chips with 'Weekday M/D' format", () => {
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
       [1, 2, 3, 4, 5].forEach((offset) => {
-        expect(getByText(expectedLabel(offset))).toBeTruthy();
+        expect(getByLabelText(expectedLabel(offset))).toBeTruthy();
       });
     });
 
@@ -161,63 +161,63 @@ describe("DatePicker", () => {
   describe("onSelectOffset callback", () => {
     it("calls onSelectOffset with 0 when today chip is pressed", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={-1} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText("Today"));
+      fireEvent.press(getByLabelText("Today"));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
       expect(onSelectOffset).toHaveBeenCalledWith(0);
     });
 
     it("calls onSelectOffset with -1 when yesterday chip is pressed", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText(expectedLabel(-1)));
+      fireEvent.press(getByLabelText(expectedLabel(-1)));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
       expect(onSelectOffset).toHaveBeenCalledWith(-1);
     });
 
     it("calls onSelectOffset with -5 when the oldest chip is pressed", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText(expectedLabel(-5)));
+      fireEvent.press(getByLabelText(expectedLabel(-5)));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
       expect(onSelectOffset).toHaveBeenCalledWith(-5);
     });
 
     it("calls onSelectOffset with +1 when tomorrow chip is pressed", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText(expectedLabel(1)));
+      fireEvent.press(getByLabelText(expectedLabel(1)));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
       expect(onSelectOffset).toHaveBeenCalledWith(1);
     });
 
     it("calls onSelectOffset with +5 when the furthest future chip is pressed", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText(expectedLabel(5)));
+      fireEvent.press(getByLabelText(expectedLabel(5)));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
       expect(onSelectOffset).toHaveBeenCalledWith(5);
     });
 
     it("calls onSelectOffset exactly once per tap even on rapid taps", () => {
       const onSelectOffset = jest.fn();
-      const { getByText } = render(
+      const { getByLabelText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
       const label = expectedLabel(-2);
-      fireEvent.press(getByText(label));
-      fireEvent.press(getByText(label));
-      fireEvent.press(getByText(label));
+      fireEvent.press(getByLabelText(label));
+      fireEvent.press(getByLabelText(label));
+      fireEvent.press(getByLabelText(label));
       expect(onSelectOffset).toHaveBeenCalledTimes(3);
       expect(onSelectOffset).toHaveBeenNthCalledWith(1, -2);
       expect(onSelectOffset).toHaveBeenNthCalledWith(2, -2);
