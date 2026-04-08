@@ -1,13 +1,13 @@
 /**
- * Unit tests for the DatePicker component (updated for past-5-days feature).
+ * Unit tests for the DatePicker component (11-day navigation: -5 through +5).
  *
  * Tests cover:
- *  - Renders exactly 5 chips (offsets -4 through 0)
- *  - Today chip (offset 0) is always labeled "Today"
- *  - Past day chips show "Weekday M/D" format (e.g. "Mon 3/24")
+ *  - Renders exactly 11 chips (offsets -5 through +5)
+ *  - Today chip (offset 0) is labeled "Today" and is the center chip
+ *  - Past and future day chips show "Weekday M/D" format
  *  - Active chip reflects selectedOffset prop
  *  - onSelectOffset callback fires with the correct offset when a chip is pressed
- *  - Chips are ordered oldest-to-newest left-to-right (today is rightmost)
+ *  - Chips are ordered oldest-to-newest left-to-right (today is at index 5)
  */
 
 import React from "react";
@@ -41,19 +41,23 @@ function expectedLabel(offset: number): string {
   return `${WEEKDAY_ABBREVS[target.getDay()]} ${target.getMonth() + 1}/${target.getDate()}`;
 }
 
+// offsets array is [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]
+// index of offset N is N + 5
+const TOTAL_CHIPS = 11;
+const TODAY_INDEX = 5;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("DatePicker", () => {
   describe("chip rendering", () => {
-    it("renders exactly 5 chips", () => {
+    it("renders exactly 11 chips", () => {
       const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      // Each chip is a Pressable, exposed as 'button' role in RNTL
       const chips = getAllByRole("button");
-      expect(chips).toHaveLength(5);
+      expect(chips).toHaveLength(TOTAL_CHIPS);
     });
 
     it("renders today chip with label 'Today'", () => {
@@ -67,66 +71,88 @@ describe("DatePicker", () => {
       const { getByText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      // Check all 4 past-day chips
-      [-4, -3, -2, -1].forEach((offset) => {
-        const label = expectedLabel(offset);
-        expect(getByText(label)).toBeTruthy();
+      [-5, -4, -3, -2, -1].forEach((offset) => {
+        expect(getByText(expectedLabel(offset))).toBeTruthy();
       });
     });
 
-    it("today chip is the last (rightmost) chip", () => {
-      const { getAllByRole } = render(
+    it("renders future day chips with 'Weekday M/D' format", () => {
+      const { getByText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
-      const chips = getAllByRole("button");
-      const lastChip = chips[chips.length - 1];
-      // The last chip's accessibility label should be "Today"
-      expect(lastChip.props.accessibilityLabel).toBe("Today");
+      [1, 2, 3, 4, 5].forEach((offset) => {
+        expect(getByText(expectedLabel(offset))).toBeTruthy();
+      });
     });
 
-    it("the oldest chip (4 days ago) is first (leftmost)", () => {
+    it("today chip is the center chip (index 5)", () => {
       const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
       const chips = getAllByRole("button");
-      const firstChip = chips[0];
-      expect(firstChip.props.accessibilityLabel).toBe(expectedLabel(-4));
+      expect(chips[TODAY_INDEX].props.accessibilityLabel).toBe("Today");
+    });
+
+    it("the oldest chip (5 days ago) is first (leftmost)", () => {
+      const { getAllByRole } = render(
+        <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
+      );
+      const chips = getAllByRole("button");
+      expect(chips[0].props.accessibilityLabel).toBe(expectedLabel(-5));
+    });
+
+    it("the furthest future chip (5 days ahead) is last (rightmost)", () => {
+      const { getAllByRole } = render(
+        <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
+      );
+      const chips = getAllByRole("button");
+      expect(chips[TOTAL_CHIPS - 1].props.accessibilityLabel).toBe(expectedLabel(5));
     });
   });
 
   describe("active state", () => {
-    it("marks the chip matching selectedOffset as selected", () => {
+    it("marks the chip matching selectedOffset=0 as selected (index 5)", () => {
       const { getAllByRole } = render(
         <DatePicker selectedOffset={0} onSelectOffset={() => {}} />
       );
       const chips = getAllByRole("button");
-      // offset 0 is the last chip (index 4)
-      expect(chips[4].props.accessibilityState.selected).toBe(true);
-      // All other chips are not selected
-      [0, 1, 2, 3].forEach((i) => {
+      expect(chips[TODAY_INDEX].props.accessibilityState.selected).toBe(true);
+      [0, 1, 2, 3, 4, 6, 7, 8, 9, 10].forEach((i) => {
         expect(chips[i].props.accessibilityState.selected).toBe(false);
       });
     });
 
-    it("marks a past day chip as selected when selectedOffset is -2", () => {
+    it("marks the correct chip as selected when selectedOffset is -2 (index 3)", () => {
       const { getAllByRole } = render(
         <DatePicker selectedOffset={-2} onSelectOffset={() => {}} />
       );
       const chips = getAllByRole("button");
-      // offsets array is [-4, -3, -2, -1, 0], so offset -2 is index 2
-      expect(chips[2].props.accessibilityState.selected).toBe(true);
-      [0, 1, 3, 4].forEach((i) => {
+      // offset -2 → index = -2 + 5 = 3
+      expect(chips[3].props.accessibilityState.selected).toBe(true);
+      [0, 1, 2, 4, 5, 6, 7, 8, 9, 10].forEach((i) => {
         expect(chips[i].props.accessibilityState.selected).toBe(false);
       });
     });
 
-    it("marks the oldest chip (offset -4) as selected when selectedOffset is -4", () => {
+    it("marks the oldest chip (offset -5, index 0) as selected when selectedOffset is -5", () => {
       const { getAllByRole } = render(
-        <DatePicker selectedOffset={-4} onSelectOffset={() => {}} />
+        <DatePicker selectedOffset={-5} onSelectOffset={() => {}} />
       );
       const chips = getAllByRole("button");
       expect(chips[0].props.accessibilityState.selected).toBe(true);
-      [1, 2, 3, 4].forEach((i) => {
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((i) => {
+        expect(chips[i].props.accessibilityState.selected).toBe(false);
+      });
+    });
+
+    it("marks a future chip as selected when selectedOffset is +3 (index 8)", () => {
+      const { getAllByRole } = render(
+        <DatePicker selectedOffset={3} onSelectOffset={() => {}} />
+      );
+      const chips = getAllByRole("button");
+      // offset +3 → index = 3 + 5 = 8
+      expect(chips[8].props.accessibilityState.selected).toBe(true);
+      [0, 1, 2, 3, 4, 5, 6, 7, 9, 10].forEach((i) => {
         expect(chips[i].props.accessibilityState.selected).toBe(false);
       });
     });
@@ -153,14 +179,34 @@ describe("DatePicker", () => {
       expect(onSelectOffset).toHaveBeenCalledWith(-1);
     });
 
-    it("calls onSelectOffset with -4 when the oldest chip is pressed", () => {
+    it("calls onSelectOffset with -5 when the oldest chip is pressed", () => {
       const onSelectOffset = jest.fn();
       const { getByText } = render(
         <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
       );
-      fireEvent.press(getByText(expectedLabel(-4)));
+      fireEvent.press(getByText(expectedLabel(-5)));
       expect(onSelectOffset).toHaveBeenCalledTimes(1);
-      expect(onSelectOffset).toHaveBeenCalledWith(-4);
+      expect(onSelectOffset).toHaveBeenCalledWith(-5);
+    });
+
+    it("calls onSelectOffset with +1 when tomorrow chip is pressed", () => {
+      const onSelectOffset = jest.fn();
+      const { getByText } = render(
+        <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
+      );
+      fireEvent.press(getByText(expectedLabel(1)));
+      expect(onSelectOffset).toHaveBeenCalledTimes(1);
+      expect(onSelectOffset).toHaveBeenCalledWith(1);
+    });
+
+    it("calls onSelectOffset with +5 when the furthest future chip is pressed", () => {
+      const onSelectOffset = jest.fn();
+      const { getByText } = render(
+        <DatePicker selectedOffset={0} onSelectOffset={onSelectOffset} />
+      );
+      fireEvent.press(getByText(expectedLabel(5)));
+      expect(onSelectOffset).toHaveBeenCalledTimes(1);
+      expect(onSelectOffset).toHaveBeenCalledWith(5);
     });
 
     it("calls onSelectOffset exactly once per tap even on rapid taps", () => {
@@ -190,16 +236,16 @@ describe("offsetToDateStr", () => {
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("returns a date 4 days before today for offset -4", () => {
+  it("returns a date 5 days before today for offset -5", () => {
     const todayStr = offsetToDateStr(0);
-    const fourDaysAgo = offsetToDateStr(-4);
+    const fiveDaysAgo = offsetToDateStr(-5);
 
     const today = new Date(todayStr + "T12:00:00");
-    const past = new Date(fourDaysAgo + "T12:00:00");
+    const past = new Date(fiveDaysAgo + "T12:00:00");
     const diffDays = Math.round(
       (today.getTime() - past.getTime()) / (1000 * 60 * 60 * 24)
     );
-    expect(diffDays).toBe(4);
+    expect(diffDays).toBe(5);
   });
 
   it("returns a date 1 day before today for offset -1", () => {
@@ -214,14 +260,49 @@ describe("offsetToDateStr", () => {
     expect(diffDays).toBe(1);
   });
 
+  it("returns a date 1 day after today for offset +1", () => {
+    const todayStr = offsetToDateStr(0);
+    const tomorrowStr = offsetToDateStr(1);
+
+    const today = new Date(todayStr + "T12:00:00");
+    const tomorrow = new Date(tomorrowStr + "T12:00:00");
+    const diffDays = Math.round(
+      (tomorrow.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    expect(diffDays).toBe(1);
+  });
+
+  it("returns a date 5 days after today for offset +5", () => {
+    const todayStr = offsetToDateStr(0);
+    const fiveDaysAhead = offsetToDateStr(5);
+
+    const today = new Date(todayStr + "T12:00:00");
+    const future = new Date(fiveDaysAhead + "T12:00:00");
+    const diffDays = Math.round(
+      (future.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    expect(diffDays).toBe(5);
+  });
+
   it("does not return a future date for any negative offset", () => {
     const todayStr = offsetToDateStr(0);
     const today = new Date(todayStr + "T12:00:00");
 
-    [-4, -3, -2, -1].forEach((offset) => {
+    [-5, -4, -3, -2, -1].forEach((offset) => {
       const dateStr = offsetToDateStr(offset);
       const date = new Date(dateStr + "T12:00:00");
       expect(date.getTime()).toBeLessThan(today.getTime());
+    });
+  });
+
+  it("does not return a past date for any positive offset", () => {
+    const todayStr = offsetToDateStr(0);
+    const today = new Date(todayStr + "T12:00:00");
+
+    [1, 2, 3, 4, 5].forEach((offset) => {
+      const dateStr = offsetToDateStr(offset);
+      const date = new Date(dateStr + "T12:00:00");
+      expect(date.getTime()).toBeGreaterThan(today.getTime());
     });
   });
 });

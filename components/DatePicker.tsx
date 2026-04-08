@@ -30,7 +30,7 @@ const WEEKDAY_ABBREVS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function pillLabel(offset: number): string {
   if (offset === 0) return "Today";
-  // For past days (negative offsets): weekday abbreviation + M/D
+  // For past/future days: weekday abbreviation + M/D
   const now = new Date();
   const eastern = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -46,7 +46,7 @@ function pillLabel(offset: number): string {
 }
 
 export default function DatePicker({ selectedOffset, onSelectOffset }: DatePickerProps) {
-  const offsets = [-4, -3, -2, -1, 0];
+  const offsets = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
 
   return (
     <ScrollView
