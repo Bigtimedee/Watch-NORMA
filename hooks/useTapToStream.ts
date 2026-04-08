@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { AppState, Linking, Platform } from "react-native";
+import { AppState } from "react-native";
 import * as Haptics from "expo-haptics";
 import {
   useSharedValue,
@@ -9,7 +9,7 @@ import {
   runOnJS,
 } from "react-native-reanimated";
 import type { StreamingProvider } from "../lib/types";
-import { resolveDeepLinkUrl } from "../lib/deep-links";
+import { resolveDeepLinkUrl, openStreamingApp } from "../lib/deep-links";
 
 // Phase constants
 export const PHASE_IDLE = 0;
@@ -41,6 +41,7 @@ export function useTapToStreamEngine() {
   const showPortalText = useSharedValue(0);
 
   const resolvedUrlRef = useRef<{ url: string; method: string } | null>(null);
+  const providerRef = useRef<StreamingProvider | null>(null);
   const providerNameRef = useRef<string>("");
   const failsafeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waitingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,10 +91,10 @@ export function useTapToStreamEngine() {
   }, []);
 
   const fireDeepLink = useCallback(async () => {
-    const resolved = resolvedUrlRef.current;
-    if (resolved) {
+    const provider = providerRef.current;
+    if (provider) {
       try {
-        await Linking.openURL(resolved.url);
+        await openStreamingApp(provider);
       } catch {
         // URL failed — show waiting/failsafe state
       }
@@ -125,6 +126,7 @@ export function useTapToStreamEngine() {
       if (phase.value !== PHASE_IDLE) return;
 
       providerNameRef.current = provider.name;
+      providerRef.current = provider;
       resolvedUrlRef.current = null;
 
       if (options?.skipAnticipation) {
