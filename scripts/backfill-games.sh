@@ -12,9 +12,14 @@ echo "Today (Eastern): $TODAY"
 echo ""
 
 for offset in -5 -4 -3 -2 -1 0 1 2 3 4 5; do
-  # Compute target date by adding offset days
-  TARGET=$(TZ="America/New_York" date -v${offset}d +%Y-%m-%d 2>/dev/null || \
-           TZ="America/New_York" date -d "${offset} days" +%Y-%m-%d)
+  # Compute target date by adding offset days (portable: uses python3)
+  TARGET=$(TZ="America/New_York" python3 -c \
+    "from datetime import date, timedelta, timezone; import os; \
+     import zoneinfo; \
+     tz = zoneinfo.ZoneInfo('America/New_York'); \
+     today = date.today(); \
+     print((today + timedelta(days=${offset})).strftime('%Y-%m-%d'))" 2>/dev/null || \
+    python3 -c "from datetime import date, timedelta; print((date.today() + timedelta(days=${offset})).strftime('%Y-%m-%d'))")
 
   printf "Fetching %-12s ... " "$TARGET"
 
