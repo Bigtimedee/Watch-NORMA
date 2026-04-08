@@ -6,20 +6,56 @@ interface DatePickerProps {
   onSelectOffset: (offset: number) => void;
 }
 
+/**
+ * Returns { y, m, d } for today in Eastern Time.
+ * Primary path: Intl.DateTimeFormat with timeZone option.
+ * Fallback: subtract the Eastern UTC offset from UTC time so the
+ * result is always valid even on Hermes builds where Intl.DateTimeFormat
+ * with a named timeZone may throw or return malformed parts.
+ */
+function getEasternToday(): { y: number; m: number; d: number } {
+  try {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+
+    const yearPart = parts.find((p) => p.type === "year");
+    const monthPart = parts.find((p) => p.type === "month");
+    const dayPart = parts.find((p) => p.type === "day");
+
+    if (!yearPart || !monthPart || !dayPart) throw new Error("missing parts");
+
+    const y = parseInt(yearPart.value, 10);
+    const m = parseInt(monthPart.value, 10);
+    const d = parseInt(dayPart.value, 10);
+
+    if (isNaN(y) || isNaN(m) || isNaN(d)) throw new Error("NaN parts");
+
+    return { y, m, d };
+  } catch {
+    // Fallback: Eastern is UTC-5 (EST) or UTC-4 (EDT).
+    // We approximate by subtracting 4 hours from UTC, which keeps us on the
+    // correct calendar date for the overwhelming majority of the day in both
+    // EST and EDT. This is only reached when Intl is unavailable.
+    const now = new Date();
+    const easternMs = now.getTime() - 4 * 60 * 60 * 1000;
+    const easternDate = new Date(easternMs);
+    return {
+      y: easternDate.getUTCFullYear(),
+      m: easternDate.getUTCMonth() + 1,
+      d: easternDate.getUTCDate(),
+    };
+  }
+}
+
 /** Computes the Eastern-timezone calendar date for the given day offset from today.
  *  Returns a "YYYY-MM-DD" string. */
 export function offsetToDateStr(offset: number): string {
-  const now = new Date();
-  const eastern = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const y = parseInt(eastern.find((p) => p.type === "year")!.value);
-  const m = parseInt(eastern.find((p) => p.type === "month")!.value);
-  const d = parseInt(eastern.find((p) => p.type === "day")!.value);
-
+  const { y, m, d } = getEasternToday();
   const target = new Date(y, m - 1, d + offset);
   const ty = target.getFullYear();
   const tm = String(target.getMonth() + 1).padStart(2, "0");
@@ -30,16 +66,7 @@ export function offsetToDateStr(offset: number): string {
 const WEEKDAY_ABBREVS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getDayInfo(offset: number): { weekday: string; shortDate: string } {
-  const now = new Date();
-  const eastern = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const y = parseInt(eastern.find((p) => p.type === "year")!.value);
-  const m = parseInt(eastern.find((p) => p.type === "month")!.value);
-  const d = parseInt(eastern.find((p) => p.type === "day")!.value);
+  const { y, m, d } = getEasternToday();
   const target = new Date(y, m - 1, d + offset);
   return {
     weekday: WEEKDAY_ABBREVS[target.getDay()],
@@ -222,16 +249,18 @@ const s = StyleSheet.create({
   },
 
   // Thin dividers between sections
+  // Fix: 8-digit hex (#rrggbbaa) is not reliably supported in all RN versions.
+  // Use rgba() instead.
   divider: {
     width: 1,
     height: 44,
     marginHorizontal: 8,
   },
   dividerPastToday: {
-    backgroundColor: "#ea580c44",
+    backgroundColor: "rgba(234, 88, 12, 0.27)",
   },
   dividerTodayFuture: {
-    backgroundColor: "#38bdf844",
+    backgroundColor: "rgba(56, 189, 248, 0.27)",
   },
 
   // Base pill
@@ -296,14 +325,19 @@ const s = StyleSheet.create({
   },
 
   // Color tokens
+  // Fix: rgba() used throughout instead of 8-digit hex (#rrggbbaa).
+  // Fix: past text brightened for contrast on #1e293b background.
   textWhite: { color: "#ffffff" },
-  textWhiteDim: { color: "#ffffffaa" },
+  textWhiteDim: { color: "rgba(255, 255, 255, 0.67)" },
   textOrange: { color: "#f97316" },
-  textOrangeDim: { color: "#ea580c99" },
-  textPast: { color: "#64748b" },
-  textPastSelected: { color: "#94a3b8" },
-  textPastDate: { color: "#475569" },
-  textPastDateSelected: { color: "#64748b" },
+  textOrangeDim: { color: "rgba(234, 88, 12, 0.60)" },
+  // Brightened: was #64748b (too dim on #1e293b), now #94a3b8
+  textPast: { color: "#94a3b8" },
+  textPastSelected: { color: "#cbd5e1" },
+  // Brightened: was #475569 (very dark on #1e293b), now #7a8fa6
+  textPastDate: { color: "#7a8fa6" },
+  textPastDateSelected: { color: "#94a3b8" },
   textFuture: { color: "#60a5fa" },
-  textFutureDate: { color: "#3b82f699" },
+  // Fix: was #3b82f699 (8-digit hex), now rgba()
+  textFutureDate: { color: "rgba(59, 130, 246, 0.60)" },
 });
