@@ -259,12 +259,22 @@ export interface GameData {
 
 export interface CarouselSlide {
   caption: string;
+  /**
+   * DISPLAY ONLY — stored as DB metadata from Claude's JSON response.
+   * NEVER pass this to an image generation API (DALL-E, Stable Diffusion, etc.).
+   * All images come exclusively from real NORMA app screenshots via selectScreenshotUrl().
+   */
   image_prompt: string | null;
   image_url?: string | null; // filled in by selectScreenshotUrl
 }
 
 export interface GeneratedContent {
   text: string;
+  /**
+   * DISPLAY ONLY — stored as DB metadata from Claude's JSON response.
+   * NEVER pass this to an image generation API (DALL-E, Stable Diffusion, etc.).
+   * All images come exclusively from real NORMA app screenshots via selectScreenshotUrl().
+   */
   image_prompt: string | null;
   // Carousel format
   slides?: CarouselSlide[];
@@ -437,8 +447,15 @@ const POST_TYPE_SCREENSHOTS: Record<string, ScreenshotKey[]> = {
   app_promo:    ["connections", "profile", "games_list"],
 };
 
-/** Returns a public Supabase Storage URL for the screenshot that best fits
- *  the post type. slideIndex allows carousel slides to get different images. */
+/**
+ * Returns a public Supabase Storage URL for the screenshot that best fits
+ * the post type. slideIndex allows carousel slides to get different images.
+ *
+ * ENFORCEMENT: This is the ONLY function permitted to provide image URLs for
+ * social posts. It exclusively returns real NORMA app screenshots stored in
+ * Supabase Storage. No AI image generation (DALL-E, Stable Diffusion, etc.)
+ * is used anywhere in the social publishing pipeline.
+ */
 export function selectScreenshotUrl(supabaseUrl: string, postType: string, slideIndex = 0): string {
   const preferred = POST_TYPE_SCREENSHOTS[postType] ?? POST_TYPE_SCREENSHOTS.app_promo;
   const key = preferred[slideIndex % preferred.length];
