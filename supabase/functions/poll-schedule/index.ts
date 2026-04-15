@@ -574,10 +574,24 @@ Deno.serve(async (req) => {
         .select("id, name, market, abbreviation, sportsdataio_id");
       const multiTeamCache: Array<{ id: string; name: string | null; market: string | null; abbreviation: string | null; sportsdataio_id: number | null }> = allTeamsForMulti ?? [];
 
+      // Teams whose mascot is more than one word — the city/market is everything before these.
+      const MULTI_WORD_MASCOTS: Record<string, string> = {
+        "trail blazers": "Portland",
+        "red sox":       "Boston",
+        "white sox":     "Chicago",
+        "blue jays":     "Toronto",
+      };
+
       async function ensureTeamForSport(displayName: string, abbreviation: string, sportKey: string): Promise<string | null> {
         const teamId = `espn-${sportKey}-${abbreviation.toLowerCase()}`;
-        const words = displayName.split(" ");
-        const market = words.length > 1 ? words.slice(0, -1).join(" ") : displayName;
+        const lower = displayName.toLowerCase();
+        // Check known multi-word mascots first; fall back to dropping the last word.
+        const multiWordEntry = Object.entries(MULTI_WORD_MASCOTS).find(([mascot]) => lower.endsWith(mascot));
+        const market = multiWordEntry
+          ? multiWordEntry[1]
+          : displayName.split(" ").length > 1
+            ? displayName.split(" ").slice(0, -1).join(" ")
+            : displayName;
         const teamRow = {
           id: teamId,
           name: displayName,
