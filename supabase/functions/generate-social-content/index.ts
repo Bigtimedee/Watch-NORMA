@@ -270,7 +270,6 @@ Deno.serve(async (req) => {
             scenario,
             character_angle: characterAngle,
             content_text:    generated.text,
-            image_prompt:    generated.image_prompt ?? null,
             image_url:       finalImageUrl,
             game_id:         primaryGameId,
             scheduled_for:   scheduledFor,

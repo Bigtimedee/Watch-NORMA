@@ -193,6 +193,28 @@ export async function publishToX(
 }
 
 // ---------------------------------------------------------------------------
+// Image URL pre-flight validation
+// ---------------------------------------------------------------------------
+
+/** HEAD-check that an image URL is reachable before handing it to a platform
+ *  API. Throws with a clear message if the file is missing (404) so the post
+ *  is marked failed rather than sent with a broken URL. */
+async function assertImageUrlReachable(url: string): Promise<void> {
+  try {
+    const res = await fetch(url, { method: "HEAD" });
+    if (!res.ok) {
+      throw new Error(
+        `image_url returned HTTP ${res.status}. Upload real screenshots via ` +
+        `supabase/assets/upload-media-assets.ts before publishing visual posts.`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("image_url returned")) throw err;
+    throw new Error(`image_url unreachable (${(err as Error).message}). Check Supabase Storage.`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Instagram — standard image post + carousel
 // ---------------------------------------------------------------------------
 
@@ -225,6 +247,7 @@ async function publishInstagramStandard(
   const baseUrl = "https://graph.facebook.com/v18.0";
 
   if (!post.image_url) throw new Error("Instagram requires an image_url");
+  await assertImageUrlReachable(post.image_url);
 
   const createParams = new URLSearchParams({
     caption,
@@ -302,6 +325,7 @@ async function publishInstagramCarousel(
   const containerIds: string[] = [];
   for (const slide of slides) {
     if (!slide.image_url) continue;
+    await assertImageUrlReachable(slide.image_url);
 
     const createParams = new URLSearchParams({
       image_url:        slide.image_url,
@@ -440,6 +464,7 @@ export async function publishToTikTok(
   const token = account.access_token || Deno.env.get("TIKTOK_ACCESS_TOKEN")!;
 
   if (!post.image_url) throw new Error("TikTok: image_url required for photo post");
+  await assertImageUrlReachable(post.image_url);
 
   const res = await fetch("https://open.tiktokapis.com/v2/post/publish/content/init/", {
     method: "POST",
