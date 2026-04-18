@@ -178,11 +178,30 @@ export function getBroadcastProviderKeys(
   const normalized = broadcast.toUpperCase().trim();
   const providers: string[] = [];
 
-  if (normalized.includes("ESPN") || normalized.includes("ESPN2")) {
+  // ESPN family — ESPN, ESPN2, ESPNU, ESPN3, ESPN+, ABC (all in the ESPN app)
+  if (
+    normalized.includes("ESPN") ||
+    normalized.includes("ABC") ||
+    normalized.includes("SEC NETWORK") ||
+    normalized.includes("SECN") ||
+    normalized.includes("ACC NETWORK") ||
+    normalized.includes("ACCN")
+  ) {
     providers.push("espn_plus");
   }
+  // CBS family — CBS broadcast, CBS Sports Network (CBSSN), Paramount+
   if (normalized.includes("CBS")) {
     providers.push("paramount_plus", "cbs_sports");
+  }
+  // Fox family — FOX broadcast, FS1, FS2, BTN (Big Ten Network is Fox-distributed)
+  if (
+    normalized.includes("FOX") ||
+    normalized.includes("FS1") ||
+    normalized.includes("FS2") ||
+    normalized.includes("BTN") ||
+    normalized.includes("BIG TEN NETWORK")
+  ) {
+    providers.push("fox_sports");
   }
   if (normalized.includes("TNT")) {
     providers.push("tnt_drama", "max");
@@ -198,6 +217,24 @@ export function getBroadcastProviderKeys(
   }
   if (normalized.includes("MLB")) {
     providers.push("mlb_tv");
+  }
+  if (normalized.includes("PRIME") || normalized.includes("AMAZON")) {
+    providers.push("prime_video");
+  }
+  if (normalized.includes("APPLE TV") || normalized.includes("APPLE TV+")) {
+    providers.push("apple_tv_plus");
+  }
+  if (normalized.includes("NFL NETWORK") || normalized.includes("NFLNET")) {
+    providers.push("nfl_network");
+  }
+  if (normalized.includes("NBA TV") || normalized.includes("NBATV")) {
+    providers.push("nba_tv");
+  }
+  if (normalized.includes("NHL NETWORK") || normalized.includes("NHLNET")) {
+    providers.push("nhl_network");
+  }
+  if (normalized.includes("DAZN")) {
+    providers.push("dazn");
   }
 
   // Live TV providers can show any broadcast game
