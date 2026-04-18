@@ -184,6 +184,9 @@ export function getBroadcastProviderKeys(
   if (normalized.includes("PEACOCK") || normalized.includes("NBC")) {
     providers.push("peacock");
   }
+  if (normalized.includes("MLB")) {
+    providers.push("mlb_tv");
+  }
 
   // Live TV providers can show any broadcast game
   providers.push("youtube_tv", "hulu_live", "fubo", "sling", "directv_stream");
