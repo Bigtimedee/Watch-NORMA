@@ -498,6 +498,35 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Sweep for closed games that still have active wagers — catches any cases
+    // where the resolve-wagers invoke failed or scores weren't ready on first trigger.
+    try {
+      const { data: stalledWagers } = await supabase
+        .from("wagers")
+        .select("game_id")
+        .eq("status", "active")
+        .not("game_id", "is", null);
+
+      if (stalledWagers && stalledWagers.length > 0) {
+        const stagedGameIds = [...new Set(stalledWagers.map((w: { game_id: string }) => w.game_id))];
+        const { data: closedWithActiveWagers } = await supabase
+          .from("games")
+          .select("id")
+          .eq("status", "closed")
+          .in("id", stagedGameIds);
+
+        for (const game of closedWithActiveWagers ?? []) {
+          try {
+            await supabase.functions.invoke("resolve-wagers", { body: { gameId: game.id } });
+          } catch (e) {
+            console.warn(`Sweep: failed to invoke resolve-wagers for ${game.id}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("resolve-wagers sweep failed:", e);
+    }
+
     console.log(JSON.stringify({
       function: "poll-boxscore",
       event: "completed",

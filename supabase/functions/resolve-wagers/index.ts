@@ -23,7 +23,9 @@ Deno.serve(async (req) => {
     let gamesQuery = supabase
       .from("games")
       .select("id, home_score, away_score, home_team_id, away_team_id")
-      .eq("status", "closed");
+      .eq("status", "closed")
+      .not("home_score", "is", null)
+      .not("away_score", "is", null);
 
     if (gameId) {
       gamesQuery = gamesQuery.eq("id", gameId);

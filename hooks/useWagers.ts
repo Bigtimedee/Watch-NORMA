@@ -83,6 +83,7 @@ export function useAddWager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wagers"] });
+      queryClient.invalidateQueries({ queryKey: ["wager-stats"] });
     },
   });
 }
