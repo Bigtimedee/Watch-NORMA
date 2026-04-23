@@ -1,16 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
+type PageState = "checking" | "ready" | "expired" | "success";
+
 export default function ResetPasswordPage() {
+  const [pageState, setPageState] = useState<PageState>("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowser();
+
+    // PKCE flow: session already established by /auth/callback before redirect here
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setPageState("ready");
+        return;
+      }
+      // Hash flow fallback: session arrives via fragment after Supabase redirect
+      // onAuthStateChange fires when Supabase detects the #access_token fragment
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+            setPageState("ready");
+          }
+        }
+      );
+      // Give hash-based flow 2s to fire before declaring link expired
+      const timer = setTimeout(() => {
+        setPageState((s) => s === "checking" ? "expired" : s);
+      }, 2000);
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(timer);
+      };
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,23 +55,51 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
-
     const supabase = createSupabaseBrowser();
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      // Session expired or link already used
-      if (error.status === 403 || error.message.toLowerCase().includes("session")) {
-        setError("This reset link has expired or already been used. Please request a new one.");
-      } else {
-        setError(error.message);
-      }
+      setError(
+        error.status === 403 || error.message.toLowerCase().includes("session")
+          ? "This reset link has expired or already been used. Please request a new one."
+          : error.message
+      );
       setLoading(false);
       return;
     }
 
-    router.push("/dashboard");
+    setPageState("success");
+    // Sign out the reset session so the user logs in fresh with their new password
+    await supabase.auth.signOut();
+    router.push("/auth/login?reset=success");
   };
+
+  if (pageState === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-slate-500">Verifying reset link…</p>
+      </div>
+    );
+  }
+
+  if (pageState === "expired") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+          <h2 className="text-xl font-bold text-white">Link Expired</h2>
+          <p className="text-slate-400">
+            This password reset link is invalid or has already been used.
+          </p>
+          <Link
+            href="/auth/forgot-password"
+            className="block text-sm text-orange-400 hover:text-orange-300"
+          >
+            Request a new reset link →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -66,7 +127,9 @@ export default function ResetPasswordPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300">Confirm New Password</label>
+            <label className="block text-sm font-medium text-slate-300">
+              Confirm New Password
+            </label>
             <input
               type="password"
               value={confirm}
@@ -82,7 +145,10 @@ export default function ResetPasswordPage() {
             <div className="space-y-1">
               <p className="text-sm text-red-400">{error}</p>
               {error.includes("expired") && (
-                <Link href="/auth/forgot-password" className="text-sm text-orange-400 hover:text-orange-300">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-sm text-orange-400 hover:text-orange-300"
+                >
                   Request a new reset link →
                 </Link>
               )}
@@ -94,7 +160,7 @@ export default function ResetPasswordPage() {
             disabled={loading}
             className="w-full rounded-lg bg-orange-500 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
           >
-            {loading ? "Updating..." : "Set New Password"}
+            {loading ? "Updating…" : "Set New Password"}
           </button>
         </form>
       </div>
