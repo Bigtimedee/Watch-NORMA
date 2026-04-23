@@ -1,4 +1,4 @@
--- Migration 038: Cron job for deep link health check
+-- Migration 056: Cron job for deep link health check
 -- Guarded by extension existence checks: pg_cron and pg_net are available in
 -- Supabase cloud but may be absent in CI test environments. The DO block
 -- silently skips scheduling when either extension is not installed, allowing

@@ -1,4 +1,4 @@
--- Migration 037: Deep link observability
+-- Migration 055: Deep link observability
 -- Tracks streaming provider deep link outcomes to detect silent fallback failures
 
 CREATE TABLE public.deep_link_events (
