@@ -227,6 +227,7 @@ Deno.serve(async (req) => {
               abbreviation: t.Key,
               conference: t.Conference,
               logo_url: t.TeamLogoUrl,
+              sport: "ncaam",
             }));
 
           if (toInsert.length > 0) {
@@ -411,10 +412,13 @@ Deno.serve(async (req) => {
         return "scheduled";
       }
 
-      // Fetch all teams once for matching (mutable — we'll add new teams as we create them)
+      // Fetch NCAAM teams only for matching. Scoping by sport prevents NBA/MLB
+      // team IDs from being fuzzy-matched against NCAA display names.
+      // sport IS NULL covers existing NCAAM teams that predate migration 050.
       const { data: initialDbTeams } = await supabase
         .from("teams")
-        .select("id, name, market, abbreviation, sportsdataio_id");
+        .select("id, name, market, abbreviation, sportsdataio_id")
+        .or("sport.is.null,sport.eq.ncaam");
       const allDbTeams = initialDbTeams ?? [];
 
       /** Create a team from ESPN data if it doesn't exist in the DB.
@@ -429,6 +433,7 @@ Deno.serve(async (req) => {
           name: displayName,
           market,
           abbreviation: abbreviation.slice(0, 4).toUpperCase(),
+          sport: "ncaam",
         };
         const { error } = await supabase
           .from("teams")
