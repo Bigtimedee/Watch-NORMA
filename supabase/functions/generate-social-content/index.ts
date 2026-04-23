@@ -218,28 +218,28 @@ Deno.serve(async (req) => {
         let finalImageUrl: string | null = null;
         let formatMetadata: Record<string, unknown> = {};
 
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+
         if (postFormat === "carousel" && generated.slides && generated.slides.length > 0) {
-          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
           const slidesWithImages = generated.slides.map((slide, i) => ({
-            caption:      slide.caption,
-            image_prompt: null,
-            image_url:    selectScreenshotUrl(supabaseUrl, postType, i),
+            caption:   slide.caption,
+            image_url: selectScreenshotUrl(supabaseUrl, postType, i, platform),
           }));
           finalImageUrl = slidesWithImages[0]?.image_url ?? null;
           formatMetadata = { slides: slidesWithImages };
 
         } else if (postFormat === "poll" && generated.poll_options) {
-          // Poll posts: generate image for context, store options in metadata
+          // Poll posts: store options in metadata; image only for visual platforms
           formatMetadata = {
             options:          generated.poll_options,
             duration_minutes: 1440,
           };
           if (VISUAL_PLATFORMS.has(platform)) {
-            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
+            finalImageUrl = selectScreenshotUrl(supabaseUrl, postType, 0, platform);
           }
 
         } else if (postFormat === "link") {
-          // Link posts (Reddit): no image, store link metadata
+          // Link posts (Reddit): no image
           formatMetadata = {
             link_title: generated.link_title ?? generated.text.split("\n")[0],
             url:        Deno.env.get("NORMA_APP_URL") ?? "https://norma-app.com",
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         } else {
           // Standard post: use real app screenshot
           if (VISUAL_PLATFORMS.has(platform)) {
-            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
+            finalImageUrl = selectScreenshotUrl(supabaseUrl, postType, 0, platform);
           }
         }
 

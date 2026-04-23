@@ -165,7 +165,7 @@ export async function publishToX(
     const pollOptions = post.format_metadata?.options as string[] | undefined;
     if (pollOptions && pollOptions.length >= 2) {
       tweetBody.poll = {
-        options: pollOptions.slice(0, 4).map((label) => ({ label: label.slice(0, 25) })),
+        options: pollOptions.slice(0, 4).map((label) => label.slice(0, 25)),
         duration_minutes: 1440, // 24 hours
       };
     }

@@ -414,7 +414,10 @@ Create content that feels completely native to ${platform}. The scenario sets th
 // Screenshot selection — maps post type to real app screenshot URLs
 // ---------------------------------------------------------------------------
 
-const SCREENSHOT_BASE = "norma-screenshots";
+const SCREENSHOT_BASE    = "norma-screenshots";
+// Instagram and TikTok require 4:5 aspect ratio (1080×1350). Pre-cropped versions
+// live under a separate storage prefix created by upload-media-assets.ts.
+const SCREENSHOT_BASE_IG = "norma-screenshots-ig";
 
 const SCREENSHOTS = {
   games_list:         "games-list.png",
@@ -438,12 +441,22 @@ const POST_TYPE_SCREENSHOTS: Record<string, ScreenshotKey[]> = {
 };
 
 /** Returns a public Supabase Storage URL for the screenshot that best fits
- *  the post type. slideIndex allows carousel slides to get different images. */
-export function selectScreenshotUrl(supabaseUrl: string, postType: string, slideIndex = 0): string {
+ *  the post type. slideIndex allows carousel slides to get different images.
+ *  Instagram and TikTok receive pre-cropped 1080×1350 (4:5) versions so the
+ *  aspect ratio satisfies platform requirements. */
+export function selectScreenshotUrl(
+  supabaseUrl: string,
+  postType: string,
+  slideIndex = 0,
+  platform = "",
+): string {
   const preferred = POST_TYPE_SCREENSHOTS[postType] ?? POST_TYPE_SCREENSHOTS.app_promo;
   const key = preferred[slideIndex % preferred.length];
   const filename = SCREENSHOTS[key];
-  return `${supabaseUrl}/storage/v1/object/public/social-images/${SCREENSHOT_BASE}/${filename}`;
+  const base = (platform === "instagram" || platform === "tiktok")
+    ? SCREENSHOT_BASE_IG
+    : SCREENSHOT_BASE;
+  return `${supabaseUrl}/storage/v1/object/public/social-images/${base}/${filename}`;
 }
 
 // ---------------------------------------------------------------------------
