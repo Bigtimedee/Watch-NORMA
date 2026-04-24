@@ -22,8 +22,9 @@ export default function ForgotPasswordPage() {
       redirectTo,
     });
 
-    // Always show success to prevent email enumeration
-    if (error && error.status !== 400) {
+    // Surface real configuration/server errors; suppress "user not found" (422)
+    // to prevent email enumeration — Supabase returns 422 for unknown addresses
+    if (error && error.status !== 422) {
       setError("Something went wrong. Please try again.");
       setLoading(false);
       return;

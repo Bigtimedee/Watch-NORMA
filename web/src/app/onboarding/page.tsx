@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { ADVERTISER_CATEGORIES } from "@/lib/types";
 
@@ -14,6 +15,12 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const handleSignOut = async () => {
+    const supabase = createSupabaseBrowser();
+    await supabase.auth.signOut();
+    router.push("/auth");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +74,13 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-lg space-y-8 rounded-2xl border border-slate-800 bg-slate-900 p-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Welcome to NORMA</h1>
-          <p className="mt-2 text-slate-400">
-            Set up your advertiser profile to start reaching engaged sports fans.
+        <div className="flex flex-col items-center">
+          <Link href="/">
+            <img src="/logo.png" alt="NORMA" className="h-14 w-auto" />
+          </Link>
+          <h1 className="mt-4 text-2xl font-bold text-white">Complete Your Profile</h1>
+          <p className="mt-2 text-center text-sm text-slate-400">
+            Your account is ready. Set up your advertiser profile to start reaching engaged sports fans.
           </p>
         </div>
 
@@ -153,6 +163,16 @@ export default function OnboardingPage() {
             {loading ? "Setting up..." : "Complete Setup"}
           </button>
         </form>
+
+        <p className="text-center text-sm text-slate-500">
+          Wrong account?{" "}
+          <button
+            onClick={handleSignOut}
+            className="text-slate-400 hover:text-white underline"
+          >
+            Sign out
+          </button>
+        </p>
       </div>
     </div>
   );

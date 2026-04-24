@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">
@@ -14,7 +16,7 @@ export default function HomePage() {
               Advertisers
             </a>
             <Link
-              href="/auth/login"
+              href="/auth"
               className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
             >
               Advertiser Portal
@@ -242,7 +244,7 @@ export default function HomePage() {
 
           <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/auth/signup"
+              href="/auth"
               className="rounded-xl bg-orange-500 px-8 py-3.5 text-base font-bold text-white hover:bg-orange-600"
             >
               Create Advertiser Account
@@ -267,7 +269,7 @@ export default function HomePage() {
             </div>
             <div className="flex gap-6 text-sm text-slate-400">
               <a href="#advertisers" className="hover:text-white">Advertisers</a>
-              <Link href="/auth/login" className="hover:text-white">Advertiser Portal</Link>
+              <Link href="/auth" className="hover:text-white">Advertiser Portal</Link>
               <a href="mailto:ads@norma-app.com" className="hover:text-white">Contact</a>
             </div>
           </div>
