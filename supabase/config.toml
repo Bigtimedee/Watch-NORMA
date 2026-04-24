@@ -15,7 +15,8 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "norma://auth-callback"
+site_url = "https://getnorma.app"
+additional_redirect_urls = ["https://getnorma.app/**"]
 
 [auth.external.apple]
 enabled = true
