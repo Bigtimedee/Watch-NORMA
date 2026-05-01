@@ -156,8 +156,8 @@ Deno.serve(async (req) => {
 // ---------------------------------------------------------------------------
 
 async function fetchXMetrics(tweetId: string): Promise<PostMetrics | null> {
-  const apiKey       = Deno.env.get("X_API_KEY")!;
-  const apiSecret    = Deno.env.get("X_API_SECRET")!;
+  const apiKey       = Deno.env.get("X_CONSUMER_KEY")!;
+  const apiSecret    = Deno.env.get("X_CONSUMER_SECRET")!;
   const accessToken  = Deno.env.get("X_ACCESS_TOKEN")!;
   const accessSecret = Deno.env.get("X_ACCESS_TOKEN_SECRET")!;
 
@@ -208,9 +208,11 @@ async function fetchInstagramMetrics(
   const token = accountRow?.access_token || Deno.env.get("META_INSTAGRAM_ACCESS_TOKEN");
   if (!token) throw new Error("Instagram: no access token available");
 
-  const url = `https://graph.facebook.com/v18.0/${mediaId}/insights?metric=engagement,impressions,reach,saved&access_token=${token}`;
+  const url = `https://graph.facebook.com/v18.0/${mediaId}/insights?metric=impressions,reach,saved`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   if (!res.ok) {
     const err = await res.text();
@@ -227,7 +229,8 @@ async function fetchInstagramMetrics(
 
   // Also fetch likes from the media object directly
   const likeRes = await fetch(
-    `https://graph.facebook.com/v18.0/${mediaId}?fields=like_count,comments_count&access_token=${token}`,
+    `https://graph.facebook.com/v18.0/${mediaId}?fields=like_count,comments_count`,
+    { headers: { Authorization: `Bearer ${token}` } },
   );
   const likeData = likeRes.ok ? await likeRes.json() : {};
 

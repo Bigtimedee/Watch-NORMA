@@ -125,6 +125,8 @@ describe("formatClock", () => {
     id: "g1",
     sportsdataio_id: 1,
     sportradar_id: null,
+    sport: "ncaam",
+    espn_id: null,
     status: "inprogress",
     title: null,
     home_team_id: null,
@@ -168,9 +170,136 @@ describe("formatClock", () => {
     expect(result).toBe("4:30 H2");
   });
 
-  it("OT period label", () => {
+  it("OT period label (NCAA)", () => {
     const game = { ...baseGame, period: 3, clock: "2:00" };
     expect(formatClock(game)).toBe("2:00 OT1");
+  });
+
+  it("second OT for NCAA uses OT2", () => {
+    const game = { ...baseGame, period: 4, clock: "1:00" };
+    expect(formatClock(game)).toBe("1:00 OT2");
+  });
+});
+
+// ─── formatClock — NBA ───
+
+describe("formatClock — NBA quarter labels", () => {
+  const baseNBAGame: Game = {
+    id: "g2",
+    sportsdataio_id: 2,
+    sportradar_id: null,
+    sport: "nba",
+    espn_id: null,
+    status: "inprogress",
+    title: null,
+    home_team_id: null,
+    away_team_id: null,
+    home_score: 104,
+    away_score: 101,
+    clock: "3:15",
+    period: 4,
+    scheduled_at: "2026-04-01T19:00:00Z",
+    venue: null,
+    broadcast: null,
+    coverage: null,
+    coverage_level: null,
+    tournament_round: null,
+    snapshot_hash: null,
+    last_pbp_source: null,
+    last_summary_source: null,
+    updated_at: "2026-04-01T21:00:00Z",
+  };
+
+  it("Q4 with clock", () => {
+    expect(formatClock(baseNBAGame)).toBe("3:15 Q4");
+  });
+
+  it("Q1 in first quarter", () => {
+    expect(formatClock({ ...baseNBAGame, period: 1, clock: "11:42" })).toBe("11:42 Q1");
+  });
+
+  it("OT (5th period) shows OT", () => {
+    expect(formatClock({ ...baseNBAGame, period: 5, clock: "2:00" })).toBe("2:00 OT");
+  });
+
+  it("double OT (6th period) shows OT2", () => {
+    expect(formatClock({ ...baseNBAGame, period: 6, clock: "1:30" })).toBe("1:30 OT2");
+  });
+
+  it("closed NBA game shows FINAL", () => {
+    expect(formatClock({ ...baseNBAGame, status: "closed" })).toBe("FINAL");
+  });
+});
+
+// ─── formatClock — MLB ───
+
+describe("formatClock — MLB inning labels", () => {
+  const baseMLBGame: Game = {
+    id: "g3",
+    sportsdataio_id: 3,
+    sportradar_id: null,
+    sport: "mlb",
+    espn_id: null,
+    status: "inprogress",
+    title: null,
+    home_team_id: null,
+    away_team_id: null,
+    home_score: 3,
+    away_score: 2,
+    clock: "T7",
+    period: 7,
+    scheduled_at: "2026-04-07T19:05:00Z",
+    venue: null,
+    broadcast: null,
+    coverage: null,
+    coverage_level: null,
+    tournament_round: null,
+    snapshot_hash: null,
+    last_pbp_source: null,
+    last_summary_source: null,
+    updated_at: "2026-04-07T21:00:00Z",
+  };
+
+  it("T7 → Top 7th", () => {
+    expect(formatClock(baseMLBGame)).toBe("Top 7th");
+  });
+
+  it("B9 → Bot 9th", () => {
+    expect(formatClock({ ...baseMLBGame, clock: "B9", period: 9 })).toBe("Bot 9th");
+  });
+
+  it("T1 → Top 1st", () => {
+    expect(formatClock({ ...baseMLBGame, clock: "T1", period: 1 })).toBe("Top 1st");
+  });
+
+  it("B2 → Bot 2nd", () => {
+    expect(formatClock({ ...baseMLBGame, clock: "B2", period: 2 })).toBe("Bot 2nd");
+  });
+
+  it("T3 → Top 3rd", () => {
+    expect(formatClock({ ...baseMLBGame, clock: "T3", period: 3 })).toBe("Top 3rd");
+  });
+
+  it("extra innings T11 → Top 11th", () => {
+    expect(formatClock({ ...baseMLBGame, clock: "T11", period: 11 })).toBe("Top 11th");
+  });
+
+  it("null clock falls back to inning number", () => {
+    expect(formatClock({ ...baseMLBGame, clock: null, period: 7 })).toBe("Inn 7");
+  });
+
+  it("null clock and null period → LIVE", () => {
+    expect(formatClock({ ...baseMLBGame, clock: null, period: null })).toBe("LIVE");
+  });
+
+  it("closed MLB game → FINAL", () => {
+    expect(formatClock({ ...baseMLBGame, status: "closed" })).toBe("FINAL");
+  });
+
+  it("scheduled MLB game → time string", () => {
+    const result = formatClock({ ...baseMLBGame, status: "scheduled" });
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
   });
 });
 
@@ -181,6 +310,7 @@ describe("sortAlerts", () => {
     id,
     user_id: "u1",
     game_id: "g1",
+    sport: "ncaam",
     alert_type: "spread_alert",
     title: "Test",
     body: "Test",

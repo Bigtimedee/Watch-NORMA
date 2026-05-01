@@ -110,6 +110,19 @@ Deno.serve(async (req) => {
       rate_budget: rateBudget,
     };
 
+    console.log(JSON.stringify({
+      function: "health-check",
+      event: "completed",
+      active_games: activeGameCount ?? 0,
+      active_watchers: watcherSummary.active_count,
+      stale_watchers: watcherSummary.stale_count,
+      alerts_generated_last_hour: alertPipeline.last_hour.generated,
+      alerts_delivered_last_hour: alertPipeline.last_hour.delivered,
+      sportradar_calls_this_minute: rateBudget.sportradar_calls_this_minute,
+      duration_ms: durationMs,
+      timestamp: nowIso,
+    }));
+
     return new Response(JSON.stringify(result, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

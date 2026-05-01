@@ -11,6 +11,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
+  countPublishedToday,
+  CADENCE_PLATFORMS,
+  DAILY_MAX,
+} from "../_shared/daily-cadence.ts";
+import {
   publishToX,
   publishToInstagram,
   publishToFacebook,
@@ -65,7 +70,38 @@ Deno.serve(async (req) => {
 
     if (retryError) throw new Error(`social_posts query (retry): ${retryError.message}`);
 
-    const posts: SocialPost[] = [...(readyPosts ?? []), ...(retryPosts ?? [])];
+    // -----------------------------------------------------------------------
+    // Cadence cap — never publish more than DAILY_MAX cadence-platform posts
+    // per day. Retry posts are exempt (they are existing failed attempts, not
+    // new quota usage). Only ready (newly-generated) posts are capped.
+    // -----------------------------------------------------------------------
+    const publishedToday = await countPublishedToday(supabase, [...CADENCE_PLATFORMS]);
+    const cadenceSlotsLeft = Math.max(0, DAILY_MAX - publishedToday);
+
+    const readyFiltered = (readyPosts ?? []).filter((_post, idx) => {
+      const isCadencePlatform = (CADENCE_PLATFORMS as readonly string[]).includes(_post.platform);
+      if (!isCadencePlatform) return true; // TikTok / Reddit always allowed
+      // Count how many cadence-platform posts in readyPosts we have already allowed
+      const cadenceReadyBefore = (readyPosts ?? [])
+        .slice(0, idx)
+        .filter((p) => (CADENCE_PLATFORMS as readonly string[]).includes(p.platform))
+        .length;
+      return cadenceReadyBefore < cadenceSlotsLeft;
+    });
+
+    if (readyFiltered.length < (readyPosts ?? []).length) {
+      console.log(JSON.stringify({
+        function:         "publish-social-posts",
+        event:            "cadence_cap_applied",
+        ready_total:      (readyPosts ?? []).length,
+        ready_allowed:    readyFiltered.length,
+        published_today:  publishedToday,
+        daily_max:        DAILY_MAX,
+        timestamp:        new Date().toISOString(),
+      }));
+    }
+
+    const posts: SocialPost[] = [...readyFiltered, ...(retryPosts ?? [])];
 
     if (posts.length === 0) {
       console.log(JSON.stringify({

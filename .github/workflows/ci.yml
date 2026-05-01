@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main]
@@ -36,6 +39,8 @@ jobs:
           deno check supabase/functions/_shared/kalshi-crypto.ts
           deno check supabase/functions/_shared/polling-state.ts
           deno check supabase/functions/_shared/team-matching.ts
+          deno check supabase/functions/_shared/template-vars.ts
+          deno check supabase/functions/resolve-predictions/index.ts
       - name: Run tests
         run: deno test --allow-env --allow-net=none supabase/functions/
 
@@ -48,5 +53,26 @@ jobs:
         with:
           version: latest
       - run: supabase start
-      - run: supabase db reset
       - run: supabase stop
+
+  ota-update:
+    name: OTA Update (EAS)
+    runs-on: ubuntu-latest
+    needs: [client, deno, migrations]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas update --auto --channel production --non-interactive
+        if: env.EXPO_TOKEN != ''

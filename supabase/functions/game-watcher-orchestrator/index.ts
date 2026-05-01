@@ -19,13 +19,25 @@ const MAX_ALERT_DISPATCHES = 10;
 const BACKOFF_BASE_MS = 30_000; // 30 seconds
 const BACKOFF_MAX_MS = 5 * 60_000; // 5 minutes
 
-// Polling intervals
-const PBP_INTERVAL_MS = 30_000; // 30 seconds
-const SUMMARY_INTERVAL_MS = 2 * 60_000; // 2 minutes
-const ALERT_INTERVAL_MS = 60_000; // 1 minute
+// Sport-specific polling intervals (milliseconds)
+const SPORT_INTERVALS: Record<string, { pbp: number; summary: number; alert: number }> = {
+  ncaam: { pbp: 30_000,  summary: 120_000, alert: 60_000 },
+  nba:   { pbp: 30_000,  summary: 120_000, alert: 60_000 },
+  mlb:   { pbp: 60_000,  summary: 90_000,  alert: 60_000 },
+};
+
+// Legacy fallback intervals (used when sport is unknown)
+const PBP_INTERVAL_MS = 30_000;
+const SUMMARY_INTERVAL_MS = 2 * 60_000;
+const ALERT_INTERVAL_MS = 60_000;
+
+function getIntervals(sport: string | null): { pbp: number; summary: number; alert: number } {
+  return SPORT_INTERVALS[sport ?? "ncaam"] ?? SPORT_INTERVALS.ncaam;
+}
 
 interface WatcherRow {
   game_id: string;
+  sport: string | null;
   is_active: boolean;
   pbp_next_poll_at: string | null;
   pbp_error_count: number;
@@ -37,6 +49,7 @@ interface WatcherRow {
 interface GameInfo {
   id: string;
   status: string;
+  sport: string | null;
   sportradar_id: string | null;
   coverage_level: string | null;
 }
@@ -62,7 +75,7 @@ Deno.serve(async (req) => {
     // --- Step 1: Ensure watcher_state rows exist for active games ---
     const { data: activeGames, error: gamesErr } = await supabase
       .from("games")
-      .select("id, status, sportradar_id, coverage_level")
+      .select("id, status, sport, sportradar_id, coverage_level")
       .in("status", ["inprogress", "halftime"]);
 
     if (gamesErr) throw gamesErr;
@@ -85,9 +98,15 @@ Deno.serve(async (req) => {
       if (newGameIds.length > 0) {
         const rows = newGameIds.map((game_id: string) => {
           const game = activeGamesMap.get(game_id)!;
-          const hasPbp = game.coverage_level === "full" && game.sportradar_id;
+          // MLB always has Sportradar PBP available (no coverage_level gate needed for MLB)
+          const sport = game.sport ?? "ncaam";
+          const isMlb = sport === "mlb";
+          const hasPbp = isMlb
+            ? !!game.sportradar_id
+            : (game.coverage_level === "full" && !!game.sportradar_id);
           return {
             game_id,
+            sport,
             is_active: true,
             pbp_next_poll_at: hasPbp ? nowIso : null,
             summary_next_poll_at: nowIso,
@@ -132,9 +151,32 @@ Deno.serve(async (req) => {
 
       const closedGameIds = (closedGames ?? []).map((g: any) => g.id);
 
-      // Run final alert-engine pass for each closed game (bet_resolved alerts)
+      // Run final resolution + alert evaluation for each closed game
       let finalAlertsDispatched = 0;
       for (const gameId of closedGameIds) {
+        // Step 2A: Settle prediction positions before evaluating alerts
+        try {
+          await supabase.functions.invoke("resolve-predictions", {
+            body: { gameId },
+          });
+          console.log(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "predictions_resolved",
+            gameId,
+            timestamp: nowIso,
+          }));
+        } catch (e) {
+          // Non-fatal: log and proceed. evaluate-alerts handles unknown outcomes.
+          console.warn(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "resolve_predictions_failed",
+            gameId,
+            error: (e as Error).message,
+            timestamp: nowIso,
+          }));
+        }
+
+        // Step 2B: Evaluate alerts now that positions are settled
         try {
           await supabase.functions.invoke("alert-engine", {
             body: { gameId },
@@ -188,7 +230,7 @@ Deno.serve(async (req) => {
     if (sportradarBudgetRemaining > 0) {
       const { data: pbpDue } = await supabase
         .from("watcher_state")
-        .select("game_id, pbp_error_count")
+        .select("game_id, sport, pbp_error_count")
         .eq("is_active", true)
         .not("pbp_next_poll_at", "is", null)
         .lte("pbp_next_poll_at", nowIso)
@@ -197,12 +239,13 @@ Deno.serve(async (req) => {
 
       for (const row of pbpDue ?? []) {
         try {
-          const res = await supabase.functions.invoke("poll-pbp", {
+          await supabase.functions.invoke("poll-pbp", {
             body: { gameId: row.game_id },
           });
 
-          // Success: reset error count, schedule next poll
-          const nextPoll = new Date(now.getTime() + PBP_INTERVAL_MS).toISOString();
+          // Success: reset error count, schedule next poll using sport-aware interval
+          const intervals = getIntervals((row as any).sport ?? null);
+          const nextPoll = new Date(now.getTime() + intervals.pbp).toISOString();
           await supabase
             .from("watcher_state")
             .update({
@@ -247,7 +290,7 @@ Deno.serve(async (req) => {
       // but we limit to MAX_SUMMARY_DISPATCHES either way
       const { data: summaryDue } = await supabase
         .from("watcher_state")
-        .select("game_id, summary_error_count")
+        .select("game_id, sport, summary_error_count")
         .eq("is_active", true)
         .not("summary_next_poll_at", "is", null)
         .lte("summary_next_poll_at", nowIso)
@@ -260,7 +303,8 @@ Deno.serve(async (req) => {
             body: { gameId: row.game_id },
           });
 
-          const nextPoll = new Date(now.getTime() + SUMMARY_INTERVAL_MS).toISOString();
+          const intervals = getIntervals((row as any).sport ?? null);
+          const nextPoll = new Date(now.getTime() + intervals.summary).toISOString();
           await supabase
             .from("watcher_state")
             .update({

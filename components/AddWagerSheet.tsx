@@ -45,7 +45,7 @@ interface ParlayLeg {
 
 export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
   const addWager = useAddWager();
-  const { data: connections } = useConnections("sportsbook");
+  const { data: connections } = useConnections();
 
   const connectedBooks = (connections ?? [])
     .filter((c) => c.connected && c.provider_key !== "kalshi" && c.provider_key !== "polymarket")

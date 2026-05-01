@@ -41,6 +41,10 @@ import {
   recordAuctionResult,
   type AuctionInput,
 } from "../_shared/auction-engine.ts";
+import {
+  interpolateTemplate,
+  buildPersonalizationContext,
+} from "../_shared/template-vars.ts";
 
 // Cooldown: minimum 5 minutes between same alert_type for same game per user
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -98,7 +102,7 @@ Deno.serve(async (req) => {
     // Include settled positions when game is closed (for prediction_resolved alerts)
     const positionQuery = supabase
       .from("prediction_positions")
-      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target, settled")
+      .select("id, user_id, platform, market_title, position_side, quantity, avg_price, parsed_target, settled, outcome, payout_amount")
       .eq("game_id", gameId);
 
     if (gameState.status !== "closed") {
@@ -170,11 +174,12 @@ Deno.serve(async (req) => {
     // Check notification preferences
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, notifications_enabled")
+      .select("id, notifications_enabled, display_name")
       .in("id", Array.from(allUserIds))
       .eq("notifications_enabled", true);
 
     const enabledUserIds = new Set((profiles ?? []).map((p: any) => p.id));
+    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
 
     // Fetch user preferences for per-user caps and quiet hours
     const { data: userPrefs } = await supabase
@@ -468,6 +473,23 @@ Deno.serve(async (req) => {
       }
 
       // --- Stage 4: Insert alert + delivery ---
+
+      // Interpolate template variables in sponsor_text if the creative supports it
+      let finalSponsorText = auctionResult?.sponsor_text ?? null;
+      let personalizationCtx: Record<string, string> | null = null;
+
+      if (finalSponsorText && /\{[a-z_]+\}/.test(finalSponsorText)) {
+        const userProfile = profileMap.get(userId);
+        const settledPositions = userPositions.filter((p) => p.settled);
+        const ctx = buildPersonalizationContext(
+          userProfile?.display_name ?? null,
+          settledPositions,
+          gameState,
+        );
+        personalizationCtx = ctx as Record<string, string>;
+        finalSponsorText = interpolateTemplate(finalSponsorText, ctx);
+      }
+
       const { data: newAlert, error: insertError } = await supabase
         .from("alerts")
         .insert({
@@ -482,10 +504,11 @@ Deno.serve(async (req) => {
           suppressed_reason: suppressPush ? "quiet_hours" : null,
           // Sponsor fields from auction
           sponsor_bid_id: auctionResult?.winning_bid_id ?? null,
-          sponsor_text: auctionResult?.sponsor_text ?? null,
+          sponsor_text: finalSponsorText,
           sponsor_cta_url: auctionResult?.sponsor_cta_url ?? null,
           sponsor_logo_url: auctionResult?.sponsor_logo_url ?? null,
           clearing_price_cents: auctionResult?.clearing_price_cents ?? null,
+          personalization_context: personalizationCtx,
         })
         .select("id")
         .single();

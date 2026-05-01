@@ -1,18 +1,33 @@
 // NORMA — App Constants
 
-// SportsDataIO API
+// SportsDataIO API — sport-specific base URLs
 export const SPORTSDATAIO_BASE_URL =
-  "https://api.sportsdata.io/v3/cbb" as const;
+  "https://api.sportsdata.io/v3/cbb" as const; // NCAA legacy alias
+export const SPORTSDATAIO_BASE_URLS = {
+  ncaam: "https://api.sportsdata.io/v3/cbb",
+  nba:   "https://api.sportsdata.io/v3/nba",
+  mlb:   "https://api.sportsdata.io/v3/mlb",
+} as const;
 export const SPORTSDATAIO_API_KEY =
   process.env.EXPO_PUBLIC_SPORTSDATAIO_API_KEY ?? "";
 
-// Sportradar API
+// Sportradar API — sport-specific base URLs
 export const SPORTRADAR_BASE_URL =
-  "https://api.sportradar.com/ncaamb/production/v8/en" as const;
+  "https://api.sportradar.com/ncaamb/production/v8/en" as const; // NCAA legacy alias
+export const SPORTRADAR_BASE_URLS = {
+  ncaam: "https://api.sportradar.com/ncaamb/production/v8/en",
+  nba:   "https://api.sportradar.com/nba/production/v8/en",
+  mlb:   "https://api.sportradar.com/mlb/production/v8/en",
+} as const;
 
-// ESPN (supplementary, unofficial)
+// ESPN (supplementary, unofficial) — sport-specific base URLs
 export const ESPN_BASE_URL =
-  "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball" as const;
+  "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball" as const; // NCAA legacy alias
+export const ESPN_BASE_URLS = {
+  ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
+  nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+  mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+} as const;
 
 // Polling intervals (ms) — cost-aware
 export const POLL_INTERVALS = {
@@ -34,6 +49,23 @@ export const ALERT_THRESHOLDS = {
   MIN_MINUTES_FOR_PACE: 15, // need 15 min of game data for pace calc
   POSITION_CLOSE_MARGIN: 8, // alert when position game within 8 pts
   HALF_DURATION_MINUTES: 20, // college basketball half = 20 min
+} as const;
+
+// NBA-specific alert thresholds (overrides above for NBA games)
+export const NBA_ALERT_THRESHOLDS = {
+  CLOSE_GAME_MARGIN: 6,        // alert when NBA game within 6 pts (vs 8 for NCAA)
+  CLOSE_GAME_CLOCK_MINS: 3,    // alert when under 3 min remaining in 4th (vs 5 for NCAA)
+  BIG_RUN_POINTS: 10,          // alert on 10-0 run (vs 8 for NCAA)
+  FOUL_TROUBLE_FOULS: 5,       // NBA foul limit is 6; alert at 5 (vs 4 for NCAA)
+} as const;
+
+// MLB-specific alert thresholds
+export const MLB_ALERT_THRESHOLDS = {
+  CLOSE_GAME_MARGIN_RUNS: 1,   // alert when 1-run game after 7th inning
+  CLOSE_GAME_INNING: 8,        // start alerting from 8th inning on
+  SCORING_THREAT_INNING: 7,    // scoring threat alerts from 7th inning
+  PITCHER_LIMIT_PITCHES: 90,   // alert when starter approaches 90 pitches
+  WALKOFF_INNING: 9,           // walk-off alert starts in 9th
 } as const;
 
 // Game statuses

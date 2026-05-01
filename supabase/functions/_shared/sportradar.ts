@@ -1,6 +1,27 @@
-// Sportradar NCAAMB v8 API Client
-// Supplementary data source for richer PBP events and Game Summary stats
+// Sportradar Multi-Sport API Client
+// Supports NCAAMB, NBA, and MLB via sport-specific base URLs and API keys.
+// Each sport may have its own Sportradar product license and key.
 
+export type SportKey = "ncaam" | "nba" | "mlb";
+
+const SPORTRADAR_BASES: Record<SportKey, string> = {
+  ncaam: "https://api.sportradar.com/ncaamb/production/v8/en",
+  nba:   "https://api.sportradar.com/nba/production/v8/en",
+  mlb:   "https://api.sportradar.com/mlb/production/v8/en",
+};
+
+// Each sport may have its own API key; fall back to the shared key
+function getSportradarKey(sport: SportKey): string {
+  if (sport === "nba") {
+    return Deno.env.get("SPORTRADAR_NBA_API_KEY") ?? Deno.env.get("SPORTRADAR_API_KEY") ?? "";
+  }
+  if (sport === "mlb") {
+    return Deno.env.get("SPORTRADAR_MLB_API_KEY") ?? Deno.env.get("SPORTRADAR_API_KEY") ?? "";
+  }
+  return Deno.env.get("SPORTRADAR_API_KEY") ?? "";
+}
+
+// Keep backward-compatible single-sport constants for callers that haven't migrated
 const SPORTRADAR_BASE =
   "https://api.sportradar.com/ncaamb/production/v8/en";
 const SPORTRADAR_KEY = Deno.env.get("SPORTRADAR_API_KEY") ?? "";
@@ -51,6 +72,30 @@ async function recordApiCall(): Promise<void> {
   }
 }
 
+/** Sport-aware Sportradar fetch — selects the correct base URL and API key */
+async function sportradarFetchSport<T>(sport: SportKey, path: string): Promise<T> {
+  const base = SPORTRADAR_BASES[sport];
+  const key = getSportradarKey(sport);
+  if (!key) {
+    throw new Error(`No Sportradar API key configured for sport '${sport}'`);
+  }
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `${base}${path}${separator}api_key=${key}`;
+  callCount++;
+  console.log(`[Sportradar:${sport}] Call #${callCount}: GET ${path}`);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Sportradar API error ${res.status} for ${sport}/${path}: ${body}`
+    );
+  }
+
+  recordApiCall().catch(() => {});
+  return res.json() as Promise<T>;
+}
+
 async function sportradarFetch<T>(path: string): Promise<T> {
   const separator = path.includes("?") ? "&" : "?";
   const url = `${SPORTRADAR_BASE}${path}${separator}api_key=${SPORTRADAR_KEY}`;
@@ -83,7 +128,7 @@ export function getCallCount(): number {
 
 // --- API Helper Functions ---
 
-/** Fetch daily schedule */
+/** Fetch daily schedule (legacy NCAA-only) */
 export function fetchSchedule(
   year: number,
   month: number,
@@ -92,6 +137,21 @@ export function fetchSchedule(
   const mm = String(month).padStart(2, "0");
   const dd = String(day).padStart(2, "0");
   return sportradarFetch<SportradarScheduleResponse>(
+    `/games/${year}/${mm}/${dd}/schedule.json`
+  );
+}
+
+/** Fetch daily schedule with sport selection */
+export function fetchScheduleForSport(
+  sport: SportKey,
+  year: number,
+  month: number,
+  day: number
+): Promise<SportradarScheduleResponse> {
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return sportradarFetchSport<SportradarScheduleResponse>(
+    sport,
     `/games/${year}/${mm}/${dd}/schedule.json`
   );
 }
@@ -105,7 +165,7 @@ export function fetchBoxscore(
   );
 }
 
-/** Fetch game play-by-play */
+/** Fetch game play-by-play (legacy NCAA-only) */
 export function fetchPbp(
   gameId: string
 ): Promise<SportradarPbpResponse> {
@@ -114,12 +174,54 @@ export function fetchPbp(
   );
 }
 
-/** Fetch game summary (rich stats) */
+/** Fetch game play-by-play with sport selection */
+export function fetchPbpForSport(
+  sport: SportKey,
+  gameId: string
+): Promise<SportradarPbpResponse> {
+  return sportradarFetchSport<SportradarPbpResponse>(
+    sport,
+    `/games/${gameId}/pbp.json`
+  );
+}
+
+/** Fetch game summary (rich stats) — legacy NCAA-only */
 export function fetchSummary(
   gameId: string
 ): Promise<SportradarSummaryResponse> {
   return sportradarFetch<SportradarSummaryResponse>(
     `/games/${gameId}/summary.json`
+  );
+}
+
+/** Fetch game summary with sport selection */
+export function fetchSummaryForSport(
+  sport: SportKey,
+  gameId: string
+): Promise<SportradarSummaryResponse> {
+  return sportradarFetchSport<SportradarSummaryResponse>(
+    sport,
+    `/games/${gameId}/summary.json`
+  );
+}
+
+/** Fetch MLB game summary (returns SportradarMLBSummaryResponse) */
+export function fetchMLBSummary(
+  gameId: string
+): Promise<SportradarMLBSummaryResponse> {
+  return sportradarFetchSport<SportradarMLBSummaryResponse>(
+    "mlb",
+    `/games/${gameId}/summary.json`
+  );
+}
+
+/** Fetch MLB play-by-play */
+export function fetchMLBPbp(
+  gameId: string
+): Promise<SportradarMLBPbpResponse> {
+  return sportradarFetchSport<SportradarMLBPbpResponse>(
+    "mlb",
+    `/games/${gameId}/pbp.json`
   );
 }
 
@@ -299,4 +401,100 @@ export interface SportradarSummaryPlayer {
     personal_fouls: number;
     points: number;
   };
+}
+
+// --- MLB-Specific Response Types ---
+
+export interface SportradarMLBPbpEvent {
+  id: string;
+  type: string; // 'pitch', 'at_bat_start', 'at_bat_complete', 'run_scored', 'inning_start', 'inning_end', 'game_over', 'pitching_substitution', 'stolen_base'
+  inning: number;
+  half_inning: "T" | "B"; // T = top (away bats), B = bottom (home bats)
+  pitcher?: { id: string; full_name: string; pitch_count: number };
+  batter?: { id: string; full_name: string };
+  pitch_type?: string;     // "FF", "SL", "CH", etc.
+  pitch_speed?: number;
+  pitch_result?: string;   // "ball", "strike", "foul", "in_play"
+  count?: { balls: number; strikes: number };
+  outs?: number;
+  runners?: Array<{ starting_base: number; ending_base: number; player: { full_name: string } }>;
+  description?: string;
+  home_runs?: number;
+  away_runs?: number;
+}
+
+export interface SportradarMLBPbpInning {
+  number: number;
+  sequence: number;
+  events: SportradarMLBPbpEvent[];
+}
+
+export interface SportradarMLBPbpResponse {
+  id: string;
+  status: string;
+  coverage: string;
+  innings: SportradarMLBPbpInning[];
+}
+
+export interface SportradarMLBPitcher {
+  id: string;
+  full_name: string;
+  win: boolean;
+  loss: boolean;
+  save: boolean;
+  statistics: {
+    pitching: {
+      pitch_count: number;
+      innings_pitched: number; // fractional, e.g., 6.666 = 6 and 2/3 innings
+      earned_runs: number;
+      runs: number;
+      hits: number;
+      walks: number;
+      strikeouts: number;
+      era: number;
+      whip: number;
+    };
+  };
+}
+
+export interface SportradarMLBBatter {
+  id: string;
+  full_name: string;
+  statistics: {
+    hitting: {
+      at_bats: number;
+      runs: number;
+      hits: number;
+      rbi: number;
+      home_runs: number;
+      walks: number;
+      strikeouts: number;
+      avg: number;
+      ops: number;
+    };
+  };
+}
+
+export interface SportradarMLBTeamSummary {
+  id: string;
+  name: string;
+  market: string;
+  runs: number;
+  hits: number;
+  errors: number;
+  starting_pitcher: SportradarMLBPitcher;
+  pitchers: SportradarMLBPitcher[];
+  batters: SportradarMLBBatter[];
+}
+
+export interface SportradarMLBSummaryResponse {
+  id: string;
+  status: string;
+  coverage: string;
+  inning: number;
+  inning_half: "T" | "B";
+  outs: number;
+  home: SportradarMLBTeamSummary;
+  away: SportradarMLBTeamSummary;
+  runners_on_base: Array<{ base: number; player: { full_name: string } }>;
 }

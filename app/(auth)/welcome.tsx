@@ -13,18 +13,18 @@ export default function WelcomeScreen() {
         {/* Logo */}
         <Image source={normaLogo} style={s.logo} resizeMode="contain" />
 
-        <Text style={s.subtitle}>Never miss the moment.</Text>
+        <Text style={s.subtitle}>Your Money. Your Game. Your Moment.</Text>
         <Text style={s.desc}>
-          Live NCAA basketball scores, smart alerts, and 1-tap streaming —
-          all in one place.
+          NORMA alerts you when your game matters — ranked by your wagers,
+          positions, and the teams you follow.
         </Text>
 
         {/* Feature highlights */}
         <View style={s.features}>
           {[
-            ["Live Scores", "Real-time scores for every NCAAMB game"],
-            ["Smart Alerts", "Get notified for close games, runs, and upsets"],
-            ["Watch Now", "One tap to open the right streaming app"],
+            ["Alerts That Score Your Risk", "Games you have skin in come first — ranked by wager exposure and position size."],
+            ["Live Stream, One Tap", "Tap a game and open ESPN+, FuboTV, or whatever you use — no hunting."],
+            ["Positions. Live. Always.", "Watch your Kalshi and Polymarket bets move in real-time as the game unfolds."],
           ].map(([title, desc]) => (
             <View key={title} style={s.featureRow}>
               <View style={s.bullet} />
@@ -42,9 +42,9 @@ export default function WelcomeScreen() {
         <Pressable
           style={s.ctaButton}
           onPress={() => router.push("/(auth)/sign-up")}
-          accessibilityLabel="Get Started"
+          accessibilityLabel="Join the Game"
         >
-          <Text style={s.ctaText}>Get Started</Text>
+          <Text style={s.ctaText}>Join the Game</Text>
         </Pressable>
 
         <Pressable

@@ -49,6 +49,8 @@ export interface UserPosition {
   avg_price: number;
   parsed_target?: WagerTarget | null;
   settled?: boolean;
+  outcome?: string | null;       // "yes" | "no" | "unknown" — set by resolve-predictions
+  payout_amount?: number | null; // net dollar amount; positive = profit, negative = loss
 }
 
 export interface SummaryStats {
@@ -403,7 +405,32 @@ export function evaluatePredictionResolved(
     ? (game.home_team?.name ?? "Home")
     : (game.away_team?.name ?? "Away");
 
-  // Try to determine outcome from proximity if we have summary stats
+  // Build outcome-aware copy when resolve-predictions has settled this position
+  const won = position.outcome === "yes";
+  const lost = position.outcome === "no";
+  const hasSettledOutcome = won || lost;
+
+  if (hasSettledOutcome) {
+    const payoutAbs = Math.abs(position.payout_amount ?? 0);
+    const payoutStr = payoutAbs > 0
+      ? ` $${Number.isInteger(payoutAbs) ? payoutAbs : payoutAbs.toFixed(2)}`
+      : "";
+    const resultWord = won ? "won" : "lost";
+    const payoutClause = won && payoutStr
+      ? ` You won${payoutStr}!`
+      : lost && payoutStr
+        ? ` You lost${payoutStr}.`
+        : "";
+
+    return {
+      alertType: "prediction_resolved",
+      title: `${position.platform} — You ${won ? "Won" : "Lost"}`,
+      body: `${scoreStr}.${payoutClause}`,
+      why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" ${resultWord}.${payoutClause} Final: ${scoreStr}.`,
+    };
+  }
+
+  // Fallback: outcome unknown — use proximity inference if available
   const target = position.parsed_target ?? parseWagerTarget(position.market_title);
   let outcomeDetail = "";
 
@@ -464,5 +491,275 @@ export function evaluateResolved(
     title: "Game Final",
     body: `${scoreStr} — ${outcome}`,
     why: `${winner} wins. ${outcome}. Your bet: "${wager.description}"`,
+  };
+}
+
+// =============================================================================
+// MLB-Specific Alert Rules
+// =============================================================================
+
+/** MLB game state from mlb_game_stats table */
+export interface MLBGameStats {
+  current_inning: number | null;
+  inning_half: "T" | "B" | null;
+  outs: number;
+  balls: number;
+  strikes: number;
+  runners_on_base: Array<{ base: number; player_name: string }>;
+  home_runs: number;
+  away_runs: number;
+  home_hits: number;
+  away_hits: number;
+  home_starter_name: string | null;
+  home_starter_pitches: number;
+  home_starter_still_pitching: boolean;
+  away_starter_name: string | null;
+  away_starter_pitches: number;
+  away_starter_still_pitching: boolean;
+  home_no_hitter_active: boolean;
+  away_no_hitter_active: boolean;
+}
+
+/**
+ * MLB Close Game alert: 1-run margin after the 7th inning.
+ * Analogous to the basketball close-game alert but state-based rather than clock-based.
+ */
+export function evaluateMLBCloseGame(
+  game: GameState,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
+
+  const inning = mlbStats.current_inning ?? 0;
+  if (inning < 8) return null; // Only alert from 8th inning on
+
+  const margin = Math.abs(mlbStats.home_runs - mlbStats.away_runs);
+  if (margin > 1) return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const inningLabel = `${mlbStats.inning_half === "T" ? "Top" : "Bot"} ${inning}`;
+  const leading = mlbStats.home_runs > mlbStats.away_runs ? homeName : awayName;
+
+  return {
+    alertType: "close_game",
+    title: `One-Run Game — ${inningLabel}`,
+    body: `${awayName} ${mlbStats.away_runs}, ${homeName} ${mlbStats.home_runs} — ${leading} leads by 1`,
+    why: `This game is within one run in the ${inningLabel}. ${homeName} ${mlbStats.home_runs}, ${awayName} ${mlbStats.away_runs}. Tune in now.`,
+  };
+}
+
+/**
+ * MLB Scoring Threat alert: runners on 2nd+3rd or bases loaded with 2 outs in 7th+.
+ * Signals a potentially decisive moment.
+ */
+export function evaluateMLBScoringThreat(
+  game: GameState,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (game.status !== "inprogress") return null;
+
+  const inning = mlbStats.current_inning ?? 0;
+  if (inning < 7) return null;
+  if (mlbStats.outs !== 2) return null; // 2 outs = maximum tension
+
+  const bases = mlbStats.runners_on_base.map((r) => r.base);
+  const hasSecondAndThird = bases.includes(2) && bases.includes(3);
+  const basesLoaded = bases.includes(1) && bases.includes(2) && bases.includes(3);
+
+  if (!hasSecondAndThird && !basesLoaded) return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const inningLabel = `${mlbStats.inning_half === "T" ? "Top" : "Bot"} ${inning}`;
+  const battingTeam = mlbStats.inning_half === "T" ? awayName : homeName;
+  const situationLabel = basesLoaded ? "bases loaded" : "runners on 2nd and 3rd";
+
+  return {
+    alertType: "close_game",
+    title: `${battingTeam} — ${basesLoaded ? "Bases Loaded" : "Scoring Threat"}, 2 Outs`,
+    body: `${inningLabel}, ${situationLabel}`,
+    why: `${battingTeam} has ${situationLabel} with 2 outs in the ${inningLabel}. A single could change this game. Tune in.`,
+  };
+}
+
+/**
+ * MLB No-Hitter in Progress alert: fires when a pitcher has not allowed a hit
+ * through 6+ complete innings.
+ */
+export function evaluateMLBNoHitter(
+  game: GameState,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
+
+  const inning = mlbStats.current_inning ?? 0;
+  if (inning < 7) return null;
+  if (!mlbStats.home_no_hitter_active && !mlbStats.away_no_hitter_active) return null;
+
+  const homeName = game.home_team?.name ?? "Home";
+  const awayName = game.away_team?.name ?? "Away";
+
+  // home_no_hitter_active means the home pitcher has not allowed hits (away team is no-hitting home)
+  // Wait — the convention from migration 050:
+  // home_no_hitter_active = away starting pitcher has no hits against home batters (away pitcher is throwing NH)
+  // Let's use the pitcher names for clarity.
+  const pitcherName = mlbStats.away_no_hitter_active
+    ? (mlbStats.away_starter_name ?? awayName)
+    : (mlbStats.home_starter_name ?? homeName);
+  const throwingTeam = mlbStats.away_no_hitter_active ? awayName : homeName;
+
+  return {
+    alertType: "close_game",
+    title: `No-Hitter Watch — ${throwingTeam}`,
+    body: `${pitcherName} has not allowed a hit through ${inning - 1} innings`,
+    why: `${pitcherName} (${throwingTeam}) is working on a no-hitter through ${inning - 1} complete innings. This is a rare moment. Tune in.`,
+  };
+}
+
+/**
+ * MLB Pitcher Approaching Limit alert: starter has thrown 90+ pitches.
+ * Signals a potential pitching change that could shift momentum.
+ */
+export function evaluateMLBPitcherLimit(
+  game: GameState,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
+
+  const PITCH_LIMIT_ALERT = 90;
+
+  const candidates: AlertCandidate[] = [];
+
+  if (
+    mlbStats.home_starter_still_pitching &&
+    mlbStats.home_starter_pitches >= PITCH_LIMIT_ALERT
+  ) {
+    const name = mlbStats.home_starter_name ?? (game.home_team?.abbreviation ?? "Home");
+    candidates.push({
+      alertType: "close_game",
+      title: `${name} at ${mlbStats.home_starter_pitches} Pitches`,
+      body: `Starter approaching limit — bullpen decision coming`,
+      why: `${name} has thrown ${mlbStats.home_starter_pitches} pitches. A pitching change could come any at-bat and shift the game's momentum. Tune in.`,
+    });
+  }
+
+  if (
+    mlbStats.away_starter_still_pitching &&
+    mlbStats.away_starter_pitches >= PITCH_LIMIT_ALERT
+  ) {
+    const name = mlbStats.away_starter_name ?? (game.away_team?.abbreviation ?? "Away");
+    candidates.push({
+      alertType: "close_game",
+      title: `${name} at ${mlbStats.away_starter_pitches} Pitches`,
+      body: `Starter approaching limit — bullpen decision coming`,
+      why: `${name} has thrown ${mlbStats.away_starter_pitches} pitches. A pitching change could come any at-bat and shift the game's momentum. Tune in.`,
+    });
+  }
+
+  // Return the highest-pitch-count alert
+  return candidates.sort((a, b) =>
+    (b.title.match(/\d+/)?.[0] ?? 0) > (a.title.match(/\d+/)?.[0] ?? 0) ? 1 : -1
+  )[0] ?? null;
+}
+
+/**
+ * MLB Walk-Off Situation alert: tie or trailing by 1, bottom of 9th or later.
+ */
+export function evaluateMLBWalkOff(
+  game: GameState,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (game.status !== "inprogress") return null;
+
+  const inning = mlbStats.current_inning ?? 0;
+  const half = mlbStats.inning_half;
+
+  // Walk-off only possible in bottom half when home team is batting
+  if (half !== "B") return null;
+  if (inning < 9) return null;
+
+  // Home team is trailing or tied
+  const runDiff = mlbStats.away_runs - mlbStats.home_runs;
+  if (runDiff > 1) return null; // Down by 2+ — not walk-off territory without runners
+
+  const homeName = game.home_team?.name ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const inningLabel = inning === 9 ? "9th" : `${inning}th`;
+  const situationLabel = runDiff === 0 ? "tied" : `trailing ${awayName} by 1`;
+
+  return {
+    alertType: "close_game",
+    title: `Walk-Off Watch — Bottom ${inningLabel}`,
+    body: `${homeName} ${situationLabel} at home`,
+    why: `${homeName} is ${situationLabel} in the bottom of the ${inningLabel} inning. A single run ends it. Tune in for a potential walk-off.`,
+  };
+}
+
+/**
+ * MLB Run-Line wager alert: live margin approaching the run line the user bet.
+ */
+export function evaluateMLBRunLine(
+  game: GameState,
+  wager: UserWager,
+  mlbStats: MLBGameStats
+): AlertCandidate | null {
+  if (wager.wager_type !== "spread" || wager.line == null || !wager.team_id) return null;
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
+
+  const inning = mlbStats.current_inning ?? 0;
+  if (inning < 7) return null; // Too early for meaningful run-line alerts
+
+  const isHomeBet = wager.team_id === game.home_team_id;
+  const margin = mlbStats.home_runs - mlbStats.away_runs;
+  const currentMargin = isHomeBet ? margin : -margin;
+  const runLine = wager.line;
+  const diff = currentMargin - runLine;
+
+  if (Math.abs(diff) > 1) return null; // Only alert within 1 run of the line
+
+  const betTeamName = isHomeBet
+    ? (game.home_team?.abbreviation ?? "Home")
+    : (game.away_team?.abbreviation ?? "Away");
+  const covering = diff > 0;
+  const inningLabel = `${mlbStats.inning_half === "T" ? "Top" : "Bot"} ${inning}`;
+
+  return {
+    alertType: "spread_alert",
+    title: `${betTeamName} ${runLine > 0 ? "+" : ""}${runLine} Run Line`,
+    body: `${covering ? "Covering" : "Not covering"} — margin is ${Math.abs(margin)} in ${inningLabel}`,
+    why: `Your ${betTeamName} run line bet (${runLine > 0 ? "+" : ""}${runLine}) is live. They ${currentMargin > 0 ? "lead" : "trail"} by ${Math.abs(margin)} in the ${inningLabel}. Tune in.`,
+  };
+}
+
+/**
+ * NBA-specific close game alert: uses tighter margin threshold (6 pts vs 8 for NCAA)
+ * and triggers only in the 4th quarter with under 3 minutes left.
+ */
+export function evaluateNBACloseGame(
+  game: GameState
+): AlertCandidate | null {
+  if (game.status !== "inprogress" && game.status !== "halftime") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // NBA: 4 quarters — alert in 4th quarter (period 4) or OT
+  if (game.period < 4) return null;
+  if (game.period === 4 && clockMins > 3) return null;
+
+  const margin = Math.abs(game.home_score - game.away_score);
+  if (margin > 6) return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const leading = game.home_score > game.away_score ? homeName : awayName;
+  const periodLabel = game.period > 4 ? `OT${game.period - 4 > 1 ? game.period - 4 : ""}` : "4th";
+
+  return {
+    alertType: "close_game",
+    title: `${margin}-Point Game — ${periodLabel} Quarter`,
+    body: `${awayName} ${game.away_score}, ${homeName} ${game.home_score} — ${game.clock} left`,
+    why: `${leading} leads by just ${margin} points with ${game.clock} left in the ${periodLabel}. NBA games move fast — tune in now.`,
   };
 }

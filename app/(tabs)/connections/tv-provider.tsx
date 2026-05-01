@@ -11,7 +11,7 @@ import { ConnectionToggle } from "../../../components/ConnectionToggle";
 export default function TVProviderScreen() {
   const router = useRouter();
   const { data: providers, isLoading } = useStreamingProviders("tv");
-  const { data: connections } = useConnections("tv");
+  const { data: connections } = useConnections();
 
   return (
     <SafeAreaView style={s.container} edges={["top"]}>

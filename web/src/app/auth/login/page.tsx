@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+function ResetSuccessBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("reset") !== "success") return null;
+  return (
+    <div className="rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-400">
+      Password updated successfully. Sign in with your new password.
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -43,6 +53,10 @@ export default function LoginPage() {
           <p className="mt-3 text-sm text-slate-400">Advertiser Portal</p>
         </div>
 
+        <Suspense>
+          <ResetSuccessBanner />
+        </Suspense>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-300">Email</label>
@@ -56,7 +70,12 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300">Password</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-300">Password</label>
+              <Link href="/auth/forgot-password" className="text-sm text-slate-400 hover:text-orange-400">
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               value={password}

@@ -48,7 +48,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Auth pages: redirect to appropriate dashboard if already authenticated
-  if (path.startsWith("/auth/") && user) {
+  // Exception: /auth/reset-password needs an active session to call updateUser
+  const isAuthPath = path === "/auth" || path.startsWith("/auth/");
+  if (isAuthPath && user && path !== "/auth/reset-password") {
     const url = request.nextUrl.clone();
     const isAdmin = user.app_metadata?.role === "admin";
     url.pathname = isAdmin ? "/admin/dashboard" : "/dashboard";
@@ -67,6 +69,7 @@ export const config = {
     "/inventory/:path*",
     "/settings/:path*",
     "/onboarding/:path*",
+    "/auth",
     "/auth/:path*",
     "/admin/:path*",
   ],
