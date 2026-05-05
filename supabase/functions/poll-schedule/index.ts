@@ -11,7 +11,7 @@ import {
   getCallCount,
 } from "../_shared/sportradar.ts";
 import type { SportradarScheduleGame } from "../_shared/sportradar.ts";
-import { matchTeamName } from "../_shared/team-matching.ts";
+import { matchTeamName, teamMatchScore } from "../_shared/team-matching.ts";
 
 // Sport-specific base URLs
 const SPORTSDATAIO_BASES: Record<string, string> = {
@@ -323,56 +323,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    /** Normalize a string for fuzzy matching: lowercase, strip accents, remove punctuation */
-    function normalize(s: string): string {
-      return s.toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents (é → e)
-        .replace(/[^a-z0-9\s]/g, " ") // punctuation → space
-        .replace(/\s+/g, " ").trim();
-    }
-
-    /** Score how well a DB team matches an ESPN display name.
-     *  Returns 0 for no match, higher = better match.
-     *  Uses a tiered scoring system so exact matches always beat partial matches.
-     *
-     *  Tier 100: Exact full name match ("Purdue Fort Wayne Mastodons" == "Purdue Fort Wayne Mastodons")
-     *  Tier 90:  Exact market match ("Purdue Fort Wayne" == "Purdue Fort Wayne")
-     *  Tier 80:  Full name match (DB full name == ESPN full name)
-     *  Tier 0:   No match — prefix matches are NOT accepted to prevent
-     *            "Purdue" matching "Purdue Fort Wayne", "Miami" matching "Miami (OH)", etc.
-     */
-    function teamMatchScore(dbMarket: string, dbFullName: string, espnDisplayName: string): number {
-      const normDb = normalize(dbMarket);
-      const normFull = normalize(dbFullName);
-      const normEspn = normalize(espnDisplayName);
-
-      // Extract market portion (drop mascot — last word)
-      const espnWords = normEspn.split(" ");
-      const espnMarket = espnWords.length > 1 ? espnWords.slice(0, -1).join(" ") : normEspn;
-      const dbFullWords = normFull.split(" ");
-      const dbFullMarket = dbFullWords.length > 1 ? dbFullWords.slice(0, -1).join(" ") : normFull;
-
-      // Tier 100: Exact full-string match
-      if (normFull === normEspn) return 100;
-
-      // Tier 90: Exact market-to-market match (most reliable)
-      if (normDb === espnMarket) return 90;
-      if (dbFullMarket === espnMarket) return 90;
-
-      // Tier 70: DB market matches ESPN market with one being a LONGER version
-      //          of the other AND the word counts match (handles abbreviation differences).
-      //          e.g., "UNC Wilmington" (3 words) ≈ "UNC Wilmington" (3 words) ✓
-      //          but "Purdue" (1 word) ≠ "Purdue Fort Wayne" (3 words) ✗
-      const dbMarketWords = normDb.split(" ").filter(w => w.length > 1);
-      const espnMarketWords = espnMarket.split(" ").filter(w => w.length > 1);
-      if (dbMarketWords.length === espnMarketWords.length && dbMarketWords.length >= 2) {
-        const allDbInEspn = dbMarketWords.every(w => espnMarket.includes(w));
-        const allEspnInDb = espnMarketWords.every(w => normDb.includes(w));
-        if (allDbInEspn && allEspnInDb) return 70;
-      }
-
-      return 0;
-    }
+    // teamMatchScore is now imported from _shared/team-matching.ts
 
     /** Boolean convenience wrapper: true if score > 0 */
     function teamsMatch(dbMarket: string, dbFullName: string, espnDisplayName: string): boolean {

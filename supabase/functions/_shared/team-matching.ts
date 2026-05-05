@@ -1,6 +1,7 @@
-// Team name normalization for matching across data sources
-// Maps common variations to canonical names used in our teams table
-// Includes SportsDataIO and Sportradar naming conventions
+// Team name normalization and matching across data sources.
+// Uses a tiered scoring system to find the BEST match rather than
+// the FIRST match, preventing city-name collisions (e.g., "Los Angeles"
+// matching the wrong LA team).
 
 const TEAM_ALIASES: Record<string, string[]> = {
   Connecticut: ["UConn", "CONN", "Huskies"],
@@ -61,6 +62,9 @@ for (const [canonical, aliases] of Object.entries(TEAM_ALIASES)) {
   }
 }
 
+/**
+ * Normalize for exact matching: trim, collapse whitespace, normalize quotes/dots.
+ */
 function normalize(name: string): string {
   return name
     .trim()
@@ -70,7 +74,76 @@ function normalize(name: string): string {
 }
 
 /**
+ * Normalize for scored matching: lowercase, strip accents, remove punctuation.
+ */
+function normalizeForScoring(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip accents (é → e)
+    .replace(/[^a-z0-9\s]/g, " ") // punctuation → space
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Score how well a DB team matches an external name string.
+ * Returns 0 for no match, higher = better match.
+ *
+ * Tier 100: Exact full name match ("Los Angeles Lakers" == "Los Angeles Lakers")
+ * Tier 90:  Exact market-to-market match (DB market == input market portion)
+ * Tier 70:  Multi-word market match with word-count validation
+ *           (prevents "Purdue" matching "Purdue Fort Wayne")
+ * Tier 0:   No match — substring/prefix matches are NOT accepted
+ */
+export function teamMatchScore(
+  dbMarket: string,
+  dbFullName: string,
+  externalName: string
+): number {
+  const normDb = normalizeForScoring(dbMarket);
+  const normFull = normalizeForScoring(dbFullName);
+  const normExternal = normalizeForScoring(externalName);
+
+  // Extract market portion from external name (drop mascot — last word)
+  const externalWords = normExternal.split(" ");
+  const externalMarket =
+    externalWords.length > 1 ? externalWords.slice(0, -1).join(" ") : normExternal;
+  const dbFullWords = normFull.split(" ");
+  const dbFullMarket =
+    dbFullWords.length > 1 ? dbFullWords.slice(0, -1).join(" ") : normFull;
+
+  // Tier 100: Exact full-string match
+  if (normFull === normExternal) return 100;
+
+  // Tier 90: Exact market-to-market match (most reliable for "Market Mascot" format)
+  if (normDb && normDb === externalMarket) return 90;
+  if (dbFullMarket === externalMarket) return 90;
+
+  // Tier 70: DB market matches external market with matching word counts
+  //          Handles abbreviation differences while preventing partial city matches.
+  //          e.g., "UNC Wilmington" (2 words) ≈ "UNC Wilmington" (2 words) ✓
+  //          but "Los Angeles" (2 words) ≠ "Los Angeles Lakers" market portion requires mascot match too
+  const dbMarketWords = normDb.split(" ").filter((w) => w.length > 1);
+  const externalMarketWords = externalMarket.split(" ").filter((w) => w.length > 1);
+  if (
+    dbMarketWords.length === externalMarketWords.length &&
+    dbMarketWords.length >= 2
+  ) {
+    const allDbInExternal = dbMarketWords.every((w) => externalMarket.includes(w));
+    const allExternalInDb = externalMarketWords.every((w) => normDb.includes(w));
+    if (allDbInExternal && allExternalInDb) return 70;
+  }
+
+  return 0;
+}
+
+// Minimum score required to accept a scored match
+const MIN_SCORE_THRESHOLD = 70;
+
+/**
  * Find the best matching team from our DB for an external team name.
+ * Uses tiered scoring to find the BEST match, not just the first one.
  * Returns the team row or null.
  */
 export function matchTeamName(
@@ -79,7 +152,7 @@ export function matchTeamName(
 ): (typeof dbTeams)[number] | null {
   const norm = normalize(externalName).toLowerCase();
 
-  // Direct match on name or market
+  // Tier 1: Direct exact match on full name, market, or abbreviation
   const direct = dbTeams.find(
     (t) =>
       t.name.toLowerCase() === norm ||
@@ -88,7 +161,7 @@ export function matchTeamName(
   );
   if (direct) return direct;
 
-  // Check alias map
+  // Tier 2: Alias resolution → then exact match
   const canonical = aliasMap.get(norm);
   if (canonical) {
     const aliased = dbTeams.find(
@@ -99,18 +172,21 @@ export function matchTeamName(
     if (aliased) return aliased;
   }
 
-  // Fuzzy: check if external name contains or is contained in a team name
-  const fuzzy = dbTeams.find((t) => {
-    const tName = t.name.toLowerCase();
-    const tMarket = t.market?.toLowerCase() ?? "";
-    return (
-      norm.includes(tName) ||
-      tName.includes(norm) ||
-      norm.includes(tMarket) ||
-      tMarket.includes(norm)
-    );
-  });
-  if (fuzzy) return fuzzy;
+  // Tier 3: Scored matching — find the BEST match above threshold.
+  // This replaces the old unsafe substring/fuzzy matching that caused
+  // city-name collisions (e.g., "Los Angeles" matching the wrong team).
+  let bestTeam: (typeof dbTeams)[number] | null = null;
+  let bestScore = 0;
+
+  for (const t of dbTeams) {
+    const score = teamMatchScore(t.market ?? "", t.name, externalName);
+    if (score > bestScore) {
+      bestScore = score;
+      bestTeam = t;
+    }
+  }
+
+  if (bestScore >= MIN_SCORE_THRESHOLD) return bestTeam;
 
   return null;
 }
