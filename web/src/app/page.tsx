@@ -2,9 +2,28 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "MobileApplication",
+  name: "NORMA: Sports Alerts & Scores",
+  operatingSystem: "iOS",
+  applicationCategory: "SportsApplication",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  aggregateRating: { "@type": "AggregateRating", ratingValue: "5.0", ratingCount: "1" },
+  description:
+    "Live game notifications for sports bettors and fans. Track NBA, MLB, NCAA wagers, parlays, and prediction markets. Never miss the moment that matters.",
+  url: "https://apps.apple.com/us/app/watch-norma/id6759508383",
+};
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Nav */}
       <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -12,6 +31,14 @@ export default function HomePage() {
             <img src="/logo.png" alt="NORMA" className="h-10 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
+            <a
+              href="https://apps.apple.com/us/app/watch-norma/id6759508383"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-slate-300 hover:text-white"
+            >
+              Download App
+            </a>
             <a href="#advertisers" className="text-sm font-medium text-slate-300 hover:text-white">
               Advertisers
             </a>
@@ -54,7 +81,19 @@ export default function HomePage() {
             />
           </a>
         </div>
-        <p className="mt-4 text-sm text-slate-600">iPhone &amp; iPad. Free to download.</p>
+        <p className="mt-4 text-sm text-slate-600">iPhone. Free to download. No account required to start.</p>
+
+        {/* Social Proof Bar */}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="text-orange-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+            <span className="text-slate-400">5.0 on the App Store</span>
+          </span>
+          <span className="hidden sm:inline text-slate-700">|</span>
+          <span className="text-slate-400">NBA + MLB + NCAA Basketball</span>
+          <span className="hidden sm:inline text-slate-700">|</span>
+          <span className="text-slate-400">11 Alert Types</span>
+        </div>
       </section>
 
       {/* ============================================ */}
@@ -179,6 +218,83 @@ export default function HomePage() {
                 <span className="text-sm font-medium text-white">{mt.name}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================ */}
+      {/* USE CASES — drive home the value prop        */}
+      {/* ============================================ */}
+      <section className="border-t border-slate-800 py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-center text-3xl font-bold text-white sm:text-4xl">
+            Built for How You Actually Watch Sports
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-slate-400">
+            You have money on the line and a life to live. NORMA watches so you don&apos;t have to.
+          </p>
+
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                emoji: "🎰",
+                title: "Sports Bettors",
+                description:
+                  "Your 3-leg parlay is live. Two legs hit. NORMA alerts you the moment the third is in play. DraftKings, FanDuel, BetMGM — scan your slip or enter manually.",
+              },
+              {
+                emoji: "📊",
+                title: "Prediction Markets",
+                description:
+                  "Your Kalshi position is about to resolve. NORMA connects to your account and alerts you when outcomes shift. Watch the final moments unfold live.",
+              },
+              {
+                emoji: "🏀",
+                title: "Team Fans",
+                description:
+                  "No bet, no problem. Follow your teams and NORMA tells you when they force overtime, close a 14-point deficit, or pull off a buzzer-beater.",
+              },
+              {
+                emoji: "📱",
+                title: "Cord-Cutters",
+                description:
+                  "NORMA tells you WHERE to watch, not just when. One tap opens the game on YouTube TV, ESPN+, Peacock, or whatever service you use.",
+              },
+              {
+                emoji: "🏈",
+                title: "Multi-Sport Fans",
+                description:
+                  "NBA playoffs, MLB full season, March Madness — hundreds of games happening simultaneously. NORMA tells you which ones matter to you right now.",
+              },
+              {
+                emoji: "💼",
+                title: "Busy Professionals",
+                description:
+                  "You can\u2019t watch every game. You can\u2019t even watch most games. NORMA respects your time and only interrupts when it truly matters.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+                <span className="text-3xl">{item.emoji}</span>
+                <h3 className="mt-3 text-lg font-bold text-white">{item.title}</h3>
+                <p className="mt-2 text-sm text-slate-400">{item.description}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Second CTA for downloads */}
+          <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <a
+              href="https://apps.apple.com/us/app/watch-norma/id6759508383"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="/app-store-badge.svg"
+                alt="Download on the App Store"
+                className="h-12 w-auto"
+              />
+            </a>
+            <p className="text-sm text-slate-500">Free. No credit card. No account required to start.</p>
           </div>
         </div>
       </section>
