@@ -2,18 +2,25 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NORMA — Real-Time Sports Intent Advertising",
+  title: "NORMA: Sports Alerts & Scores — Live Game Notifications for Bettors & Fans",
   description:
-    "NORMA tells fans exactly when to tune in to live games based on their wagers, predictions, and team loyalties. For advertisers, it's access to the most engaged sports audience on the planet.",
+    "NORMA sends you push notifications at the exact moment your bet is covering, your prediction is resolving, or your team forces overtime. Free for iPhone. Track NBA, MLB, NCAA wagers, parlays, and prediction markets. Never miss the moment that matters to your money.",
+  keywords: [
+    "sports alerts", "live game notifications", "bet tracker", "sports betting app",
+    "NBA alerts", "MLB alerts", "NCAA basketball", "parlay tracker",
+    "spread alert", "moneyline alert", "sports scores", "prediction market",
+    "Kalshi", "DraftKings", "FanDuel", "sports push notifications",
+    "live sports", "overtime alert", "bet slip scanner", "wager tracker",
+  ],
   metadataBase: new URL("https://getnorma.app"),
   icons: {
     icon: "/favicon-32.png",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "NORMA — The Perfect Moment to Watch. The Perfect Moment to Advertise.",
+    title: "NORMA — Watch at the Perfect Moment",
     description:
-      "Real-time push notifications for sports bettors and fans. Self-serve advertising marketplace with second-price auction, privacy-first targeting, and AI optimization.",
+      "Free sports app that alerts you when your bets are covering, your predictions are resolving, and your teams need you. 11 alert types. Zero noise. Download now.",
     url: "https://getnorma.app",
     siteName: "NORMA",
     type: "website",
@@ -21,10 +28,17 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NORMA — Real-Time Sports Intent Advertising",
+    title: "NORMA — Your Bet Is Covering. Your Team Needs You. Tune In Now.",
     description:
-      "Push notifications at the perfect moment. Advertising at peak fan engagement.",
+      "Live sports notifications based on YOUR money and YOUR teams. 12-18% CTR ad platform for advertisers. Free app for fans.",
     images: ["/og-image.jpg"],
+  },
+  alternates: {
+    canonical: "https://getnorma.app",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

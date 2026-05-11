@@ -1,4 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "NORMA Advertising — 12-18% CTR Push Notification Ads for Sports Fans",
+  description:
+    "Reach sports bettors at the exact moment their bet is covering. Self-serve ad platform with second-price auction, AI creative optimization, and $0.10 floor prices. No minimum spend.",
+  openGraph: {
+    title: "NORMA Advertising — 12-18% CTR. Not a Typo.",
+    description:
+      "Your ad inside the push notification that creates the viewer. Self-serve portal, second-price auction, Thompson Sampling creative optimization. Start with $25/day.",
+  },
+};
 
 export default function AdvertisersPage() {
   return (
