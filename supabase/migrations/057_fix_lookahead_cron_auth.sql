@@ -18,9 +18,11 @@
 -- ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")} })`. Post-2025 that env var
 -- is the new `sb_secret_*` opaque key (not a JWT), so the function gateway
 -- rejected the inner call with UNAUTHORIZED_INVALID_JWT_FORMAT. The
--- accompanying code change replaces that raw fetch with
--- `supabase.functions.invoke(...)`, which is the pattern every other Edge
--- Function uses.
+-- accompanying code change makes the lookahead forward the inbound caller's
+-- Authorization header instead of synthesizing one. supabase.functions.invoke()
+-- would have failed for the same root cause — supabase-js forwards the client
+-- constructor key as Bearer to the function gateway, so a non-JWT key fails
+-- there too.
 --
 -- This migration replaces the broken cron job with one that uses the
 -- hardcoded service-role JWT pattern from migration 004 — the only pattern

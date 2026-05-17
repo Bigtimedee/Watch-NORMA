@@ -18,10 +18,10 @@
 // forwards the client's constructor key as Bearer to the function gateway,
 // and that key is the same broken sb_secret_*.
 //
-// The reliable path: the caller (pg_cron in migration 055, or a manual curl)
+// The reliable path: the caller (pg_cron in migration 057, or a manual curl)
 // already sends a valid JWT in the inbound Authorization header. We forward
 // that exact header to poll-schedule. The cron job's JWT is hardcoded in
-// migration 055 to match the working pattern from migration 004.
+// migration 057 to match the working pattern from migration 004.
 
 import { corsHeaders } from "../_shared/cors.ts";
 

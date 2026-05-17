@@ -26,10 +26,10 @@
  * forwards the client constructor key as Bearer to the function gateway.
  *
  * The reliable contract:
- *   1. The caller (pg_cron in migration 055, or a manual curl) sends a
+ *   1. The caller (pg_cron in migration 057, or a manual curl) sends a
  *      valid JWT in the inbound Authorization header.
  *   2. Lookahead FORWARDS that exact header to poll-schedule.
- * Migration 055 hardcodes the valid service-role JWT in the cron job, so the
+ * Migration 057 hardcodes the valid service-role JWT in the cron job, so the
  * inbound header is always a real JWT.
  *
  * This test guards the source file against re-introducing the broken
@@ -48,12 +48,12 @@ const LOOKAHEAD_PATH = path.join(
   "index.ts",
 );
 
-const MIGRATION_055_PATH = path.join(
+const MIGRATION_PATH = path.join(
   __dirname,
   "..",
   "supabase",
   "migrations",
-  "055_fix_lookahead_cron_auth.sql",
+  "057_fix_lookahead_cron_auth.sql",
 );
 
 // Lines that are inside file-header / comment blocks intentionally describe
@@ -99,12 +99,12 @@ describe("poll-schedule-lookahead authentication pattern", () => {
   });
 });
 
-describe("Migration 055 — lookahead cron auth", () => {
+describe("Migration 057 — lookahead cron auth", () => {
   let sql: string;
   let sqlNoComments: string;
 
   beforeAll(() => {
-    sql = fs.readFileSync(MIGRATION_055_PATH, "utf-8");
+    sql = fs.readFileSync(MIGRATION_PATH, "utf-8");
     // Strip `-- comment` lines so the migration's documentation (which
     // intentionally describes the broken pattern) doesn't trip the test.
     sqlNoComments = sql
