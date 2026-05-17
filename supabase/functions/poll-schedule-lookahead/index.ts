@@ -1,5 +1,27 @@
 // poll-schedule-lookahead: Pre-populate upcoming days' game schedules
 // Trigger: pg_cron daily at 8AM UTC (3AM Eastern)
+//
+// IMPORTANT — auth for cross-function invocation
+// -----------------------------------------------
+// We previously did:
+//   fetch(`${SUPABASE_URL}/functions/v1/poll-schedule`, {
+//     headers: { Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` }
+//   })
+// That broke after Supabase rolled out the new API key system. The auto-
+// injected SUPABASE_SERVICE_ROLE_KEY is now an `sb_secret_*` opaque key. It
+// works as `apikey:` for PostgREST but it is NOT a valid JWT, so the function
+// gateway rejects it with UNAUTHORIZED_INVALID_JWT_FORMAT. Result: every
+// lookahead run failed silently and no future games were ever pre-populated.
+// The Games screen showed "No games on …" for every future date.
+//
+// `supabase.functions.invoke()` also fails for the same reason — supabase-js
+// forwards the client's constructor key as Bearer to the function gateway,
+// and that key is the same broken sb_secret_*.
+//
+// The reliable path: the caller (pg_cron in migration 055, or a manual curl)
+// already sends a valid JWT in the inbound Authorization header. We forward
+// that exact header to poll-schedule. The cron job's JWT is hardcoded in
+// migration 055 to match the working pattern from migration 004.
 
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -20,7 +42,7 @@ Deno.serve(async (req) => {
       // No body or invalid JSON — use default
     }
 
-    // Compute today's Eastern date (same pattern as poll-schedule lines 73–83)
+    // Compute today's Eastern date (same pattern as poll-schedule lines 91–103)
     const now = new Date();
     const eastern = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
@@ -32,8 +54,18 @@ Deno.serve(async (req) => {
     const m = parseInt(eastern.find((p) => p.type === "month")!.value);
     const d = parseInt(eastern.find((p) => p.type === "day")!.value);
 
+    // Forward the inbound caller's Authorization header. This is the only
+    // header that is guaranteed to be a valid JWT for the function gateway —
+    // see file header.
+    const inboundAuth = req.headers.get("Authorization") ?? req.headers.get("authorization");
+    if (!inboundAuth) {
+      return new Response(
+        JSON.stringify({ error: "Missing Authorization header on inbound request" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const pollScheduleUrl = `${supabaseUrl}/functions/v1/poll-schedule`;
 
     const datesProcessed: string[] = [];
@@ -54,12 +86,14 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceRoleKey}`,
+            // Forward the inbound JWT — see file header for why this is the
+            // only reliable auth path for cross-function invocation.
+            Authorization: inboundAuth,
           },
           body: JSON.stringify({ date: dateStr }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         datesProcessed.push(dateStr);
         results.push({ date: dateStr, success: res.ok, data });
 
@@ -89,6 +123,7 @@ Deno.serve(async (req) => {
       function: "poll-schedule-lookahead",
       event: "completed",
       datesProcessed: datesProcessed.length,
+      successCount: results.filter((r) => r.success).length,
       timestamp: new Date().toISOString(),
     }));
 

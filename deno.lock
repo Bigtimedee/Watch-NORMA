@@ -42,7 +42,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@expo/cli@54.0.23",
         "npm:@expo/vector-icons@^15.0.3",
+        "npm:@react-native-async-storage/async-storage@^3.0.2",
         "npm:@supabase/supabase-js@^2.95.3",
         "npm:@tanstack/react-query@^5.90.21",
         "npm:@testing-library/jest-native@^5.4.3",
@@ -64,7 +66,7 @@
         "npm:expo-splash-screen@^31.0.13",
         "npm:expo-status-bar@~3.0.9",
         "npm:expo-system-ui@^6.0.9",
-        "npm:expo-updates@~0.27.5",
+        "npm:expo-updates@~29.0.16",
         "npm:expo@~54.0.33",
         "npm:fs-extra@^11.3.4",
         "npm:jest-expo@^54.0.17",
