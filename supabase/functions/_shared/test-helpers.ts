@@ -130,6 +130,7 @@ export function makeResolveWager(overrides: Partial<ResolveWager> = {}): Resolve
     id: 1,
     game_id: "game-1",
     wager_type: "spread",
+    market_type: null,
     team_id: "team-home",
     line: -3.5,
     description: "Home -3.5",

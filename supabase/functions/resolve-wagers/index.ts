@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
     const gameIds = closedGames.map((g) => g.id);
 
     // Get active wagers for these games
+    // Select all columns so market_type is available for the normalizer
     const { data: wagers, error: wagersError } = await supabase
       .from("wagers")
       .select("*")
