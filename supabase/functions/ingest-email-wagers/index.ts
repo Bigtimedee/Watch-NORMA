@@ -387,15 +387,46 @@ async function processMessage(
   let created = 0;
   for (const wager of wagers) {
     try {
+      // Attempt to match team_name → team_id from the teams table
+      let team_id: string | null = null;
+      if (wager.team_name) {
+        const { data: teamRow } = await supabase
+          .from("teams")
+          .select("id")
+          .or(`name.ilike.%${wager.team_name}%,short_name.ilike.%${wager.team_name}%`)
+          .limit(1)
+          .single();
+        if (teamRow) team_id = teamRow.id;
+      }
+
+      // Attempt to find a matching game_id from today's games
+      // if we know the team. This enables auto-resolution by resolve-wagers.
+      let game_id: string | null = null;
+      if (team_id) {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+        const { data: gameRow } = await supabase
+          .from("games")
+          .select("id")
+          .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`)
+          .gte("scheduled_at", startOfDay)
+          .lt("scheduled_at", endOfDay)
+          .limit(1)
+          .single();
+        if (gameRow) game_id = gameRow.id;
+      }
+
       const { error } = await supabase.from("wagers").insert({
         user_id:          userId,
+        game_id,
         sportsbook:       wager.provider_key,
         provider_key:     wager.provider_key,
         external_bet_id:  wager.external_bet_id,
         wager_type:       wager.wager_type,
         market_type:      wager.market_type,
         description:      wager.description,
-        team_name:        wager.team_name,
+        team_id,
         line:             wager.line,
         odds:             wager.odds,
         stake:            wager.stake,

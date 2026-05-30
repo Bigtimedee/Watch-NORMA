@@ -1,6 +1,35 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { resolveWager } from "./logic.ts";
+import { resolveWager, normalizeWagerType } from "./logic.ts";
 import { makeResolveGame, makeResolveWager } from "../_shared/test-helpers.ts";
+
+// ─── normalizeWagerType ───
+
+Deno.test("normalizeWagerType: v1 names pass through", () => {
+  assertEquals(normalizeWagerType("spread"), "spread");
+  assertEquals(normalizeWagerType("moneyline"), "moneyline");
+  assertEquals(normalizeWagerType("over_under"), "over_under");
+});
+
+Deno.test("normalizeWagerType: v2/email-parser names map correctly", () => {
+  assertEquals(normalizeWagerType("total"), "over_under");
+  assertEquals(normalizeWagerType("totals"), "over_under");
+  assertEquals(normalizeWagerType("player_prop"), "player_prop");
+  assertEquals(normalizeWagerType("futures"), "futures");
+  assertEquals(normalizeWagerType("parlay"), "parlay");
+  assertEquals(normalizeWagerType("ml"), "moneyline");
+});
+
+Deno.test("normalizeWagerType: falls back to market_type when wager_type is null", () => {
+  assertEquals(normalizeWagerType(null, "total"), "over_under");
+  assertEquals(normalizeWagerType(null, "spread"), "spread");
+  assertEquals(normalizeWagerType(null, "moneyline"), "moneyline");
+});
+
+Deno.test("normalizeWagerType: unknown type returns null", () => {
+  assertEquals(normalizeWagerType("exotic"), null);
+  assertEquals(normalizeWagerType(null, null), null);
+  assertEquals(normalizeWagerType(null, ""), null);
+});
 
 // ─── Spread ───
 
@@ -128,5 +157,73 @@ Deno.test("over/under: exact total → push", () => {
 Deno.test("unknown wager type → null", () => {
   const game = makeResolveGame();
   const wager = makeResolveWager({ wager_type: "exotic", line: null });
+  assertEquals(resolveWager(game, wager), null);
+});
+
+// ─── v2 wager_type aliases (email parser compatibility) ───
+
+Deno.test("wager_type 'total' (v2 alias) resolves over/under correctly", () => {
+  const game = makeResolveGame({ home_score: 75, away_score: 70 }); // total = 145
+  const wager = makeResolveWager({
+    wager_type: "total",
+    line: 140,
+    description: "Over 140",
+    team_id: null,
+  });
+  assertEquals(resolveWager(game, wager), "won");
+});
+
+Deno.test("market_type fallback when wager_type is null", () => {
+  const game = makeResolveGame({ home_score: 75, away_score: 70 }); // total = 145
+  const wager = makeResolveWager({
+    wager_type: null,
+    market_type: "total",
+    line: 140,
+    description: "Over 140",
+    team_id: null,
+  });
+  assertEquals(resolveWager(game, wager), "won");
+});
+
+Deno.test("market_type 'moneyline' via alias 'ml'", () => {
+  const game = makeResolveGame({ home_score: 75, away_score: 70 });
+  const wager = makeResolveWager({
+    wager_type: "ml",
+    team_id: "team-home",
+    line: null,
+  });
+  assertEquals(resolveWager(game, wager), "won");
+});
+
+Deno.test("player_prop wager returns null (not auto-resolvable)", () => {
+  const game = makeResolveGame({ home_score: 75, away_score: 70 });
+  const wager = makeResolveWager({
+    wager_type: "player_prop",
+    description: "LeBron James Over 25.5 points",
+    line: 25.5,
+    team_id: null,
+  });
+  assertEquals(resolveWager(game, wager), null);
+});
+
+Deno.test("parlay wager returns null (not auto-resolvable)", () => {
+  const game = makeResolveGame();
+  const wager = makeResolveWager({
+    wager_type: "parlay",
+    description: "Parlay (3 legs)",
+    line: null,
+    team_id: null,
+  });
+  assertEquals(resolveWager(game, wager), null);
+});
+
+Deno.test("futures wager returns null (not auto-resolvable)", () => {
+  const game = makeResolveGame();
+  const wager = makeResolveWager({
+    wager_type: "futures",
+    description: "Duke to win NCAA Tournament",
+    line: null,
+    team_id: null,
+  });
   assertEquals(resolveWager(game, wager), null);
 });

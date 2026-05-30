@@ -154,7 +154,29 @@ Deno.serve(async (req) => {
       // Run final resolution + alert evaluation for each closed game
       let finalAlertsDispatched = 0;
       for (const gameId of closedGameIds) {
-        // Step 2A: Settle prediction positions before evaluating alerts
+        // Step 2A: Resolve wagers before evaluating alerts (redundancy for poll-boxscore)
+        try {
+          await supabase.functions.invoke("resolve-wagers", {
+            body: { gameId },
+          });
+          console.log(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "wagers_resolved",
+            gameId,
+            timestamp: nowIso,
+          }));
+        } catch (e) {
+          // Non-fatal: poll-boxscore may have already resolved these
+          console.warn(JSON.stringify({
+            function: "game-watcher-orchestrator",
+            event: "resolve_wagers_failed",
+            gameId,
+            error: (e as Error).message,
+            timestamp: nowIso,
+          }));
+        }
+
+        // Step 2B: Settle prediction positions before evaluating alerts
         try {
           await supabase.functions.invoke("resolve-predictions", {
             body: { gameId },
@@ -176,7 +198,7 @@ Deno.serve(async (req) => {
           }));
         }
 
-        // Step 2B: Evaluate alerts now that positions are settled
+        // Step 2C: Evaluate alerts now that positions are settled
         try {
           await supabase.functions.invoke("evaluate-alerts", {
             body: { gameId },

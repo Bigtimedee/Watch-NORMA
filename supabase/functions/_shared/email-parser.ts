@@ -239,6 +239,15 @@ function detectMarketType(text: string): string {
   return "spread"; // default
 }
 
+/** Map market_type → legacy wager_type for backward compat with resolve-wagers */
+function toWagerTypeFromMarket(marketType: string): string {
+  switch (marketType) {
+    case "total":        return "over_under";
+    case "player_prop":  return "prop";
+    default:             return marketType;
+  }
+}
+
 function extractTeamName(text: string): string | undefined {
   // Remove common suffixes like "-3.5 (-110)" and return the team-ish portion
   const clean = text
@@ -349,7 +358,7 @@ export async function parseEmailWagers(
       external_bet_id: r.external_bet_id ?? `email-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       provider_key:    sportsbook ?? "unknown",
       description:     r.description,
-      wager_type:      r.wager_type,
+      wager_type:      toWagerTypeFromMarket(r.market_type),
       market_type:     r.market_type,
       team_name:       r.team_name,
       line:            r.line,
