@@ -163,7 +163,7 @@ export async function publishToX(
     const pollOptions = post.format_metadata?.options as string[] | undefined;
     if (pollOptions && pollOptions.length >= 2) {
       tweetBody.poll = {
-        options: pollOptions.slice(0, 4).map((label) => ({ label: label.slice(0, 25) })),
+        options: pollOptions.slice(0, 4).map((label) => label.slice(0, 25)),
         duration_minutes: 1440, // 24 hours
       };
     }
@@ -188,6 +188,40 @@ export async function publishToX(
   if (!postId) throw new Error("X tweet: no id in response");
 
   return { platform_post_id: postId };
+}
+
+// ---------------------------------------------------------------------------
+// Instagram — container status polling (fixes intermittent "Media ID not available")
+// Meta requires containers to reach FINISHED before media_publish is called.
+// ---------------------------------------------------------------------------
+
+async function waitForContainerReady(
+  containerId: string,
+  token: string,
+  baseUrl: string,
+  maxWaitMs = 30_000,
+): Promise<void> {
+  const pollIntervalMs = 3_000;
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${baseUrl}/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) break; // let the publish attempt surface the real error
+
+    const data = await res.json();
+    const statusCode: string = data.status_code ?? "";
+
+    if (statusCode === "FINISHED") return;
+    if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+      throw new Error(`Instagram container ${containerId} reached terminal status: ${statusCode}`);
+    }
+
+    // IN_PROGRESS or PUBLISHED — wait and retry
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+  // If deadline exceeded, proceed anyway — Meta's publish endpoint may still succeed.
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +279,8 @@ async function publishInstagramStandard(
   const createData = await createRes.json();
   const creationId: string = createData.id;
   if (!creationId) throw new Error("Instagram: no creation_id returned");
+
+  await waitForContainerReady(creationId, token, baseUrl);
 
   const publishParams = new URLSearchParams({
     creation_id: creationId,
@@ -350,6 +386,8 @@ async function publishInstagramCarousel(
   const carouselData = await carouselRes.json();
   const carouselId: string = carouselData.id;
   if (!carouselId) throw new Error("Instagram carousel: no id for carousel container");
+
+  await waitForContainerReady(carouselId, token, baseUrl);
 
   // Step 3: Publish the carousel
   const publishParams = new URLSearchParams({

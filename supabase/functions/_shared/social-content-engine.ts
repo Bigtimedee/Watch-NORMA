@@ -132,7 +132,7 @@ const PLATFORM_RULES: Record<string, string> = {
 
   instagram: `- 150–300 character caption body (before hashtags)
 - Emoji-forward: 3–5 emojis woven naturally into the text
-- 8–12 hashtags at end (mix: branded #NORMAapp, broad #MarchMadness, niche #CollegeBasketball)
+- 8–12 hashtags at end (mix: branded #NORMAapp, broad #SportsBetting #NBA #MLB, niche #NBAPlayoffs #GameDay)
 - Hook in first 125 chars (everything after is hidden behind "more")
 - Conversational, vibey, feels like a smart friend's story`,
 
@@ -144,7 +144,7 @@ const PLATFORM_RULES: Record<string, string> = {
 
   tiktok: `- Hook FIRST — first 3 words MUST stop the scroll
 - Maximum 150 characters total
-- 3–5 hashtags: #fyp and 2–4 niche ones (#CollegeBasketball #SportsBetting #GameDay)
+- 3–5 hashtags: #fyp and 2–4 niche ones (#NBA #MLB #SportsBetting #GameDay #NBAPlayoffs)
 - TikTok-native: use "POV:" or "the way" framing when it fits naturally
 - High energy, present tense`,
 
@@ -217,7 +217,7 @@ export function buildSystemPrompt(
     ? `\nTOP-PERFORMING HASHTAGS — prioritize these when selecting hashtags (they have proven engagement on ${platform}):\n${topHashtags.slice(0, 12).join("  ")}\n`
     : "";
 
-  return `You are crafting social media content for NORMA — an NCAA basketball prediction app.
+  return `You are crafting social media content for NORMA — a sports prediction app for NCAA basketball, NBA, and MLB.
 
 NORMA PERSONA:
 - NORMA is she/her. Brilliant, calm, omniscient. She already knows what's going to happen.
@@ -227,10 +227,12 @@ NORMA PERSONA:
 - Humor rules: Never mean-spirited. Never tech-bro. Never cringe. NORMA is absurdly competent and you know it.
 
 WHAT NORMA DOES:
-- Sends real-time NCAA basketball alerts — exactly when to tune in
+- Sends real-time alerts for NCAA basketball, NBA, and MLB — exactly when to tune in
 - Tracks wagers and tells users when their bet is live and on the line
 - Cuts through noise: no endless stats, just the one moment that actually matters
 - She's not a chatbot. She's a precision instrument in human form.
+
+WRITE CONTENT ABOUT THE ACTUAL GAMES PROVIDED BELOW. If today's games are NBA or MLB, write NBA or MLB content. Do not force NCAA basketball framing onto NBA or MLB games.
 
 THREE CHARACTER ARCHETYPES:
 🏆 HERO — The user who checked NORMA at the perfect moment and won big
