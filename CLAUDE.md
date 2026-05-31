@@ -1,3 +1,21 @@
+# Watch-NORMA Claude Code Instructions
+
+Before performing any work on Watch-NORMA, read:
+
+`/docs/watch-norma-context/README.md`
+
+Then read any relevant files in:
+
+`/docs/watch-norma-context/`
+
+Treat this folder as the canonical project context. If your work changes product behavior, architecture, schema, routes, environment variables, integrations, live sports data handling, alert logic, streaming-provider routing, ad logic, privacy assumptions, deployment assumptions, or core assumptions, update the documentation in the same session.
+
+Do not rely on memory alone. Inspect the code before editing. Do not treat planned features as implemented. Preserve all non-negotiable product rules, especially streaming-provider routing and alert relevance.
+
+See `/docs/watch-norma-context/10_NON_NEGOTIABLE_RULES_FOR_FUTURE_WORK.md` for the complete list of hard rules and the required closing checklist.
+
+---
+
 # NORMA v2 — Architecture & Implementation Plan
 
 ## Project Overview
@@ -23,6 +41,17 @@ supabase/migrations/    # Postgres schema (additive SQL migrations)
 supabase/functions/     # Deno Edge Functions (poll-*, evaluate-alerts, etc.)
 supabase/functions/_shared/  # Shared backend utilities
 ```
+
+## Git Workflow
+
+**Always pull before pushing.** The remote may have commits from Vercel, CI, or other sessions.
+
+```bash
+git pull --rebase origin main   # Sync remote changes first
+git push                        # Then push
+```
+
+If a push is rejected with `fetch first`, run the pull-rebase command above and retry.
 
 ## Development Commands
 
