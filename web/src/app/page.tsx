@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WaitlistForm } from "@/components/waitlist-form";
 
 export const dynamic = "force-dynamic";
 
@@ -295,6 +296,24 @@ export default function HomePage() {
               />
             </a>
             <p className="text-sm text-slate-500">Free. No credit card. No account required to start.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================ */}
+      {/* WAITLIST — Email capture                    */}
+      {/* ============================================ */}
+      <section className="border-t border-slate-800 bg-slate-900/50 py-20">
+        <div className="mx-auto max-w-2xl px-6 text-center">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            Be first to know when Watch-NORMA launches near you
+          </h2>
+          <p className="mx-auto mt-4 text-slate-400">
+            We&apos;re rolling out to new markets and adding Android support. Drop your email
+            and we&apos;ll let you know the moment NORMA is ready for you.
+          </p>
+          <div className="mt-8">
+            <WaitlistForm />
           </div>
         </div>
       </section>

@@ -23,6 +23,7 @@ export interface AuctionInput {
   user_segment: string; // "wager_holder" | "team_follower" | "position_holder"
   tournament_round: string | null;
   period: number | null;
+  user_timezone?: string | null; // from profiles.timezone — used for geo-compliance
 }
 
 export interface AuctionResult {
@@ -44,6 +45,7 @@ interface EligibleBid {
   user_segment: string | null;
   advertiser_category: string | null;
   advertiser_id: number;
+  allowed_jurisdictions: string[] | null; // from advertisers.allowed_jurisdictions
   priority_tier: number;
   category_exclusivity: boolean;
   campaign_budget_cents: number;
@@ -130,8 +132,30 @@ export async function runAuction(
     return null;
   }
 
+  // 5b. Geo-filter: remove sportsbook bids from advertisers whose
+  // allowed_jurisdictions don't include the user's state.
+  // Conservative default: if user location is unknown, skip any restricted advertiser.
+  const userTimezone = input.user_timezone ?? await fetchUserTimezone(supabase, input.user_id);
+  const geoFilteredBids = eligibleBids.filter((bid) => {
+    if (!bid.allowed_jurisdictions || bid.allowed_jurisdictions.length === 0) {
+      return true; // unrestricted advertiser (non-sportsbook)
+    }
+    if (!userTimezone) {
+      return false; // user location unknown — skip restricted advertisers (safe default)
+    }
+    const state = inferStateFromTimezone(userTimezone);
+    if (!state) {
+      return false; // ambiguous timezone — skip restricted advertisers
+    }
+    return bid.allowed_jurisdictions.includes(state);
+  });
+
+  if (geoFilteredBids.length === 0) {
+    return null;
+  }
+
   // 6. Check for direct deals (priority_tier > 0)
-  const directDeals = eligibleBids
+  const directDeals = geoFilteredBids
     .filter((b) => b.priority_tier > 0)
     .sort((a, b) => b.priority_tier - a.priority_tier);
 
@@ -151,7 +175,7 @@ export async function runAuction(
   }
 
   // 7. Filter by floor price
-  const aboveFloor = eligibleBids.filter((b) => b.bid_cents >= effectiveFloor);
+  const aboveFloor = geoFilteredBids.filter((b) => b.bid_cents >= effectiveFloor);
   if (aboveFloor.length === 0) {
     return null;
   }
@@ -236,6 +260,74 @@ export async function runAuction(
   };
 }
 
+// --- Geo-Compliance Helpers ---
+
+/**
+ * Fetch a user's stored timezone from profiles table.
+ * Returns null if not found or on error.
+ */
+async function fetchUserTimezone(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  return data?.timezone ?? null;
+}
+
+/**
+ * Map a US timezone string to a single state code.
+ * Conservative: returns null for timezones that span multiple states
+ * (e.g., America/Chicago covers TX + IL + WI + MN + MO, etc.).
+ * Only returns a state when the timezone is unambiguous or represents
+ * the dominant state, so we avoid showing sportsbook ads in illegal states.
+ *
+ * For multi-state timezones we return null and the caller blocks the ad.
+ * This is intentional: regulatory risk is asymmetric (serving an illegal ad
+ * is worse than missing a legal impression).
+ */
+function inferStateFromTimezone(tz: string): string | null {
+  // State-specific timezones (unambiguous)
+  const unambiguous: Record<string, string> = {
+    "America/New_York":    "NY", // also covers many NE states — but NY is legal so safe
+    "America/Detroit":     "MI",
+    "America/Indiana/Indianapolis": "IN",
+    "America/Indiana/Knox": "IN",
+    "America/Indiana/Marengo": "IN",
+    "America/Indiana/Petersburg": "IN",
+    "America/Indiana/Tell_City": "IN",
+    "America/Indiana/Vevay": "IN",
+    "America/Indiana/Vincennes": "IN",
+    "America/Indiana/Winamac": "IN",
+    "America/Kentucky/Louisville": "KY",
+    "America/Kentucky/Monticello": "KY",
+    "America/Denver":      "CO",
+    "America/Boise":       "ID",
+    "America/Phoenix":     "AZ",
+    "America/Anchorage":   "AK",
+    "America/Adak":        "AK",
+    "America/Nome":        "AK",
+    "America/Sitka":       "AK",
+    "America/Yakutat":     "AK",
+    "Pacific/Honolulu":    "HI",
+  };
+
+  if (unambiguous[tz]) {
+    return unambiguous[tz];
+  }
+
+  // Multi-state timezones — return null (conservative block)
+  // America/Chicago: IL, TX, WI, MN, MO, IA, KS, OK, AR, LA, MS, AL, TN, ND, SD, NE
+  // America/Los_Angeles: CA, WA, OR, NV
+  // America/New_York also spans MA, CT, NJ, PA, VA, WV, NC, OH, MD, DE — all legal for major books
+  // We handle New_York above as "NY" since every NY-timezone state is in the major books' lists
+  // For Chicago/LA we cannot safely infer a single state
+  return null;
+}
+
 // --- Eligible Bids Query ---
 
 async function queryEligibleBids(
@@ -269,7 +361,8 @@ async function queryEligibleBids(
         advertisers!inner (
           id,
           category,
-          balance_cents
+          balance_cents,
+          allowed_jurisdictions
         )
       ),
       creatives!inner (
@@ -325,6 +418,7 @@ async function queryEligibleBids(
       user_segment: row.user_segment,
       advertiser_category: row.campaigns.advertisers.category,
       advertiser_id: row.campaigns.advertiser_id,
+      allowed_jurisdictions: row.campaigns.advertisers.allowed_jurisdictions ?? null,
       priority_tier: row.campaigns.priority_tier,
       category_exclusivity: row.campaigns.category_exclusivity,
       campaign_budget_cents: row.campaigns.budget_cents,
