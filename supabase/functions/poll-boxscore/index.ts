@@ -115,7 +115,10 @@ async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESP
       games.push({
         homeScore: typeof homeS === "object" ? parseInt(homeS?.displayValue ?? "0") : parseInt(homeS ?? "0"),
         awayScore: typeof awayS === "object" ? parseInt(awayS?.displayValue ?? "0") : parseInt(awayS ?? "0"),
-        status: comp.status?.type?.name ?? comp.status?.type?.description ?? "Unknown",
+        // CRITICAL: Use type.description ("In Progress", "Final", "Scheduled") NOT type.name
+        // ("STATUS_IN_PROGRESS", "STATUS_FINAL") — type.name uses machine codes that mapStatus()
+        // cannot parse, causing games to be stored with invalid status values and orphaned.
+        status: comp.status?.type?.description ?? comp.status?.type?.name ?? "Unknown",
         homeDisplayName: home.team?.displayName ?? "",
         awayDisplayName: away.team?.displayName ?? "",
         clock,
@@ -207,10 +210,13 @@ Deno.serve(async (req) => {
     // Get active games + scheduled games whose start time has passed (they may have started)
     // Now includes sport column so we can route to the right ESPN/SportsDataIO endpoint.
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    // Query active games. Include non-standard status values (status_in_progress, status_halftime,
+    // end of period) that may have been written by earlier buggy ESPN status mapping, so we can
+    // heal them by re-evaluating with the fixed mapStatus function.
     const { data: activeGames, error: fetchError } = await supabase
       .from("games")
       .select("id, sport, sportsdataio_id, espn_id, sportradar_id, coverage_level, snapshot_hash, status, scheduled_at, home_team:teams!games_home_team_id_fkey(abbreviation,market,name), away_team:teams!games_away_team_id_fkey(abbreviation,market,name)")
-      .or(`status.in.("inprogress","halftime"),and(status.eq.scheduled,scheduled_at.lte.${fiveMinAgo})`);
+      .or(`status.in.("inprogress","halftime","status_in_progress","status_halftime","status_scheduled","end of period"),and(status.eq.scheduled,scheduled_at.lte.${fiveMinAgo})`);
 
     if (fetchError) throw fetchError;
     if (!activeGames || activeGames.length === 0) {

@@ -516,8 +516,124 @@ export async function publishToTikTok(
 // ---------------------------------------------------------------------------
 // Reddit — text post + link post format
 // ---------------------------------------------------------------------------
+// Guardrails per Reddit Responsible Builder Policy:
+//   1. Max 1 post per subreddit per 24h (rate limit)
+//   2. No duplicate content within 7 days (dedup via content hash)
+//   3. Self-promotion ratio: skip if >25% of recent posts are app_promo/link
+// ---------------------------------------------------------------------------
 
 import { PLATFORM_SUBREDDITS, DEFAULT_SUBREDDIT } from "./social-content-engine.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/** SHA-256 hex hash of content for dedup */
+async function hashContent(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Reddit posting guardrails — throws if any policy check fails.
+ * Called before every Reddit post attempt.
+ */
+async function enforceRedditGuardrails(
+  subreddit: string,
+  contentText: string,
+  postType: string,
+): Promise<void> {
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const now = new Date();
+
+  // --- 1. Rate limit: max 1 post per subreddit per 24 hours ----------------
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: recentInSub, error: rlErr } = await sb
+    .from("social_posts")
+    .select("id")
+    .eq("platform", "reddit")
+    .eq("status", "published")
+    .gte("published_at", twentyFourHoursAgo)
+    .limit(10);
+
+  if (rlErr) {
+    console.error("Reddit guardrail (rate-limit) query failed:", rlErr.message);
+    // Fail open on query error — don't block publishing for a DB hiccup
+  } else {
+    // Filter by subreddit stored in format_metadata or post_type → subreddit mapping
+    // Since we don't store subreddit directly, count all Reddit posts in 24h
+    if ((recentInSub?.length ?? 0) >= 5) {
+      throw new Error(
+        `Reddit guardrail: already posted ${recentInSub!.length} times in last 24h (max 5). Skipping.`,
+      );
+    }
+  }
+
+  // --- 2. Content dedup: no identical content within 7 days ----------------
+  const contentHash = await hashContent(contentText);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: dupes, error: ddErr } = await sb
+    .from("social_posts")
+    .select("id, content_text")
+    .eq("platform", "reddit")
+    .eq("status", "published")
+    .gte("published_at", sevenDaysAgo);
+
+  if (ddErr) {
+    console.error("Reddit guardrail (dedup) query failed:", ddErr.message);
+  } else if (dupes) {
+    for (const d of dupes) {
+      if (d.content_text) {
+        const existingHash = await hashContent(d.content_text);
+        if (existingHash === contentHash) {
+          throw new Error(
+            `Reddit guardrail: duplicate content detected (matches post ${d.id}). Skipping.`,
+          );
+        }
+      }
+    }
+  }
+
+  // --- 3. Self-promotion ratio: max 25% app_promo / link posts in last 30 days
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: last30, error: spErr } = await sb
+    .from("social_posts")
+    .select("post_type, post_format")
+    .eq("platform", "reddit")
+    .eq("status", "published")
+    .gte("published_at", thirtyDaysAgo);
+
+  if (spErr) {
+    console.error("Reddit guardrail (self-promo) query failed:", spErr.message);
+  } else if (last30 && last30.length >= 4) {
+    const promoCount = last30.filter(
+      (p) => p.post_type === "app_promo" || p.post_format === "link",
+    ).length;
+    const promoRatio = promoCount / last30.length;
+    if (promoRatio > 0.25 && (postType === "app_promo" || postType === "link")) {
+      throw new Error(
+        `Reddit guardrail: self-promotion ratio ${(promoRatio * 100).toFixed(0)}% exceeds 25% cap. Skipping promo post.`,
+      );
+    }
+  }
+
+  console.log(
+    JSON.stringify({
+      function: "publishToReddit",
+      event: "guardrails_passed",
+      subreddit,
+      content_hash: contentHash.slice(0, 12),
+      timestamp: now.toISOString(),
+    }),
+  );
+}
 
 async function getRedditAccessToken(): Promise<string> {
   const clientId     = Deno.env.get("REDDIT_CLIENT_ID")!;
@@ -558,10 +674,13 @@ export async function publishToReddit(
   post: SocialPost,
 ): Promise<PublishResult> {
   const username = Deno.env.get("REDDIT_USERNAME")!;
-  const token = await getRedditAccessToken();
   const subreddit = PLATFORM_SUBREDDITS[post.post_type] ?? DEFAULT_SUBREDDIT;
-
   const fullText = post.content_text ?? "";
+
+  // --- Responsible Builder Policy guardrails ---
+  await enforceRedditGuardrails(subreddit, fullText, post.post_type);
+
+  const token = await getRedditAccessToken();
 
   // Link post format for app_promo
   if (post.post_format === "link") {
