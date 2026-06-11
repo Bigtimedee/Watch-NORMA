@@ -1,5 +1,6 @@
 import { Pressable, Text, StyleSheet, Linking, Image, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSportsbookGeo } from "../hooks/useSportsbookGeo";
 import { supabase } from "../lib/supabase";
 
 interface BetNowButtonProps {
@@ -42,11 +43,16 @@ export function BetNowButton({
   providerKey,
 }: BetNowButtonProps) {
   const provider = providerKey ?? detectProvider(ctaUrl);
+  const geo = useSportsbookGeo(provider);
   const colors = provider ? BRAND_COLORS[provider] : { bg: "#f97316", text: "#fff" };
   const displayName = provider ? DISPLAY_NAMES[provider] : null;
-  const label = ctaText ?? (displayName ? `Bet Now on ${displayName}` : "Bet Now");
+  const label = geo.eligible
+    ? ctaText ?? (displayName ? `Bet Now on ${displayName}` : "Bet Now")
+    : "Not available in your region";
 
   const handlePress = async () => {
+    if (!geo.eligible) return;
+
     // Record tap on impression
     try {
       await supabase
@@ -77,16 +83,22 @@ export function BetNowButton({
 
   return (
     <Pressable
-      style={[s.button, { backgroundColor: colors.bg }]}
+      style={[
+        s.button,
+        { backgroundColor: colors.bg },
+        !geo.eligible ? s.disabledButton : null,
+      ]}
       onPress={handlePress}
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !geo.eligible }}
+      disabled={!geo.eligible}
     >
       {logoUrl ? (
-        <Image source={{ uri: logoUrl }} style={s.logo} />
+        <Image source={{ uri: logoUrl }} style={[s.logo, !geo.eligible ? s.disabledLogo : null]} />
       ) : (
-        <Ionicons name="cash-outline" size={16} color={colors.text} />
+        <Ionicons name="cash-outline" size={16} color={geo.eligible ? colors.text : "#6b7280"} />
       )}
-      <Text style={[s.text, { color: colors.text }]}>{label}</Text>
+      <Text style={[s.text, { color: geo.eligible ? colors.text : "#6b7280" }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -99,6 +111,12 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     alignSelf: "flex-start",
+  },
+  disabledButton: {
+    backgroundColor: "#e5e7eb",
+  },
+  disabledLogo: {
+    opacity: 0.5,
   },
   logo: {
     width: 18,
