@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,23 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 
 const normaLogo = require("../../assets/norma-logo.png");
+const REFERRAL_CODE_KEY = "norma.referralCode";
+
+function getReferralCode(url: string): string | null {
+  const parsed = Linking.parse(url);
+  const ref = parsed.queryParams?.ref;
+  if (Array.isArray(ref)) return ref[0] ?? null;
+  return typeof ref === "string" && ref.length > 0 ? ref : null;
+}
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -25,13 +36,47 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
 
+  useEffect(() => {
+    async function storeReferralCode(url: string | null) {
+      if (!url) return;
+      const referralCode = getReferralCode(url);
+      if (referralCode) {
+        await AsyncStorage.setItem(REFERRAL_CODE_KEY, referralCode);
+      }
+    }
+
+    Linking.getInitialURL().then(storeReferralCode);
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      storeReferralCode(url);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const loadReferralCode = async () => {
+    return AsyncStorage.getItem(REFERRAL_CODE_KEY);
+  };
+
+  const loadOwnReferralCode = async (accessToken?: string) => {
+    if (!accessToken) return;
+    await supabase.functions.invoke("get-referral-code", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  };
+
   const handleSignUp = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please enter your email and password.");
       return;
     }
     try {
-      await signUp(email, password, displayName || undefined);
+      const referralCode = await loadReferralCode();
+      const data = await signUp(email, password, displayName || undefined, referralCode);
+      await loadOwnReferralCode(data.session?.access_token);
+      await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
       Alert.alert(
         "Check Your Email",
         "We sent you a confirmation link. Please check your email to continue."

@@ -45,17 +45,21 @@ export function useAuth() {
   };
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName?: string) => {
+    async (email: string, password: string, displayName?: string, referralCode?: string | null) => {
       setLoading(true);
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: displayName },
+          data: {
+            full_name: displayName,
+            referral_code: referralCode || undefined,
+          },
         },
       });
       setLoading(false);
       if (error) throw error;
+      return data;
     },
     []
   );

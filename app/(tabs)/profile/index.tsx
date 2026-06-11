@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { View, Text, Pressable, Switch, Alert, ScrollView, Linking, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, Pressable, Switch, Alert, ScrollView, Linking, Share, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
+import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
@@ -18,9 +19,51 @@ export default function ProfileScreen() {
   const { data: preferences } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const [showPrefs, setShowPrefs] = useState(false);
+  const [referralData, setReferralData] = useState<{
+    code: string;
+    uses: number;
+    link: string;
+  } | null>(null);
 
   const adPersonalization =
     preferences?.notification_settings?.ad_personalization_enabled ?? true;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchReferralData() {
+      if (!session) return;
+
+      const { data, error } = await supabase.functions.invoke("get-referral-code", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!cancelled && data && !error) {
+        setReferralData(data);
+      }
+    }
+
+    fetchReferralData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const shareReferralLink = async () => {
+    if (!referralData) return;
+    try {
+      await Share.share({
+        message: `Join me on NORMA: ${referralData.link}`,
+        url: referralData.link,
+      });
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    }
+  };
 
   const toggleAdPersonalization = async () => {
     if (!preferences) return;
@@ -143,6 +186,32 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
+
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>Invite Friends</Text>
+          <View style={s.settingsCard}>
+            <View style={[s.inviteContent, s.settingsRowBorder]}>
+              <Text style={s.inviteTitle}>
+                {referralData ? `${referralData.uses} friends joined` : "Loading invite link..."}
+              </Text>
+              <Text style={s.inviteLink} numberOfLines={1}>
+                {referralData?.link ?? "https://norma-app.com/join"}
+              </Text>
+            </View>
+            <Pressable
+              style={s.settingsRow}
+              onPress={shareReferralLink}
+              disabled={!referralData}
+              accessibilityLabel="Share invite link"
+            >
+              <View style={s.settingsLeft}>
+                <Ionicons name="share-outline" size={20} color="#f97316" />
+                <Text style={s.settingsText}>Share</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#64748b" />
+            </Pressable>
+          </View>
+        </View>
 
         {/* Settings */}
         <View style={s.section}>
@@ -316,6 +385,9 @@ const s = StyleSheet.create({
   settingsText: { color: "#ffffff", fontSize: 16, marginLeft: 12 },
   settingsValue: { color: "#94a3b8", fontSize: 14 },
   aboutLabel: { color: "#ffffff", fontSize: 16 },
+  inviteContent: { padding: 16 },
+  inviteTitle: { color: "#ffffff", fontSize: 16, fontWeight: "600", marginBottom: 8 },
+  inviteLink: { color: "#94a3b8", fontSize: 14 },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
