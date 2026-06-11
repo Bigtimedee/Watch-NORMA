@@ -1,4 +1,4 @@
-import { Pressable, Text, StyleSheet, Linking, Image } from "react-native";
+import { Pressable, Text, StyleSheet, Linking, Image, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 
@@ -60,15 +60,19 @@ export function BetNowButton({
     // Open deep link with 3-step fallback
     try {
       await Linking.openURL(ctaUrl);
+      return;
     } catch {
-      // If deep link fails, try web fallback
-      const webUrl = ctaUrl.replace(/^[a-z]+:\/\//, "https://");
-      try {
-        await Linking.openURL(webUrl);
-      } catch {
-        // Nothing to do
-      }
+      // scheme URL failed — try web fallback
     }
+    const webUrl = ctaUrl.replace(/^[a-z]+:\/\//, "https://");
+    try {
+      await Linking.openURL(webUrl);
+      return;
+    } catch {
+      // web URL also failed
+    }
+    // All fallbacks exhausted — notify the user
+    Alert.alert("Couldn't open link", "Please open the app manually.");
   };
 
   return (

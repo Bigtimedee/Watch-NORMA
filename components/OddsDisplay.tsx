@@ -10,9 +10,11 @@ interface OddsDisplayProps {
 
 function formatAmericanOdds(price: number | null): string {
   if (price == null) return "-";
+  if (price <= 0) return "-";
+  if (price <= 1.0) return "-";
   if (price >= 2) return `+${Math.round((price - 1) * 100)}`;
-  if (price > 1) return `-${Math.round(100 / (price - 1))}`;
-  return String(price);
+  // price is in (1, 2) — valid underdog decimal odds
+  return `-${Math.round(100 / (price - 1))}`;
 }
 
 function formatSpread(line: number | null): string {

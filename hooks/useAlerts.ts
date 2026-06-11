@@ -65,6 +65,12 @@ export function useAlerts(sport?: SportKey) {
             queryClient.invalidateQueries({ queryKey: ["alerts"] });
           }
         )
+        .on("system", {}, (payload) => {
+          if (payload.status === "CLOSED") {
+            console.warn("[useAlerts] Realtime connection closed");
+            queryClient.invalidateQueries({ queryKey: ["alerts"] });
+          }
+        })
         .subscribe();
 
       return () => {

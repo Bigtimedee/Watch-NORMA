@@ -51,7 +51,7 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
     .filter((c) => c.connected && c.provider_key !== "kalshi" && c.provider_key !== "polymarket")
     .map((c) => c.provider_key);
 
-  const [sportsbook, setSportsbook] = useState(connectedBooks[0] ?? "draftkings");
+  const [sportsbook, setSportsbook] = useState(connectedBooks[0] ?? "");
   const [marketType, setMarketType] = useState<MarketType>("spread");
   const [description, setDescription] = useState("");
   const [line, setLine] = useState("");
@@ -462,15 +462,21 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
           </View>
 
           {/* Submit */}
-          <Pressable
-            style={[s.submitBtn, addWager.isPending && s.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={addWager.isPending}
-          >
-            <Text style={s.submitText}>
-              {addWager.isPending ? "Saving..." : "Log Wager"}
-            </Text>
-          </Pressable>
+          {connectedBooks.length === 0 && !sportsbook ? (
+            <View style={[s.submitBtn, s.submitBtnDisabled]}>
+              <Text style={s.submitText}>Connect a sportsbook first</Text>
+            </View>
+          ) : (
+            <Pressable
+              style={[s.submitBtn, (addWager.isPending || !sportsbook) && s.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={addWager.isPending || !sportsbook}
+            >
+              <Text style={s.submitText}>
+                {addWager.isPending ? "Saving..." : "Log Wager"}
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     </View>

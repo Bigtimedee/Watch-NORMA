@@ -28,15 +28,17 @@ export function usePreferences() {
 
       if (error) throw error;
 
-      // Auto-create if missing (e.g., existing user before migration)
+      // Auto-create if missing (e.g., existing user before migration).
+      // Use upsert with onConflict to avoid race conditions when two sessions
+      // attempt to create the same row simultaneously.
       if (!data) {
-        const { data: created, error: insertErr } = await supabase
+        const { data: created, error: upsertErr } = await supabase
           .from("user_preferences")
-          .insert({ user_id: user.id })
+          .upsert({ user_id: user.id }, { onConflict: "user_id" })
           .select()
           .single();
 
-        if (insertErr) throw insertErr;
+        if (upsertErr) throw upsertErr;
         return created as UserPreferences;
       }
 

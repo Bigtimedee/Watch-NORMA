@@ -29,8 +29,19 @@ export function useGames(date?: string, sport?: SportKey) {
     queryFn: async () => {
       // Anchor boundaries to Eastern timezone so the query always matches
       // the Eastern calendar day regardless of the user's device timezone.
-      const startOfDay = new Date(`${today}T00:00:00-04:00`).toISOString();
-      const endOfDay = new Date(`${today}T23:59:59-04:00`).toISOString();
+      // Use Intl to resolve the correct UTC offset (EST = -05:00, EDT = -04:00).
+      const nyOffset = (() => {
+        const now = new Date();
+        const utcStr = now.toLocaleString("en-US", { timeZone: "UTC" });
+        const nyStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+        const diffMs = new Date(nyStr).getTime() - new Date(utcStr).getTime();
+        const diffHrs = diffMs / (1000 * 60 * 60);
+        const absHrs = Math.abs(Math.round(diffHrs));
+        const sign = diffHrs < 0 ? "-" : "+";
+        return `${sign}${String(absHrs).padStart(2, "0")}:00`;
+      })();
+      const startOfDay = new Date(`${today}T00:00:00${nyOffset}`).toISOString();
+      const endOfDay = new Date(`${today}T23:59:59${nyOffset}`).toISOString();
 
       let query = supabase
         .from("games")

@@ -37,17 +37,33 @@ function getEasternToday(): { y: number; m: number; d: number } {
 
     return { y, m, d };
   } catch {
-    // Fallback: Eastern is UTC-5 (EST) or UTC-4 (EDT).
-    // We approximate by subtracting 4 hours from UTC, which keeps us on the
-    // correct calendar date for the overwhelming majority of the day in both
-    // EST and EDT. This is only reached when Intl is unavailable.
+    // Fallback: use toLocaleString with timeZone to get the Eastern date.
+    // This correctly handles EST (-05:00) and EDT (-04:00) without hardcoding.
+    try {
+      const now = new Date();
+      const nyStr = now.toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      // toLocaleString returns "MM/DD/YYYY" in en-US
+      const [mStr, dStr, yStr] = nyStr.split("/");
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+      const d = parseInt(dStr, 10);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return { y, m, d };
+      }
+    } catch {
+      // intentional fallthrough
+    }
+    // Last resort: use UTC date
     const now = new Date();
-    const easternMs = now.getTime() - 4 * 60 * 60 * 1000;
-    const easternDate = new Date(easternMs);
     return {
-      y: easternDate.getUTCFullYear(),
-      m: easternDate.getUTCMonth() + 1,
-      d: easternDate.getUTCDate(),
+      y: now.getUTCFullYear(),
+      m: now.getUTCMonth() + 1,
+      d: now.getUTCDate(),
     };
   }
 }

@@ -26,7 +26,7 @@ import { LIVE_STATUSES } from "../../../lib/constants";
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router = useRouter();
-  const { data: game, isLoading } = useGameDetail(gameId);
+  const { data: game, isLoading, error, refetch } = useGameDetail(gameId);
   const { isFollowing, toggleFollow, isToggling } = useGameFollow(gameId);
   const { data: wagers } = useWagers(gameId);
   const { scanBetSlip, isScanning } = useBetSlipScanner();
@@ -42,6 +42,16 @@ export default function GameDetailScreen() {
   };
 
   if (isLoading || !game) {
+    if (error && !isLoading) {
+      return (
+        <SafeAreaView style={s.loadingContainer}>
+          <Text style={s.errorText}>Failed to load game details.</Text>
+          <Pressable style={s.retryBtn} onPress={() => refetch()}>
+            <Text style={s.retryText}>Try Again</Text>
+          </Pressable>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={s.loadingContainer}>
         <ActivityIndicator size="large" color="#f97316" />
@@ -276,4 +286,12 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   alertBannerText: { color: "#fb923c", fontSize: 14, marginLeft: 12, flex: 1 },
+  errorText: { color: "#94a3b8", fontSize: 16, textAlign: "center", marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: "#f97316",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryText: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
 });

@@ -3,6 +3,7 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   StyleSheet,
 } from "react-native";
@@ -12,7 +13,7 @@ import { useAlerts } from "../../../hooks/useAlerts";
 import { AlertCard } from "../../../components/AlertCard";
 
 export default function AlertsScreen() {
-  const { data: alerts, isLoading, refetch, isRefetching } = useAlerts();
+  const { data: alerts, isLoading, error, refetch, isRefetching } = useAlerts();
 
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
@@ -27,6 +28,13 @@ export default function AlertsScreen() {
       {isLoading ? (
         <View style={s.loadingContainer}>
           <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      ) : error ? (
+        <View style={s.loadingContainer}>
+          <Text style={s.errorText}>Failed to load alerts.</Text>
+          <Pressable style={s.retryBtn} onPress={() => refetch()}>
+            <Text style={s.retryText}>Try Again</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -76,4 +84,12 @@ const s = StyleSheet.create({
   },
   emptyTitle: { color: "#94a3b8", fontSize: 16, textAlign: "center", marginTop: 16 },
   emptyDesc: { color: "#64748b", fontSize: 14, textAlign: "center", marginTop: 8 },
+  errorText: { color: "#94a3b8", fontSize: 16, textAlign: "center", marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: "#f97316",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryText: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
 });

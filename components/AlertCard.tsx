@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import type { Alert } from "../lib/types";
+import type { Alert, GameStatus } from "../lib/types";
 import { SPORT_LABELS } from "../lib/sport-context";
 import {
   alertTypeLabel,
@@ -36,9 +36,9 @@ export function AlertCard({ alert }: AlertCardProps) {
 
   // Show Watch button for live games with urgent (non-resolved) alerts
   const isLive = alert.game
-    ? LIVE_STATUSES.includes(alert.game.status as any)
+    ? (LIVE_STATUSES as ReadonlyArray<GameStatus>).includes(alert.game.status as GameStatus)
     : false;
-  const bestProvider = isLive && urgent && alert.game
+  const bestProvider = isLive && urgent && alert.game?.broadcast != null
     ? getBestWatchProvider(alert.game.broadcast, connectedKeys, allProviders ?? [])
     : null;
 
