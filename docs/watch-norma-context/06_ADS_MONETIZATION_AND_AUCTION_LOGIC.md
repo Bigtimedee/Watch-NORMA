@@ -27,7 +27,7 @@ The auction runs inside `_shared/auction-engine.ts` and is called by `evaluate-a
 3. **Ad personalization check** — if the user has disabled ad personalization, behavioral signals are excluded from targeting (but the auction still runs).
 4. **Frequency caps** — max 3 ads per user per day. Max 1 impression per campaign per user per 24 hours.
 5. **Floor price** — `getEffectiveFloor()` from `_shared/pricing-engine.ts` fetches the base floor for the moment type, applies a premium multiplier, and adds dynamic premium modifiers.
-6. **Eligible bids** — query bids table for campaigns that: match the moment type, have budget remaining, have not hit daily caps, and bid at or above the effective floor.
+6. **Eligible bids** — query bids table for campaigns that: match the moment type, have budget remaining, have not hit daily caps, bid at or above the effective floor, and have `approval_status = 'approved'`.
 7. **Direct deal check** — campaigns with `priority_tier > 0` (guaranteed-delivery contracts) auto-win if eligible. Direct deals bypass competitive auction.
 8. **Category exclusivity** — max 1 advertiser per category per notification. If two sportsbook advertisers bid on the same moment, only the higher bidder competes.
 9. **Budget pacing** — campaigns spending > 110% of their hourly ideal pace are excluded. `ad-budget-pacer` checks every 5 minutes and auto-pauses over-pacing campaigns.
@@ -141,6 +141,8 @@ The Next.js advertiser portal provides full self-service campaign management:
 
 **Campaign state machine:** draft → pending_review → active → paused/completed/archived. Activation requires sufficient wallet balance for remaining budget.
 
+**Campaign approval workflow (implemented):** Campaigns created by advertisers land in `approval_status = 'pending'`. They do not enter the auction until an admin approves them. Admin UI at `/admin/campaigns` shows pending count badge and per-row Approve/Reject controls. Rejection requires a written note that is surfaced to the advertiser. Approved campaigns enter the auction; rejected campaigns are locked. Migration 065 added `approval_status`, `approval_note`, `reviewed_at`, `reviewed_by` to the campaigns table.
+
 ## Revenue Models
 
 **Implemented:**
@@ -179,13 +181,13 @@ Before a sportsbook campaign enters the eligible-bids step of the auction, the e
 
 Non-sportsbook advertisers (streaming services, merchandise, ticketing) are not subject to the geo-filter.
 
-### Known Gaps
+### CTA Geo-Gating (implemented)
 
-The auction geo-filter is the only enforcement point. The `BetNowButton` in-app CTA that links directly to sportsbook apps is not yet geo-gated — a user in a restricted state will not see a sportsbook ad, but the "Bet Now" button on alert cards may still appear. Geo-gating the CTA is a near-term priority.
+`lib/geo-compliance.ts` exposes `inferStateFromTimezone()` (shared between the auction engine and the mobile client). The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` renders disabled with "Not available in your region" when the user's derived state is not in the sportsbook's allowed list. Optimistic-renders as enabled while the check loads to avoid blocking UX.
 
 ## Compliance and Risk
 
-- **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is now enforced at the auction level (see Geo-Compliance section above). The `BetNowButton` CTA is a remaining gap.
+- **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is enforced at both the auction level and at the `BetNowButton` CTA level (see Geo-Compliance section above). Both enforcement points use the same `inferStateFromTimezone` logic.
 - **Age gating.** The App Store requires apps with gambling-adjacent content to have age restrictions. The app's rating and content descriptors must accurately reflect the presence of sportsbook CTAs.
 - **Do not personalize sensitive betting offers unless legally permitted.** The ad personalization toggle gives users control. When off, behavioral signals are excluded.
 - **Separate editorial relevance from paid placement.** Alert explanations are generated independently of the ad auction. The sponsor appears as a clearly labeled addition, not as part of the alert content.

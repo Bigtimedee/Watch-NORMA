@@ -58,12 +58,12 @@ Based on repository inspection and the outage report:
 These decisions require owner confirmation:
 
 1. **Which additional sports/leagues are next?** NFL, NHL, college football, soccer? Each requires sport-specific alert rules, data source configuration, and UI adjustments.
-2. **Should sportsbook CTA deep links be geo-restricted?** The auction engine now blocks sportsbook ads for users in restricted/unknown jurisdictions (using `profiles.timezone` + `sportsbook_restrictions`). The `BetNowButton` CTA has not yet been geo-gated. Decision needed: apply the same check to the in-app CTA, or require explicit user location declaration before showing betting content.
+2. ~~**Should sportsbook CTA deep links be geo-restricted?**~~ **Done.** `BetNowButton` now uses `useSportsbookGeo` to disable the CTA for users in restricted/unknown jurisdictions. Both the auction and the CTA use the same `inferStateFromTimezone` logic.
 3. **Should Kalshi/Polymarket support be expanded or maintained as-is?** The current integration is read-only (positions + settlement). Is trade execution planned?
 4. **Which streaming providers need priority deep-link fixes?** YouTube TV has been unstable. Are there other providers with known issues?
 5. **Should there be a premium/ad-free tier?** The monetization model currently depends entirely on the ad auction. A subscription tier would diversify revenue but reduce auction inventory.
 6. **How should the app handle the off-season?** NCAA basketball has a defined season. What happens in summer — MLB-only? Feature dormancy?
-7. **Is the advertiser portal ready for external advertisers?** Or is it currently internal-only?
+7. **Is the advertiser portal ready for external advertisers?** Campaign approval workflow is now live (migration 065): new campaigns land as `pending`, admin must approve before they enter the auction. The self-service flow is usable for external advertisers — remaining gap is manual creative review.
 8. **Should location be required for broadcast availability?** Using GPS would improve broadcast mapping accuracy but raises privacy concerns.
 9. **What is the multi-platform social strategy?** X/Twitter publishing is live. Instagram, Facebook, TikTok, Reddit are partially scaffolded. Which platforms are priority?
 10. **Should email wager ingestion be promoted more aggressively?** The Gmail-based flow works but requires user action (forwarding emails). Is this sufficient or should other email providers be added?
@@ -74,9 +74,11 @@ Based on repository inspection, the highest-impact immediate work:
 
 1. **Expand sports coverage.** Adding NFL (for fall) and college football would dramatically increase the addressable user base and align with the betting calendar.
 2. **Stabilize deep-link health.** Continue monitoring via `deep-link-health-check`. Consider a periodic cron that automatically checks each provider's universal link for HTTP 200 + correct redirect.
-3. **Enforce geo-compliance at the CTA level.** The auction engine now blocks sportsbook ads for users in restricted/unknown jurisdictions. The next step is to apply the same jurisdiction check to the `BetNowButton` deep-link CTA so sportsbook links never surface to restricted-state users.
+3. ~~**Enforce geo-compliance at the CTA level.**~~ **Done** — `BetNowButton` geo-gating is live.
 4. **Implement automated health monitoring.** Connect the `health-check` endpoint to an external uptime monitor (e.g., Better Uptime, PagerDuty) that alerts on degradation.
 5. **Write integration tests for the alert pipeline.** The most critical path (game state → alert → push) has unit tests but no end-to-end coverage.
+6. ~~**Campaign approval workflow.**~~ **Done** — admin must approve campaigns before they enter the auction (migration 065).
+7. ~~**Referral system.**~~ **Done** — `referral_codes` + `referrals` tables, `get-referral-code` edge function, profile invite UI, signup deep-link handling (migration 066).
 
 ## Near-Term Roadmap
 
