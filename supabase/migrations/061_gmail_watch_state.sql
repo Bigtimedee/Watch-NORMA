@@ -13,8 +13,9 @@ CREATE TABLE IF NOT EXISTS public.gmail_watch_state (
 );
 
 -- Seed the singleton row if it doesn't exist
+-- history_id uses '' as the zero-value; the existing table (migration 035) has NOT NULL on this column
 INSERT INTO public.gmail_watch_state (id, history_id)
-VALUES (1, NULL)
+VALUES (1, '')
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS: only service role can access (idempotent)
