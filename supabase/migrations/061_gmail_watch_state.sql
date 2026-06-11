@@ -12,10 +12,11 @@ CREATE TABLE IF NOT EXISTS public.gmail_watch_state (
   CONSTRAINT gmail_watch_state_singleton CHECK (id = 1)
 );
 
--- Seed the singleton row if it doesn't exist
--- history_id uses '' as the zero-value; the existing table (migration 035) has NOT NULL on this column
-INSERT INTO public.gmail_watch_state (id, history_id)
-VALUES (1, '')
+-- Seed the singleton row if it doesn't exist.
+-- Migration 035 created this table with history_id NOT NULL and expiration_ms NOT NULL.
+-- Both columns need zero-values: '' and 0 respectively.
+INSERT INTO public.gmail_watch_state (id, history_id, expiration_ms)
+VALUES (1, '', 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS: only service role can access (idempotent)
