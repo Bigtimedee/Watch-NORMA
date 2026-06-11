@@ -158,11 +158,35 @@ The Next.js advertiser portal provides full self-service campaign management:
 - Merchandise affiliate
 - Sponsorship packages (branded moment types, e.g., "The DraftKings Comeback Alert")
 
+## Geo-Compliance
+
+Geographic enforcement for sportsbook advertising is implemented at the foundation level.
+
+### Data Model
+
+- **`profiles.timezone`** — captured from the user's device at signup/login via the runtime `Intl.DateTimeFormat().resolvedOptions().timeZone` API. This is the authoritative jurisdiction signal.
+- **`sportsbook_restrictions` table** — maps each sportsbook key (e.g., `draftkings`, `fanduel`, `betmgm`, `caesars`, `pointsbet`) to an array of US state codes where that sportsbook is legally permitted to advertise (e.g., `['AZ', 'CO', 'IL', 'NJ', ...]`). Seeded via migration 058.
+- **`advertisers.allowed_jurisdictions`** — advertiser-level override for jurisdiction allowlists, used when an advertiser's legal footprint differs from the default sportsbook restriction list.
+
+### Auction Engine Enforcement
+
+Before a sportsbook campaign enters the eligible-bids step of the auction, the engine performs a geo-filter:
+
+1. Resolve the user's US state from `profiles.timezone` (IANA timezone → state mapping, e.g., `America/New_York` → `NY`).
+2. If the timezone is null or cannot be resolved to a US state, the user is treated as **unknown jurisdiction** and all sportsbook category bids are excluded.
+3. Look up the user's state against `sportsbook_restrictions` for the campaign's advertiser key.
+4. If the state is not in the allowed list, the campaign is excluded from the auction for this user.
+
+Non-sportsbook advertisers (streaming services, merchandise, ticketing) are not subject to the geo-filter.
+
+### Known Gaps
+
+The auction geo-filter is the only enforcement point. The `BetNowButton` in-app CTA that links directly to sportsbook apps is not yet geo-gated — a user in a restricted state will not see a sportsbook ad, but the "Bet Now" button on alert cards may still appear. Geo-gating the CTA is a near-term priority.
+
 ## Compliance and Risk
 
-- **Gambling-related ads are regulated.** Sportsbook ads may be restricted or prohibited in certain states/jurisdictions. The system does not currently enforce geographic ad targeting, but the architecture supports it (user timezone is captured, targeting rules can include location).
+- **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is now enforced at the auction level (see Geo-Compliance section above). The `BetNowButton` CTA is a remaining gap.
 - **Age gating.** The App Store requires apps with gambling-adjacent content to have age restrictions. The app's rating and content descriptors must accurately reflect the presence of sportsbook CTAs.
-- **State-by-state restrictions.** Sports betting legality varies by state. Sportsbook ads should only appear for users in states where that sportsbook is legal. This is not currently enforced — it is a known gap.
 - **Do not personalize sensitive betting offers unless legally permitted.** The ad personalization toggle gives users control. When off, behavioral signals are excluded.
 - **Separate editorial relevance from paid placement.** Alert explanations are generated independently of the ad auction. The sponsor appears as a clearly labeled addition, not as part of the alert content.
 - **Frequency cap aggressively.** Max 3 ads per user per day, with fatigue model suppression at 6+ sponsored alerts in 24 hours. This is a trust-preservation mechanism.

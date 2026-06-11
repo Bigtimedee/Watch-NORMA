@@ -132,6 +132,15 @@ deno test --allow-env --allow-net=none supabase/functions/
 - Account deletion completeness (all tables cleaned)
 - No secret logging in Edge Function output
 
+### Known Testing Gaps
+
+- **No integration tests.** Tests are unit-level (Jest for client, Deno test for Edge Functions). There are no end-to-end tests that verify the full pipeline (game state change → alert → push → deep link).
+- **No load tests.** The system has not been tested under high-concurrency scenarios (e.g., 50+ simultaneous live games during March Madness).
+- **No visual regression tests.** No screenshot or snapshot tests for UI components.
+
+Previously noted risks that have been resolved:
+- Fetch timeouts: `sportradar.ts` (12s), `poll-odds/index.ts` (10s), and `parse-bet-slip/index.ts` (30s) all use `AbortController` — no longer a gap.
+
 ## Deployment
 
 ### Mobile App (iOS)
@@ -144,10 +153,10 @@ deno test --allow-env --allow-net=none supabase/functions/
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (57+ migration files).
+- **Migrations:** Applied via `supabase db push` (63+ migration files).
 - **Edge Functions:** Deployed via `supabase functions deploy [function-name]`.
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056, 060, 061).
 
 ### Advertiser Portal (web/)
 
@@ -232,6 +241,7 @@ The `deep-link-health-check` Edge Function analyzes `deep_link_events` from the 
 6. Check cron job execution — `cron.job_run_details` in Supabase for failures?
 7. Review ad fraud events — any new high-confidence fraud?
 8. Check social publishing — posts published on schedule?
+9. Verify `morning-briefing` fired at 11 PM UTC (6 PM CT) — "Tonight's Games" push delivered?
 
 ### Incident Response for Bad Alerts
 

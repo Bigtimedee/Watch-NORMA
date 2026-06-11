@@ -4,7 +4,7 @@
 
 Based on repository inspection and the outage report:
 
-1. **ESPN status field regression risk.** The May 2026 P0 outage was caused by reading `status.type.name` (machine code) instead of `status.type.description` (human-readable) from ESPN. This was fixed, but the risk of regression remains high. A CHECK constraint on the `games` table (migration 057) now prevents invalid status values, but the constraint is a safety net — the root fix is in the status mapping code. See `OUTAGE-REPORT-2026-05-16.md`.
+1. **ESPN status field regression risk.** The May 2026 P0 outage was caused by reading `status.type.name` (machine code) instead of `status.type.description` (human-readable) from ESPN. This was fixed, but the risk of regression remains high. A CHECK constraint on the `games` table (migration 057/060) now prevents invalid status values, but the constraint is a safety net — the root fix is in the status mapping code. See `OUTAGE-REPORT-2026-05-16.md`.
 
 2. **YouTube TV deep link instability.** Multiple migrations (052, 053, 054) were needed to fix YouTube TV's scheme and universal link. The universal link must point to `https://tv.youtube.com` (watch/login URL), not a marketing page. This is monitored by `deep-link-health-check` but has been a recurring issue.
 
@@ -23,7 +23,7 @@ Based on repository inspection and the outage report:
 
 - **Player prop alerting limited.** The `outcome-proximity` module computes proximity for player props, but the alert pipeline's prop coverage depends on having Sportradar summary data with individual player stats. Coverage may be incomplete for less-tracked players or stat categories.
 - **No user feedback loop.** The alert engine scores and delivers alerts, but there is no mechanism for users to rate alert quality ("this was useful" / "this wasn't"). Future improvements to the scoring weights would benefit from explicit feedback.
-- **No alert preview or digest.** Users receive alerts one at a time. There is no "morning briefing" or "tonight's watchlist" feature.
+- **Morning briefing delivered but no personal digest.** The `morning-briefing` Edge Function sends a "Tonight's Games" push at 6 PM CT. A personalized per-user digest (curated by wagers and follows) is not yet implemented.
 
 ### Streaming and Watch Flow
 
@@ -32,14 +32,13 @@ Based on repository inspection and the outage report:
 
 ### Advertising
 
-- **No geographic ad targeting.** Sportsbook ads should be restricted to states where the sportsbook operates legally. The architecture supports targeting rules, but geographic enforcement is not implemented.
 - **No real-time auction monitoring dashboard.** The admin portal has campaign metrics and fraud detection, but no live view of auctions happening in real-time.
 - **Advertiser self-service is basic.** Creative approval is manual. Targeting options are limited to moment types and basic campaign parameters.
 
 ### Privacy and Compliance
 
-- **No geofencing for gambling content.** Sportsbook CTAs and betting-related alerts are shown to all users regardless of jurisdiction.
 - **No explicit age verification.** Age gating is delegated to the App Store rating and the sportsbook/platform. The app itself does not verify age.
+- **Geofencing for gambling content is partial.** The geo-compliance foundation is in place: `profiles.timezone` is captured, the `sportsbook_restrictions` table encodes legal states for all major sportsbooks, and the auction engine blocks sportsbook ads for users with unknown or restricted-jurisdiction timezones. However, sportsbook CTAs in alert cards are still shown to all users regardless of jurisdiction — the auction geo-filter is the only enforcement point so far.
 - **Kalshi credentials storage.** RSA private keys are stored in `connections.metadata` behind RLS but without column-level encryption (pgcrypto). The CLAUDE.md architecture plan calls for encryption when partner APIs are added.
 
 ### Testing
@@ -59,7 +58,7 @@ Based on repository inspection and the outage report:
 These decisions require owner confirmation:
 
 1. **Which additional sports/leagues are next?** NFL, NHL, college football, soccer? Each requires sport-specific alert rules, data source configuration, and UI adjustments.
-2. **Should sportsbook ads be geo-restricted?** If yes, what is the geofencing mechanism — IP-based, user-declared state, or App Store region?
+2. **Should sportsbook CTA deep links be geo-restricted?** The auction engine now blocks sportsbook ads for users in restricted/unknown jurisdictions (using `profiles.timezone` + `sportsbook_restrictions`). The `BetNowButton` CTA has not yet been geo-gated. Decision needed: apply the same check to the in-app CTA, or require explicit user location declaration before showing betting content.
 3. **Should Kalshi/Polymarket support be expanded or maintained as-is?** The current integration is read-only (positions + settlement). Is trade execution planned?
 4. **Which streaming providers need priority deep-link fixes?** YouTube TV has been unstable. Are there other providers with known issues?
 5. **Should there be a premium/ad-free tier?** The monetization model currently depends entirely on the ad auction. A subscription tier would diversify revenue but reduce auction inventory.
@@ -75,7 +74,7 @@ Based on repository inspection, the highest-impact immediate work:
 
 1. **Expand sports coverage.** Adding NFL (for fall) and college football would dramatically increase the addressable user base and align with the betting calendar.
 2. **Stabilize deep-link health.** Continue monitoring via `deep-link-health-check`. Consider a periodic cron that automatically checks each provider's universal link for HTTP 200 + correct redirect.
-3. **Add geographic ad targeting.** This is a compliance requirement for sportsbook advertisers. Implement state-level targeting based on user-declared location or IP inference.
+3. **Enforce geo-compliance at the CTA level.** The auction engine now blocks sportsbook ads for users in restricted/unknown jurisdictions. The next step is to apply the same jurisdiction check to the `BetNowButton` deep-link CTA so sportsbook links never surface to restricted-state users.
 4. **Implement automated health monitoring.** Connect the `health-check` endpoint to an external uptime monitor (e.g., Better Uptime, PagerDuty) that alerts on degradation.
 5. **Write integration tests for the alert pipeline.** The most critical path (game state → alert → push) has unit tests but no end-to-end coverage.
 
@@ -89,8 +88,8 @@ Based on repository inspection, the highest-impact immediate work:
 ### Alert Engine
 - Add user feedback mechanism (thumbs up/down on alerts)
 - Use feedback data to refine scoring weights
-- Add "morning briefing" digest alert for the day's games
-- Add "tonight's watchlist" push notification at 6 PM local time
+- "Tonight's Games" briefing is live (6 PM CT daily via `morning-briefing` function)
+- Add personalized "tonight's watchlist" push that filters by user follows and open wagers
 
 ### Streaming Provider Routing
 - Automated universal link health verification (cron that fetches each URL and checks redirect)
@@ -108,7 +107,8 @@ Based on repository inspection, the highest-impact immediate work:
 - Improve Polymarket position matching (beyond team name extraction)
 
 ### Ad Auction
-- Geographic targeting for sportsbook ads
+- Geo-compliance foundation in place: `sportsbook_restrictions` table seeded for 5 major books, auction engine blocks unknown/illegal-state users, `profiles.timezone` drives filtering
+- Enforce geo-check on `BetNowButton` CTA (in-app, not just auction)
 - Real-time auction dashboard for admins
 - Expand moment types for auction eligibility
 - Add video ad creative support

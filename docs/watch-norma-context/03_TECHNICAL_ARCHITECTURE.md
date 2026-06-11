@@ -22,13 +22,15 @@ Watch-NORMA/
 ├── supabase/
 │   ├── config.toml                   # Local Supabase config
 │   ├── seed.sql                      # Seed data
-│   ├── migrations/                   # 57+ Postgres migrations
+│   ├── migrations/                   # 63+ Postgres migrations
 │   ├── functions/                    # Deno Edge Functions (20+ functions)
 │   │   └── _shared/                  # Shared backend utilities
 │   └── assets/                       # Media asset upload script
-├── web/                              # Next.js advertiser portal
+├── web/                              # Next.js advertiser portal + landing page
 │   ├── src/app/                      # App Router pages
+│   │   └── api/waitlist/route.ts     # POST endpoint for landing page email capture
 │   ├── src/components/               # Portal UI components
+│   │   └── waitlist-form.tsx         # Landing page email signup form
 │   ├── src/lib/                      # Supabase clients, utils, types
 │   └── public/                       # Static assets
 ├── docs/                             # Privacy policy, terms, this context folder
@@ -132,6 +134,7 @@ All items verified from repository files.
 
 *Notification:*
 - `send-push` — delivers via Expo Push API, logs to delivery_log, includes sponsor text
+- `morning-briefing` (daily 11 PM UTC / 6 PM CT) — sends "Tonight's Games" push notification to all active users with a summary of games starting that evening
 
 *Wager Processing:*
 - `parse-bet-slip` — Claude Vision OCR of bet slip images
@@ -171,7 +174,16 @@ All items verified from repository files.
 *Account:*
 - `delete-account` — GDPR/App Store compliant full account deletion
 
-**Database.** PostgreSQL 15 via Supabase. 57+ migrations covering core schema, provider seeding, odds, advertising, social, email ingestion, deep-link observability, MLB stats, and more. Key tables described in `04_DATA_AND_INTEGRATIONS.md`.
+**Database.** PostgreSQL 15 via Supabase. 63+ migrations covering core schema, provider seeding, odds, advertising, social, email ingestion, deep-link observability, MLB stats, geo-compliance, waitlist, and more. Key tables described in `04_DATA_AND_INTEGRATIONS.md`.
+
+Recent migrations (058–063):
+- `058_geo_compliance.sql` — adds `profiles.timezone`, `advertisers.allowed_jurisdictions`, and seeds `sportsbook_restrictions` table with legal states for DraftKings, FanDuel, BetMGM, Caesars, and PointsBet
+- `059_waitlist.sql` — `waitlist_emails` table for landing page email capture
+- `060_games_status_constraint.sql` — CHECK constraint on `games.status` to prevent invalid ESPN status values (renumbered from duplicate 057)
+- `060_social_cron_schedule.sql` — pins `generate-social-content` (every 6h) and `publish-social-posts` (hourly) pg_cron entries
+- `061_gmail_watch_state.sql` — creates `gmail_watch_state` table used by the Gmail Pub/Sub renewal flow
+- `061_morning_briefing_cron.sql` — schedules `morning-briefing` Edge Function at 11 PM UTC (6 PM CT) daily
+- `062_watcher_state_sport.sql` — adds `sport` column to `watcher_state` for multi-sport orchestrator routing
 
 **Shared utilities** (`supabase/functions/_shared/`): `alert-scoring.ts` (signal extraction, scoring, "Why Now" generation), `auction-engine.ts` (Vickrey auction), `ai-ad-engine.ts` (Thompson Sampling creative selection), `pricing-engine.ts` (floor prices, dynamic premiums), `fatigue-model.ts` (ad fatigue), `outcome-proximity.ts` (wager proximity scoring), `sportradar.ts` (multi-sport API client with rate budgeting), `team-matching.ts` (fuzzy team name matching with alias map), `polling-state.ts` (game status state machine), `utils.ts` (hash, status mapping), `kalshi-crypto.ts` (RSA-PSS signing), `sportsbook-links.ts` (deep link URLs), `bet-ingestor.ts` (partner API interface), `email-parser.ts`, `social-content-engine.ts`, `social-publishers.ts`, `x-oauth.ts`, `daily-cadence.ts`, `template-vars.ts`, `cors.ts`.
 
@@ -295,11 +307,12 @@ All client queries go through the Supabase JS client which auto-generates REST c
 | `publish-social-posts` | Hourly | Route to platform publishers |
 | `generate-recap-content` | Daily 11 PM UTC | Post-game recaps |
 | `fetch-social-metrics` | Daily 9 PM UTC | Pull engagement data |
+| `morning-briefing` | Daily 11 PM UTC | "Tonight's Games" push notification |
 | `renew-gmail-watch` | Weekly | Renew Gmail Pub/Sub watch |
 | `deep-link-health-check` | Periodic | Monitor provider links |
 
 ## Background Jobs and Scheduling
 
-All scheduled jobs use pg_cron (configured in migrations 004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056). The `game-watcher-orchestrator` acts as a secondary scheduler, dispatching sub-functions (`poll-pbp`, `poll-summary`, `evaluate-alerts`, `resolve-predictions`) based on the `watcher_state` table rather than fixed cron schedules. This allows per-game polling intervals, backoff on errors, and concurrency limits.
+All scheduled jobs use pg_cron (configured in migrations 004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056, 060, 061). The `game-watcher-orchestrator` acts as a secondary scheduler, dispatching sub-functions (`poll-pbp`, `poll-summary`, `evaluate-alerts`, `resolve-predictions`) based on the `watcher_state` table rather than fixed cron schedules. This allows per-game polling intervals, backoff on errors, and concurrency limits.
 
 Sport-specific polling intervals: NCAA basketball PBP every ~30 seconds, summary every ~120 seconds. MLB PBP every ~60 seconds, summary every ~90 seconds. These intervals are configured in the orchestrator and adapt based on game state and Sportradar rate budget.
