@@ -47,7 +47,14 @@ Deno.serve(async (req) => {
 
     // Fetch odds from The Odds API
     const url = `${ODDS_API_BASE}/sports/basketball_ncaab/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=${MARKETS.join(",")}&bookmakers=${BOOKMAKERS.join(",")}`;
-    const res = await fetch(url);
+    const oddsController = new AbortController();
+    const oddsTimer = setTimeout(() => oddsController.abort(), 10000);
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: oddsController.signal });
+    } finally {
+      clearTimeout(oddsTimer);
+    }
 
     if (!res.ok) {
       throw new Error(`Odds API returned ${res.status}: ${await res.text()}`);

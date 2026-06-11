@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
       "delivery_log",
       "alerts",
       "alert_throttle",
+      "deep_link_events",
       "prediction_positions",
       "wagers",
       "follows",

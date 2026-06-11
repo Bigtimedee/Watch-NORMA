@@ -84,7 +84,14 @@ async function sportradarFetchSport<T>(sport: SportKey, path: string): Promise<T
   callCount++;
   console.log(`[Sportradar:${sport}] Call #${callCount}: GET ${path}`);
 
-  const res = await fetch(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(
@@ -102,7 +109,14 @@ async function sportradarFetch<T>(path: string): Promise<T> {
   callCount++;
   console.log(`[Sportradar] Call #${callCount}: GET ${path}`);
 
-  const res = await fetch(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(
