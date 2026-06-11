@@ -18,7 +18,7 @@ import {
 } from "../hooks/useConnections";
 import { useTapToStream } from "../lib/tap-to-stream-context";
 import { LIVE_STATUSES } from "../lib/constants";
-import { BetNowButton } from "./BetNowButton";
+import { SponsorCTAButton } from "./SponsorCTAButton";
 
 interface AlertCardProps {
   alert: Alert;
@@ -149,9 +149,9 @@ export function AlertCard({ alert }: AlertCardProps) {
               </Pressable>
             )}
 
-            {/* Sportsbook CTA from sponsor */}
+            {/* Sportsbook CTA from sponsor — this is a paid ad unit, not a NORMA action */}
             {alert.sponsor_cta_url && (
-              <BetNowButton
+              <SponsorCTAButton
                 ctaUrl={alert.sponsor_cta_url}
                 logoUrl={alert.sponsor_logo_url}
                 alertId={alert.id}
