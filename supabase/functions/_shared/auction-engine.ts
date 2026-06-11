@@ -356,6 +356,7 @@ async function queryEligibleBids(
         flight_start,
         flight_end,
         status,
+        approval_status,
         category_exclusivity,
         priority_tier,
         advertisers!inner (
@@ -378,6 +379,7 @@ async function queryEligibleBids(
     .eq("moment_type", momentType)
     .eq("status", "active")
     .eq("campaigns.status", "active")
+    .eq("campaigns.approval_status", "approved")
     .eq("creatives.status", "approved");
 
   if (error || !data) return [];

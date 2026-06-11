@@ -52,6 +52,10 @@ export interface Campaign {
   flight_end: string | null;
   targeting_rules: TargetingRules;
   status: CampaignStatus;
+  approval_status: CampaignApprovalStatus;
+  approval_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   category_exclusivity: boolean;
   priority_tier: number;
   created_at: string;
@@ -65,6 +69,12 @@ export type CampaignStatus =
   | "paused"
   | "completed"
   | "archived";
+
+export type CampaignApprovalStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "paused";
 
 export interface TargetingRules {
   league?: string;

@@ -42,3 +42,9 @@ yarn-error.*
 /android
 .vercel
 web/.next/
+
+# test artifacts / agent scaffolding
+coverage/
+hermes/
+AGENTS.md
+*.xlsx#
