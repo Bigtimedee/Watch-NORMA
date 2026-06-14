@@ -107,3 +107,4 @@ Core principles:
 7. **Rate limiting.** Supabase Edge Functions have platform-level rate limits. Per-user alert caps prevent notification abuse. Sportradar rate budget prevents API overuse.
 8. **Webhook signature verification.** Stripe webhooks verify the `stripe-signature` header. Gmail Pub/Sub verifies the bearer token.
 9. **Duplicate alert idempotency.** The dedup hash system prevents the same alert from being sent twice. `send-push` checks delivery status before sending.
+10. **Data minimization.** The `purge-old-data` Edge Function (migration 068) runs daily at 9 AM UTC and enforces retention windows: `game_snapshots` 30 days, `deep_link_events` 90 days, `delivery_log` 180 days, `impressions` 13 months. Rollups are refreshed before impression rows are deleted so advertiser reporting is unaffected.

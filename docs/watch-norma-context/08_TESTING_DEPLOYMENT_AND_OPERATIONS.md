@@ -198,10 +198,10 @@ Previously noted risks that have been resolved:
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (69 migration files: 001–067 + 4 timestamped; 031/032 unused).
-- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (39 functions).
+- **Migrations:** Applied via `supabase db push` (70 migration files: 001–068 + 4 timestamped; 031/032 unused).
+- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (40 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, and `20260307000001_cmo_agent.sql`).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, and `20260307000001_cmo_agent.sql`).
 
 ### Advertiser Portal (web/)
 
@@ -305,6 +305,7 @@ The `deep-link-health-check` Edge Function analyzes `deep_link_events` from the 
 8. Check social publishing — posts published on schedule?
 9. Verify `morning-briefing` fired at 11 PM UTC (6 PM CT) — "Tonight's Games" push delivered?
 10. Check `monitor-health` cron logs — any Slack alerts fired or suppressed? (`ops_alert_state` table for history)
+11. Verify `purge-old-data` ran (9 AM UTC) — check `cron.job_run_details` for failures or abnormally large deletion counts
 
 ### Incident Response for Bad Alerts
 

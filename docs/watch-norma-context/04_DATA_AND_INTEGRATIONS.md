@@ -176,3 +176,19 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 - **Incorrect provider routing.** Deep link schemes and universal links change when providers update their apps. The `deep-link-health-check` monitors for degradation.
 - **Bad odds/market mapping.** Team name matching uses fuzzy logic with aliases. Edge cases (e.g., teams with similar names across conferences) can cause mismatches.
 - **Privacy-sensitive account data.** Kalshi API keys and Polymarket wallet addresses are stored in `connections.metadata`. RLS restricts access to the owning user.
+
+## Data Lifecycle and Retention (P1-04)
+
+High-volume tables are pruned daily by the `purge-old-data` Edge Function (9 AM UTC / 4 AM ET, pg_cron via migration 068). Deletes are batched in groups of 500 rows to avoid holding long locks.
+
+| Table | Retention | Reason |
+|-------|-----------|--------|
+| `game_snapshots` | 30 days | Transient polling state; not user-facing |
+| `deep_link_events` | 90 days | Observability window; no PII |
+| `delivery_log` | 180 days | Delivery audit; user-linked but not billing |
+| `impressions` | 397 days (13 months) | Advertiser YoY reporting requires full prior-season data |
+| `conversions` | Cascades with `impressions` | `ON DELETE CASCADE` — no separate window needed |
+
+**Rollup preservation:** The `daily_impression_stats` materialized view is refreshed (via `refresh_daily_impression_stats()` RPC) before any impression rows are deleted. Advertiser reporting (`advertiser_reporting` view, `reporting-api`, `/admin/revenue`) reads from the materialized view and is unaffected by raw purges.
+
+**Dry-run mode:** Invoking `purge-old-data` without `{"dry_run": false}` in the request body returns row counts that would be deleted without performing any deletions. The cron job always passes `dry_run: false`.
