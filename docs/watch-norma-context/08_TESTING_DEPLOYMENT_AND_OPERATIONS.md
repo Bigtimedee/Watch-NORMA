@@ -198,10 +198,10 @@ Previously noted risks that have been resolved:
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (70 migration files: 001–068 + 4 timestamped; 031/032 unused).
-- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (40 functions).
+- **Migrations:** Applied via `supabase db push` (71 migration files: 001–069 + 4 timestamped; 031/032 unused).
+- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (41 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, and `20260307000001_cmo_agent.sql`).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, and `20260307000001_cmo_agent.sql`).
 
 ### Advertiser Portal (web/)
 
@@ -268,11 +268,13 @@ The `health-check` Edge Function returns:
 
 ### Deep Link Health
 
-The `deep-link-health-check` Edge Function analyzes `deep_link_events` from the past hour:
+The `deep-link-health-check` Edge Function analyzes *client-reported* `deep_link_events` from the past hour:
 - Fallback rates per provider per method per platform
 - "Degraded" flag: > 80% fallback rate
 - "Critical" flag: any `no_fallback` event (user could not open any provider)
 - Returns HTTP 503 if any provider is critical
+
+The `verify-provider-links` Edge Function *proactively* fetches each streaming/TV provider's `universal_link` every 6 hours (pg_cron, migration 069) and classifies the destination as `ok`, `suspect` (marketing/sign-up page), or `broken`. Results are in `provider_link_checks`; Slack is paged when a provider's status changes. This catches broken links before any user hits them — motivated by the YouTube TV `/welcome` regression (migrations 052–054).
 
 ### Automated Health Monitor (P1-03)
 

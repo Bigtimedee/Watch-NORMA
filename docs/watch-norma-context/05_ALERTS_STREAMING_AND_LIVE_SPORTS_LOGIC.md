@@ -190,7 +190,7 @@ Future agents working on alert or streaming logic must verify:
 1. Alert is personally relevant — a user with no follows, wagers, or positions for a game should never receive an alert for it.
 2. Alert includes a structured "Why Now" explanation with at least a headline and one bullet.
 3. Alert routes to the correct provider — if the user has YouTube TV connected and the game is on ESPN (carried by YouTube TV), the Watch button should say "Watch on YouTube TV."
-4. YouTube TV routing does not regress — the universal link must not point to a marketing/sign-up page. See migrations 052–054.
+4. YouTube TV routing does not regress — the universal link must not point to a marketing/sign-up page. See migrations 052–054. The `verify-provider-links` cron (migration 069) automatically detects this class of regression every 6 hours.
 5. Duplicate alerts are suppressed — changing the score by 1 point should not trigger a new alert if the margin bucket hasn't changed.
 6. Stale alerts are not sent — if a game has already ended, no further live alerts should be generated (game_resolved is the final alert).
 7. Quiet hours are respected — push notifications are suppressed during quiet hours; in-app alerts are still created.

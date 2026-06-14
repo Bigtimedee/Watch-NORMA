@@ -69,6 +69,22 @@ The `lib/deep-links.ts` module implements the 3-step fallback chain:
 
 Success/failure and method used are logged to `deep_link_events` table for monitoring.
 
+### Proactive Universal-Link Verification (P1-05)
+
+`verify-provider-links` is a separate Edge Function (not part of `deep-link-health-check`) that proactively tests each `streaming`/`tv` provider's `universal_link` every 6 hours (pg_cron, migration 069). It does not modify routing behavior — detection only.
+
+**Classification rules** (see `supabase/functions/verify-provider-links/logic.ts`):
+
+| Result | Condition |
+|--------|-----------|
+| `ok` | HTTP 200/2xx, or final path matches an ok fragment (`/watch`, `/live`, `/login`, `/sports`, `/browse`, etc.) |
+| `suspect` | Final path matches a marketing fragment (`/welcome`, `/signup`, `/get-started`, `/plans`, etc.) |
+| `broken` | 4xx/5xx, timeout, or network error |
+
+The `ok` fragment list takes precedence over `suspect` — `/watch/signup` is `ok`. Results are recorded in `provider_link_checks`; Slack is paged when a provider's status changes from a previous check.
+
+**YouTube TV history:** This function was motivated by migrations 052–054, where `universal_link = 'https://tv.youtube.com'` silently redirected to `/welcome` (sign-up page) instead of opening the app. The suspect/ok path classification would have caught this immediately.
+
 ### Broadcast Mapping
 
 Games from ESPN/SportsDataIO include a `broadcast` field (e.g., "ESPN", "TNT", "CBS"). The function `getBroadcastProviderKeys()` maps these broadcast strings to provider keys. The function `getBestWatchProvider()` intersects broadcast providers with the user's connected providers to determine the best watch destination.
