@@ -153,10 +153,10 @@ Previously noted risks that have been resolved:
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (63+ migration files).
-- **Edge Functions:** Deployed via `supabase functions deploy [function-name]`.
+- **Migrations:** Applied via `supabase db push` (68 migration files: 001–066 + 4 timestamped; 031/032 unused).
+- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (38 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056, 060, 061).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, and `20260307000001_cmo_agent.sql`).
 
 ### Advertiser Portal (web/)
 

@@ -651,17 +651,27 @@ supabase
 
 ## Migration Order
 
+> NOTE: The SQL blocks earlier in this section describe the *original v2 plan*. The
+> migrations were renumbered during implementation (see git: "resolve all duplicate
+> prefix collisions"), so the actual on-disk filenames differ from the planning names.
+> The list below reflects the ACTUAL files in `supabase/migrations/`. The canonical,
+> up-to-date schema description lives in `docs/watch-norma-context/03_TECHNICAL_ARCHITECTURE.md`
+> and `04_DATA_AND_INTEGRATIONS.md`.
+
 ```
-010_user_preferences.sql        — New table, no existing data affected
-011_follows_v2.sql              — Adds columns to follows, backfills existing rows
-012_provider_registry.sql       — Renames streaming_providers, creates compat view
-013_wagers_v2.sql               — Adds columns to wagers, existing rows get source='manual'
-014_alerts_v2_delivery_log.sql  — Adds columns to alerts, new delivery_log table
-015_throttle_watcher_state.sql  — New tables for orchestration
-016_cron_v2.sql                 — Updates pg_cron to add orchestrator job
+010_user_preferences.sql   — user_preferences table (favorite_teams, notification_settings)
+011_provider_registry.sql  — renames streaming_providers → provider_registry, compat view
+012_watcher_state.sql      — watcher_state + alert_throttle orchestration tables
+013_cron_v2.sql            — adds game-watcher-orchestrator pg_cron job
+014_alerts_v2.sql          — alerts v2 columns (score, explanation), delivery_log, follows entity_type/entity_id
+015_wagers_v2.sql          — wagers v2 columns (source, provider_key, legs, stake, market_type)
+016_data_layer_v2.sql      — additional v2 data-layer tables/columns
+017_wager_targets.sql      — parsed wager targets for proximity scoring
 ```
 
-Each migration is safe to run independently. Rollback = drop added columns/tables.
+As of June 2026 the repository contains 68 migration files (001–066 plus four
+timestamped migrations; prefixes 031/032 were never used). Each migration is additive
+and safe to run independently. Rollback = drop added columns/tables.
 
 ---
 
@@ -910,15 +920,21 @@ norma/
 │   └── __tests__/
 │       └── alert-helpers.test.ts
 ├── supabase/
-│   ├── migrations/
+│   ├── migrations/            # 68 files on disk (001–066 + 4 timestamped; 031/032 unused)
 │   │   ├── 001–009 (existing)
 │   │   ├── 010_user_preferences.sql
-│   │   ├── 011_follows_v2.sql
-│   │   ├── 012_provider_registry.sql
-│   │   ├── 013_wagers_v2.sql
-│   │   ├── 014_alerts_v2_delivery_log.sql
-│   │   ├── 015_throttle_watcher_state.sql
-│   │   └── 016_cron_v2.sql
+│   │   ├── 011_provider_registry.sql
+│   │   ├── 012_watcher_state.sql
+│   │   ├── 013_cron_v2.sql
+│   │   ├── 014_alerts_v2.sql
+│   │   ├── 015_wagers_v2.sql
+│   │   ├── 016_data_layer_v2.sql
+│   │   ├── 017_wager_targets.sql
+│   │   ├── ... (018–062: odds, advertising, social, email, deep-link, MLB, geo, waitlist)
+│   │   ├── 063_social_cron_schedule.sql
+│   │   ├── 064_morning_briefing_cron.sql
+│   │   ├── 065_campaign_approval.sql
+│   │   └── 066_referrals.sql
 │   └── functions/
 │       ├── _shared/
 │       │   ├── cors.ts

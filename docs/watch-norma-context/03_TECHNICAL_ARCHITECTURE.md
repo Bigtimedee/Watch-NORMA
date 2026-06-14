@@ -22,8 +22,8 @@ Watch-NORMA/
 ├── supabase/
 │   ├── config.toml                   # Local Supabase config
 │   ├── seed.sql                      # Seed data
-│   ├── migrations/                   # 63+ Postgres migrations
-│   ├── functions/                    # Deno Edge Functions (20+ functions)
+│   ├── migrations/                   # 68 Postgres migrations (001–066 + 4 timestamped)
+│   ├── functions/                    # Deno Edge Functions (38 functions)
 │   │   └── _shared/                  # Shared backend utilities
 │   └── assets/                       # Media asset upload script
 ├── web/                              # Next.js advertiser portal + landing page
@@ -173,17 +173,22 @@ All items verified from repository files.
 
 *Account:*
 - `delete-account` — GDPR/App Store compliant full account deletion
+- `get-referral-code` — returns/creates the user's referral code for the invite-friends deep-link flow (migration 066)
 
-**Database.** PostgreSQL 15 via Supabase. 63+ migrations covering core schema, provider seeding, odds, advertising, social, email ingestion, deep-link observability, MLB stats, geo-compliance, waitlist, and more. Key tables described in `04_DATA_AND_INTEGRATIONS.md`.
+**Database.** PostgreSQL 15 via Supabase. 68 migration files (001–066 plus four timestamped migrations; prefixes 031 and 032 were never used) covering core schema, provider seeding, odds, advertising, social, email ingestion, deep-link observability, MLB stats, geo-compliance, waitlist, campaign approval, and referrals. Key tables described in `04_DATA_AND_INTEGRATIONS.md`.
 
-Recent migrations (058–063):
+> Numbering note: several migrations were renumbered to resolve duplicate prefixes during implementation, so a few files' internal `-- Migration NNN` comments lag their actual filename (e.g., `063_social_cron_schedule.sql` still reads "Migration 060" in its header). The filenames below are authoritative.
+
+Recent migrations (058–066):
 - `058_geo_compliance.sql` — adds `profiles.timezone`, `advertisers.allowed_jurisdictions`, and seeds `sportsbook_restrictions` table with legal states for DraftKings, FanDuel, BetMGM, Caesars, and PointsBet
 - `059_waitlist.sql` — `waitlist_emails` table for landing page email capture
 - `060_games_status_constraint.sql` — CHECK constraint on `games.status` to prevent invalid ESPN status values (renumbered from duplicate 057)
-- `060_social_cron_schedule.sql` — pins `generate-social-content` (every 6h) and `publish-social-posts` (hourly) pg_cron entries
-- `061_gmail_watch_state.sql` — creates `gmail_watch_state` table used by the Gmail Pub/Sub renewal flow
-- `061_morning_briefing_cron.sql` — schedules `morning-briefing` Edge Function at 11 PM UTC (6 PM CT) daily
+- `061_gmail_watch_state.sql` — idempotent ensure of `gmail_watch_state` table used by the Gmail Pub/Sub renewal flow (originally created in 035)
 - `062_watcher_state_sport.sql` — adds `sport` column to `watcher_state` for multi-sport orchestrator routing
+- `063_social_cron_schedule.sql` — pins `generate-social-content` (every 6h) and `publish-social-posts` (hourly) pg_cron entries
+- `064_morning_briefing_cron.sql` — schedules `morning-briefing` Edge Function at 11 PM UTC (6 PM CT) daily
+- `065_campaign_approval.sql` — adds `approval_status`, `approval_note`, `reviewed_at`, `reviewed_by` to `campaigns` (admin approval gate before auction eligibility)
+- `066_referrals.sql` — `referrals` table (referrer/referred/code) for the invite-friends deep-link flow
 
 **Shared utilities** (`supabase/functions/_shared/`): `alert-scoring.ts` (signal extraction, scoring, "Why Now" generation), `auction-engine.ts` (Vickrey auction), `ai-ad-engine.ts` (Thompson Sampling creative selection), `pricing-engine.ts` (floor prices, dynamic premiums), `fatigue-model.ts` (ad fatigue), `outcome-proximity.ts` (wager proximity scoring), `sportradar.ts` (multi-sport API client with rate budgeting), `team-matching.ts` (fuzzy team name matching with alias map), `polling-state.ts` (game status state machine), `utils.ts` (hash, status mapping), `kalshi-crypto.ts` (RSA-PSS signing), `sportsbook-links.ts` (deep link URLs), `bet-ingestor.ts` (partner API interface), `email-parser.ts`, `social-content-engine.ts`, `social-publishers.ts`, `x-oauth.ts`, `daily-cadence.ts`, `template-vars.ts`, `cors.ts`.
 
@@ -313,6 +318,6 @@ All client queries go through the Supabase JS client which auto-generates REST c
 
 ## Background Jobs and Scheduling
 
-All scheduled jobs use pg_cron (configured in migrations 004, 007, 013, 018, 022, 029, 034, 040, 044, 045, 046, 056, 060, 061). The `game-watcher-orchestrator` acts as a secondary scheduler, dispatching sub-functions (`poll-pbp`, `poll-summary`, `evaluate-alerts`, `resolve-predictions`) based on the `watcher_state` table rather than fixed cron schedules. This allows per-game polling intervals, backoff on errors, and concurrency limits.
+All scheduled jobs use pg_cron (configured in migrations 004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, and the timestamped `20260307000001_cmo_agent.sql`). The `game-watcher-orchestrator` acts as a secondary scheduler, dispatching sub-functions (`poll-pbp`, `poll-summary`, `evaluate-alerts`, `resolve-predictions`) based on the `watcher_state` table rather than fixed cron schedules. This allows per-game polling intervals, backoff on errors, and concurrency limits.
 
 Sport-specific polling intervals: NCAA basketball PBP every ~30 seconds, summary every ~120 seconds. MLB PBP every ~60 seconds, summary every ~90 seconds. These intervals are configured in the orchestrator and adapt based on game state and Sportradar rate budget.
