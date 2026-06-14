@@ -89,7 +89,8 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `_shared/team-matching_test.ts` — team name fuzzy matching
 - `_shared/template-vars_test.ts` — template variable interpolation
 - `_shared/test-helpers.ts` — shared test utilities
-- `evaluate-alerts/logic_test.ts` — alert evaluation rules
+- `evaluate-alerts/logic_test.ts` — alert evaluation rules (unit)
+- `evaluate-alerts/integration_test.ts` — **E2E pipeline integration tests (36 tests, added P1-01)**: wires extractSignals → computeScore/checkMustNotify → determineAlertType → buildWhyNow → computeDedupHash. Covers: (1) follower + close/blowout threshold, (2) wager line crossed + wager_impact status, (3) all four must-notify rules, (4) dedup margin-bucket hash correctness, (5) per-game/hour cap gate logic, (6) quiet-hours push suppression with in-app record preserved, (7) no-stake user never becomes candidate. DB-dependent stages (candidate generation, throttle table, push dispatch) are documented as staging smoke-test scope.
 - `resolve-wagers/logic_test.ts` — wager resolution logic
 - `cmo-generate/media-selection_test.ts` — media asset selection
 - `cmo-publish/media-upload_test.ts` — media upload logic
@@ -134,8 +135,8 @@ deno test --allow-env --allow-net=none supabase/functions/
 
 ### Known Testing Gaps
 
-- **No integration tests.** Tests are unit-level (Jest for client, Deno test for Edge Functions). There are no end-to-end tests that verify the full pipeline (game state change → alert → push → deep link).
-- **No load tests.** The system has not been tested under high-concurrency scenarios (e.g., 50+ simultaneous live games during March Madness).
+- **Alert pipeline DB stages not covered.** `evaluate-alerts/integration_test.ts` covers all pure-function stages. Candidate generation (Stage 0), throttle table lookups (Stage 3), alert insertion + push dispatch (Stage 4) require a live Supabase instance. These are staging smoke-test scope.
+- **No load tests.** The system has not been tested under high-concurrency scenarios (e.g., 50+ simultaneous live games during March Madness). P1-02 in the NORMA-CLI-Prompts pack addresses this.
 - **No visual regression tests.** No screenshot or snapshot tests for UI components.
 
 Previously noted risks that have been resolved:
