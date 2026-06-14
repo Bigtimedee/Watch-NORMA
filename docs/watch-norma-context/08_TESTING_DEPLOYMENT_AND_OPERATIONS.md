@@ -198,10 +198,10 @@ Previously noted risks that have been resolved:
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (68 migration files: 001–066 + 4 timestamped; 031/032 unused).
-- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (38 functions).
+- **Migrations:** Applied via `supabase db push` (69 migration files: 001–067 + 4 timestamped; 031/032 unused).
+- **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (39 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, and `20260307000001_cmo_agent.sql`).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, and `20260307000001_cmo_agent.sql`).
 
 ### Advertiser Portal (web/)
 
@@ -274,6 +274,23 @@ The `deep-link-health-check` Edge Function analyzes `deep_link_events` from the 
 - "Critical" flag: any `no_fallback` event (user could not open any provider)
 - Returns HTTP 503 if any provider is critical
 
+### Automated Health Monitor (P1-03)
+
+`monitor-health` is an Edge Function that calls both `health-check` and `deep-link-health-check` every 5 minutes (pg_cron, migration 067). It pages to `SLACK_WEBHOOK_URL` when any threshold is breached:
+
+| Condition | Severity | Fingerprint |
+|-----------|----------|-------------|
+| ≥ 2 stale watchers | warning | `stale_watchers_low` |
+| ≥ 5 stale watchers | critical | `stale_watchers_high` |
+| Sportradar budget ≤ 5 remaining | warning | `sportradar_budget_low` |
+| Alert delivery fail rate ≥ 25% (min 10 deliveries) | warning | `alert_pipeline_fail_rate_high` |
+| Any `no_fallback` deep-link event | critical | `deep_link_no_fallback` |
+| Provider deep links degraded/critical | warning/critical | `degraded_providers_<key>` |
+
+**Dedup:** Repeated identical alerts are suppressed within a 30-minute cooldown window tracked in the `ops_alert_state` table (service-role-only RLS). Healthy responses produce no Slack noise.
+
+**Slack secret:** Set `SLACK_WEBHOOK_URL` via `supabase secrets set SLACK_WEBHOOK_URL=https://hooks.slack.com/...`. If the secret is absent, thresholds are still evaluated and logged but no Slack message is sent.
+
 ## Operations
 
 ### Daily QA Checklist
@@ -287,6 +304,7 @@ The `deep-link-health-check` Edge Function analyzes `deep_link_events` from the 
 7. Review ad fraud events — any new high-confidence fraud?
 8. Check social publishing — posts published on schedule?
 9. Verify `morning-briefing` fired at 11 PM UTC (6 PM CT) — "Tonight's Games" push delivered?
+10. Check `monitor-health` cron logs — any Slack alerts fired or suppressed? (`ops_alert_state` table for history)
 
 ### Incident Response for Bad Alerts
 
