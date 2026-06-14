@@ -133,10 +133,54 @@ deno test --allow-env --allow-net=none supabase/functions/
 - Account deletion completeness (all tables cleaned)
 - No secret logging in Edge Function output
 
+### Load Testing (P1-02)
+
+`scripts/load-test/orchestrator-load.ts` — standalone Deno harness (no network, no DB) that simulates N simultaneous live games through the orchestrator dispatch loop.
+
+**Running the harness:**
+
+```bash
+# CI-safe (small N — runs in < 1s):
+deno test --allow-env --allow-net=none scripts/load-test/orchestrator-load_test.ts
+
+# Manual large-N (March Madness simulation):
+LOAD_GAMES=60 deno run --allow-env scripts/load-test/orchestrator-load.ts
+
+# Full options:
+LOAD_GAMES=60 LOAD_CYCLES=60 ERROR_RATE=0.1 deno run --allow-env scripts/load-test/orchestrator-load.ts
+```
+
+**Reading the output:**
+
+- `PBP✓` / `PBP⛔` — dispatches that succeeded vs. were skipped due to the MAX_PBP=5 cap
+- `Sum✓` / `Sum⛔` — same for summary polls (MAX_SUMMARY=3)
+- `p50/p95 PBP interval` — effective interval between successful PBP polls per game (target: p95 ≤ 120s)
+- `Games starved` — games that received 0 successful PBP dispatches across the full run
+- A `⚠ STARVATION DETECTED` warning lists the affected game IDs and explains the root cause
+
+**What the 60-game run revealed (P1-02, June 2026):**
+
+| Metric | Result | Target |
+|--------|--------|--------|
+| PBP dispatched / cycle | 5 (cap) | ≤ 5 |
+| PBP skipped / cycle | ~55 | — |
+| p50 PBP interval | 720s (12 min) | ≤ 60s |
+| p95 PBP interval | 720s (12 min) | ≤ 120s |
+| Games starved | 6/60 (10%) | 0% |
+| All invariants passed | ✓ | ✓ |
+
+At 60 simultaneous games, MAX_PBP=5 can only service 5 games per cycle. With a 30s PBP interval and 60 games, a naive round-robin would require 360 slots per cycle — 72× more than the current cap. The starvation is structural, not a bug. See doc 09 (Known Gaps) for remediation options (priority tiering, increasing the cap, shedding low-relevance games).
+
+**Invariants verified by the harness:**
+- `pbp_dispatched ≤ 5` per cycle
+- `summary_dispatched ≤ 3` per cycle
+- `alert_dispatched ≤ 10` per cycle
+- Backoff is exponential and capped at 300s
+- Closed games receive 0 dispatches after deactivation
+
 ### Known Testing Gaps
 
 - **Alert pipeline DB stages not covered.** `evaluate-alerts/integration_test.ts` covers all pure-function stages. Candidate generation (Stage 0), throttle table lookups (Stage 3), alert insertion + push dispatch (Stage 4) require a live Supabase instance. These are staging smoke-test scope.
-- **No load tests.** The system has not been tested under high-concurrency scenarios (e.g., 50+ simultaneous live games during March Madness). P1-02 in the NORMA-CLI-Prompts pack addresses this.
 - **No visual regression tests.** No screenshot or snapshot tests for UI components.
 
 Previously noted risks that have been resolved:
