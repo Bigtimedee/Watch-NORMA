@@ -105,6 +105,29 @@ The `ad-auto-bidder` Edge Function runs every 30 minutes and adjusts bids for ca
 - **Target CPA strategy:** If observed CPA > target → bid × 0.9; if observed CPA < target → bid × 1.1. Capped at ±10% per adjustment cycle.
 - **Maximize Impressions strategy:** bid = floor_price + $0.01 (always bid just above the floor).
 
+## Intent Moment (P2-01) — The Unit of Inventory
+
+The `intent_moments` table (migration 073) is the explicit, normalized record of every qualifying game moment — the tradeable unit of NORMA's marketplace.
+
+One row is written per (game_id, moment_type, period, margin_bucket) per `evaluate-alerts` invocation, **after** delivery. This is observational: it never alters alert behavior or delivery latency.
+
+Fields:
+- `intent_score` (0–1) — deterministic transform of alert score + game-state premiums (overtime +0.08, final 2 min +0.05, close game +0.02, final 5 min +0.01), computed by `computeIntentScore()` in `_shared/alert-scoring.ts`
+- `eligible_user_count` — number of users who triggered this moment type
+- `game_context` — aggregate game state (no user identity)
+- `signals_snapshot` — key game-level signals
+- `auction_outcome` — `filled` | `unfilled` | `ineligible`
+- `clearing_price_cents` — second-price clearing when filled
+
+Privacy: the table contains no user identity (no user_id). Authenticated users can SELECT (aggregate game data); only service_role can write.
+
+The `intent_moments` table feeds:
+- Supply forecasting (P2-04): historical moment rates per sport/type
+- Per-category floor pricing (P2-05): clearing price history
+- Attribution measurement (P2-03): impression → moment linkage
+- Live auction dashboard (P2-02): real-time moment stream
+- Programmatic Intent API (P2-09): inventory queries
+
 ## Supply Forecasting
 
 The `forecast-supply` Edge Function runs daily at 2 AM and generates 7-day supply forecasts:

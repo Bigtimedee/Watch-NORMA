@@ -432,6 +432,24 @@ export function determineAlertType(
   return "follow_alert";
 }
 
+// --- Intent Score (P2-01) ---
+// Normalized [0, 1] transform of the raw alert score + game-state premium signals.
+// Used by evaluate-alerts to populate intent_moments.intent_score.
+// Deterministic: same inputs always produce the same output.
+
+export function computeIntentScore(score: number, signals: SignalVector): number {
+  // Base: clamp raw alert score to [0, 0.9] — reserve headroom for game-state premiums
+  let base = Math.min(Math.max(score, 0) / 100, 0.9);
+
+  // Game-state premium signals (mirrors dynamic premium logic in pricing-engine.ts)
+  if (signals.is_overtime)      base = Math.min(base + 0.08, 1.0); // highest intent signal
+  if (signals.is_final_two)     base = Math.min(base + 0.05, 1.0);
+  if (signals.is_close_game)    base = Math.min(base + 0.02, 1.0);
+  if (signals.is_final_minutes) base = Math.min(base + 0.01, 1.0);
+
+  return Math.round(base * 1000) / 1000; // 3 decimal precision
+}
+
 // --- Dedup Hash ---
 
 export function computeDedupHash(

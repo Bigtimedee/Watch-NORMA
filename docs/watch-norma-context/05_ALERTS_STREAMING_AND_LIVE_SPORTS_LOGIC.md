@@ -118,6 +118,22 @@ Implemented in `evaluate-alerts/index.ts` using the `alert_throttle` table:
 
 If the alert clears throttling, the Vickrey auction engine (`_shared/auction-engine.ts`) runs to attach a contextual sponsor. The auction checks fatigue score, ad personalization preference, frequency caps, floor price, eligible bids, and runs second-price logic. If a sponsor wins, `sponsor_logo_url`, `sponsor_text`, and `sponsor_cta_url` are attached to the alert. The sponsor text may be interpolated with template variables (team name, score, etc.). The auction never delays or blocks the alert delivery.
 
+### Stage 3.75: Intent Moment Recording (P2-01)
+
+After all users are processed and push notifications dispatched, `evaluate-alerts` writes one `intent_moments` row per qualifying game moment. This is **observational** — it never alters which alerts fire, never delays delivery, and contains no user identity.
+
+An intent moment is the unit of inventory in NORMA's marketplace: one row per (game_id, moment_type, period, margin_bucket). The `dedup_key` prevents double-counting if evaluate-alerts fires multiple times for the same game state.
+
+Each row captures:
+- `intent_score` — normalized [0,1] from `computeIntentScore(alert_score, signals)` in `_shared/alert-scoring.ts`. Deterministic given same inputs.
+- `eligible_user_count` — how many users triggered this moment type in this invocation.
+- `game_context` — aggregate game state (scores, clock, period, status). No user identity.
+- `signals_snapshot` — key game-level signals (margin, lead changes, summary data availability).
+- `auction_outcome` — `filled` if any user received a sponsored alert; `unfilled` if auction found no fill; `ineligible` if no eligible demand.
+- `clearing_price_cents` — the second-price clearing price when filled.
+
+The `intent_moments` table is the foundation for supply forecasting (P2-04), per-category floor pricing (P2-05), attribution measurement (P2-03), and the programmatic Intent API (P2-09).
+
 ### Stage 4: Delivery
 
 1. Alert is inserted into `alerts` table with score, explanation (JSONB), and sponsor fields.

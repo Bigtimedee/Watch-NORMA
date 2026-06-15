@@ -34,6 +34,7 @@ import {
   checkMustNotify,
   determineAlertType,
   computeDedupHash,
+  computeIntentScore,
 } from "../_shared/alert-scoring.ts";
 import type { WhyNow } from "../_shared/alert-scoring.ts";
 import {
@@ -259,6 +260,16 @@ Deno.serve(async (req) => {
     let totalAlerts = 0;
     let suppressed = 0;
     const alertsToSendPush: number[] = [];
+
+    // P2-01: Intent moment tracking — game-level, not per-user.
+    // One entry per (moment_type, period, margin_bucket). Written after delivery.
+    const intentMomentMap = new Map<string, {
+      moment_type: string;
+      intent_score: number;
+      eligible_user_count: number;
+      filled: boolean;
+      clearing_price_cents: number | null;
+    }>();
 
     // --- Process each user ---
     for (const userId of enabledUserIds) {
@@ -557,6 +568,27 @@ Deno.serve(async (req) => {
         score,
       }));
 
+      // P2-01: Accumulate intent moment data (game-level, not per-user).
+      // dedup_key = game_id:moment_type:period:margin_bucket
+      const marginBucket = Math.floor(signals.margin / 3);
+      const intentKey = `${gameId}:${alertType}:${signals.period ?? 0}:${marginBucket}`;
+      const intentScore = computeIntentScore(score, signals);
+      if (!intentMomentMap.has(intentKey)) {
+        intentMomentMap.set(intentKey, {
+          moment_type: alertType,
+          intent_score: intentScore,
+          eligible_user_count: 0,
+          filled: false,
+          clearing_price_cents: null,
+        });
+      }
+      const im = intentMomentMap.get(intentKey)!;
+      im.eligible_user_count++;
+      if (auctionResult && !im.filled) {
+        im.filled = true;
+        im.clearing_price_cents = auctionResult.clearing_price_cents;
+      }
+
       // Record auction result (impression + spend update)
       if (auctionResult && newAlert) {
         try {
@@ -617,6 +649,56 @@ Deno.serve(async (req) => {
       }
     }
 
+    // P2-01: Write intent_moment rows AFTER push dispatch (observational — never delays delivery).
+    // Upsert on dedup_key so repeated evaluate-alerts calls for the same game state are idempotent.
+    if (intentMomentMap.size > 0) {
+      const sport = (game as any).sport ?? "ncaam";
+      const margin = Math.abs(gameState.home_score - gameState.away_score);
+      const gameContext = {
+        home_score: gameState.home_score,
+        away_score: gameState.away_score,
+        margin,
+        clock: gameState.clock,
+        period: gameState.period,
+        status: gameState.status,
+        tournament_round: (game as any).tournament_round ?? null,
+      };
+      const signalsSnapshot = {
+        margin,
+        period: gameState.period,
+        clock: gameState.clock,
+        status: gameState.status,
+        lead_changes_recent: leadChangesRecent,
+        has_summary_data: !!summaryStats,
+      };
+
+      for (const [dedupKey, im] of intentMomentMap) {
+        try {
+          await supabase.from("intent_moments").upsert({
+            game_id: gameId,
+            sport,
+            moment_type: im.moment_type,
+            dedup_key: dedupKey,
+            fired_at: new Date().toISOString(),
+            intent_score: im.intent_score,
+            eligible_user_count: im.eligible_user_count,
+            game_context: gameContext,
+            signals_snapshot: signalsSnapshot,
+            auction_outcome: im.filled ? "filled" : "unfilled",
+            clearing_price_cents: im.clearing_price_cents ?? null,
+          }, { onConflict: "dedup_key" });
+        } catch (e) {
+          console.warn(JSON.stringify({
+            function: "evaluate-alerts",
+            event: "intent_moment_write_error",
+            gameId,
+            dedupKey,
+            error: (e as Error).message,
+          }));
+        }
+      }
+    }
+
     const result = {
       success: true,
       usersEvaluated: enabledUserIds.size,
@@ -627,6 +709,7 @@ Deno.serve(async (req) => {
       alertsSuppressed: suppressed,
       pushSent: alertsToSendPush.length,
       hasSummaryData: !!summaryStats,
+      intentMomentsWritten: intentMomentMap.size,
     };
 
     console.log(JSON.stringify({
