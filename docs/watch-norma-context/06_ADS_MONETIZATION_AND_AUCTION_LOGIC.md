@@ -141,6 +141,33 @@ The `forecast-supply` Edge Function runs daily at 2 AM and generates 7-day suppl
 
 The Next.js advertiser portal provides full self-service campaign management:
 
+## Attribution Measurement (P2-03)
+
+NORMA provides closed-loop attribution: impression → CTA tap → downstream action within a 30-minute window.
+
+**Attribution window:** 30 minutes (configurable). Industry-standard for direct-response sports advertising.
+
+**Honest labeling — inferred vs app-verified:**
+
+| Conversion type | Status | Reason |
+|-----------------|--------|--------|
+| `cta_tap` | App-verified | User tapped CTA button inside NORMA |
+| `app_return` | App-verified | User returned to NORMA within window |
+| `sportsbook_open` | Inferred | External sportsbook app/site opened — wager **not confirmed** (no partner callback) |
+| `stream_open` | Inferred | External stream app/site opened — watch **not confirmed** |
+| `commerce_open` | Inferred | External commerce site opened — purchase **not confirmed** |
+| `wager_placed` | Inferred | Via email parse — not a direct sportsbook data feed |
+
+Upgrading inferred → verified requires a partner server-to-server callback (P2-08). Until that partnership exists, the UI always labels these as inferred. Never imply verified sportsbook or streaming conversions.
+
+**Metrics surfaced:**
+- Attributed conversion count + action rate
+- Click-through (CTA tap → action) vs view-through (seen → action, no tap)
+- CPA (total spend / attributed conversions within window)
+- Avg time from impression to conversion per type
+
+**Access:** `reporting-api` `attribution` report type. UI: `/reporting` Attribution panel (click "View" on any campaign row).
+
 **Advertiser-facing pages:**
 - `/dashboard` — campaign overview, key metrics
 - `/campaigns` — campaign list with status badges
