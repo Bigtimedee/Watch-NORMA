@@ -159,7 +159,7 @@ These are non-negotiable product rules:
 
 3. **Prefer direct watch/deep link over marketing landing page.** The `ios_scheme` (native app) is always tried first. The `universal_link` is the second choice and must be a functional watch/login URL.
 
-4. **If availability is uncertain, say so clearly.** If no broadcast data exists or no connected provider matches, do not fabricate a watch destination. The Watch button should be absent or show "Broadcast TBD."
+4. **If availability is uncertain, say so clearly.** If no broadcast data exists or no connected provider matches, do not fabricate a watch destination. The Watch button shows "Broadcast TBD" when `game.broadcast` is null and the game is live. When the broadcast is a known regional sports network (RSN — Bally, NESN, MSG, YES, SNY, MASN, Root Sports, etc.), the button adds a subordinate caveat: "May be subject to local blackout." The caveat is informational and does not block or replace the Watch action. `isRegionalBroadcast()` in `lib/deep-links.ts` is the canonical classification; 9 unit tests cover national vs. regional vs. null inputs.
 
 5. **If multiple providers are available, show the best match.** `getBestWatchProvider()` selects based on the intersection of broadcast providers and connected providers. The user sees a single "Watch on [Provider]" button, not a list.
 

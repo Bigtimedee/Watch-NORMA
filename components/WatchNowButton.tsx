@@ -5,6 +5,7 @@ import type { Game } from "../lib/types";
 import {
   getBestWatchProvider,
   getBroadcastProviderKeys,
+  isRegionalBroadcast,
   resolveDeepLinkUrl,
 } from "../lib/deep-links";
 import {
@@ -37,6 +38,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
     connectedKeys,
     allProviders ?? []
   );
+  const isRegional = isRegionalBroadcast(game.broadcast);
 
   const handlePress = async () => {
     if (bestProvider) {
@@ -105,9 +107,12 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
             ? `Watch on ${bestProvider.name}`
             : game.broadcast
               ? `On ${game.broadcast}`
-              : "Watch"}
+              : "Broadcast TBD"}
         </Text>
         {bestProvider && <Text style={s.sub}>Tap to open app</Text>}
+        {isRegional && (
+          <Text testID="blackout-caveat" style={s.caveat}>May be subject to local blackout</Text>
+        )}
       </View>
     </AnimatedPressable>
   );
@@ -130,4 +135,5 @@ const s = StyleSheet.create({
   labelBrand: { color: "#ffffff" },
   labelDefault: { color: "#cbd5e1" },
   sub: { color: "rgba(255, 255, 255, 0.7)", fontSize: 12 },
+  caveat: { color: "#94a3b8", fontSize: 11, marginTop: 2 },
 });

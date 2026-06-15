@@ -20,6 +20,7 @@ import { Platform, Linking } from "react-native";
 import {
   openStreamingApp,
   resolveDeepLinkUrl,
+  isRegionalBroadcast,
 } from "../deep-links";
 import type { StreamingProvider } from "../types";
 
@@ -59,6 +60,38 @@ const SUBSCRIBER_ONLY_URL_PREFIXES = [
 function isSubscriberOnlyUrl(url: string): boolean {
   return SUBSCRIBER_ONLY_URL_PREFIXES.some((blocked) => url.startsWith(blocked));
 }
+
+// ─── isRegionalBroadcast ─────────────────────────────────────────────────────
+
+describe("isRegionalBroadcast", () => {
+  it("returns true for known RSN: Bally Sports Ohio", () => {
+    expect(isRegionalBroadcast("Bally Sports Ohio")).toBe(true);
+  });
+  it("returns true for NESN", () => {
+    expect(isRegionalBroadcast("NESN")).toBe(true);
+  });
+  it("returns true for MSG", () => {
+    expect(isRegionalBroadcast("MSG")).toBe(true);
+  });
+  it("returns true for YES Network", () => {
+    expect(isRegionalBroadcast("YES Network")).toBe(true);
+  });
+  it("returns false for national broadcast: ESPN", () => {
+    expect(isRegionalBroadcast("ESPN")).toBe(false);
+  });
+  it("returns false for national broadcast: CBS", () => {
+    expect(isRegionalBroadcast("CBS")).toBe(false);
+  });
+  it("returns false for national broadcast: FOX", () => {
+    expect(isRegionalBroadcast("FOX")).toBe(false);
+  });
+  it("returns false for null", () => {
+    expect(isRegionalBroadcast(null)).toBe(false);
+  });
+  it("returns false for empty string", () => {
+    expect(isRegionalBroadcast("")).toBe(false);
+  });
+});
 
 // ─── Mock setup ─────────────────────────────────────────────────────────────
 

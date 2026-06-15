@@ -14,7 +14,7 @@ Based on repository inspection and the outage report:
 
 ### Data and Integrations
 
-- **No blackout detection.** Broadcast data from ESPN/SportsDataIO reflects national coverage only. Regional sports network games and local market blackouts are not detected. A user may be routed to a provider that blacks out their game.
+- **Blackout uncertainty surfaced, not resolved.** As of P1-11, NORMA classifies broadcasts as national or regional (RSN) using `isRegionalBroadcast()` in `lib/deep-links.ts`. When the broadcast is a known RSN (Bally, NESN, MSG, YES, SNY, MASN, Root Sports, etc.), the Watch button shows a "May be subject to local blackout" caveat. When no broadcast data exists for a live game, the button shows "Broadcast TBD" instead of "Watch". The deep-link chain is unchanged — the caveat is informational only, not a routing change. True per-market blackout detection remains impossible without a blackout data API (no such API is publicly available).
 - **Limited MLB odds support.** The Odds API polling is configured for `basketball_ncaab`. NBA and MLB odds may not be ingested (needs verification of whether additional sport endpoints are called).
 - **No NFL/NHL/college football support.** The system currently supports NCAA basketball, NBA, and MLB. Other sports are not yet integrated.
 - **Stale broadcast data.** Broadcast assignments can change close to game time. The system relies on the most recent poll data and has no mechanism to detect last-minute changes.

@@ -166,6 +166,36 @@ export async function resolveDeepLinkUrl(
   return null;
 }
 
+// Known regional sports networks — these are local/regional RSN broadcasts
+// that may be subject to blackouts depending on the viewer's market.
+// National broadcasts (ESPN, CBS, FOX, NBC, etc.) are not in this list.
+const REGIONAL_BROADCAST_PATTERNS: string[] = [
+  "BALLY",            // Bally Sports regional networks (Diamond Sports Group)
+  "ROOT SPORTS",      // Root Sports (regional)
+  "MSG",              // Madison Square Garden Network
+  "YES NETWORK",      // Yankees Entertainment & Sports
+  "SNY",              // SportsNet New York
+  "MASN",             // Mid-Atlantic Sports Network
+  "NESN",             // New England Sports Network
+  "NBCS ",            // NBCS Bay Area, NBCS Philadelphia, etc. (note trailing space)
+  "AT&T SPORTSNET",   // AT&T SportsNet regional networks
+  "SPECTRUM SPORTS",  // Spectrum Sports regional networks
+  "SUN SPORTS",       // Bally Sports Sun (South Florida)
+  "ALTITUDE",         // Altitude Sports (Denver region)
+  "REGIONAL",         // Catch-all: any explicitly labeled "Regional" broadcast
+];
+
+/**
+ * Returns true if the broadcast string indicates a regional sports network (RSN)
+ * that is typically subject to local blackout restrictions.
+ * National networks (ESPN, CBS, FOX, NBC, TNT, TBS, etc.) return false.
+ */
+export function isRegionalBroadcast(broadcast: string | null): boolean {
+  if (!broadcast) return false;
+  const upper = broadcast.toUpperCase();
+  return REGIONAL_BROADCAST_PATTERNS.some((p) => upper.includes(p));
+}
+
 /**
  * Map broadcast network names to streaming provider keys.
  * Used to suggest which app to open for watching a game.

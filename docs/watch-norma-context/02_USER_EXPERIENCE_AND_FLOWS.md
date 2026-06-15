@@ -73,9 +73,9 @@ This is mission-critical UX. The streaming routing flow must be reliable and mus
 
 **Multiple providers for the same event.** If a game airs on both ESPN and ABC, and the user has both ESPN+ and YouTube TV connected, the system selects the best match based on provider priority and connectivity.
 
-**Unknown availability.** If broadcast data is missing or no connected provider matches, the app should not fabricate certainty. The Watch button should be hidden or show "Broadcast TBD."
+**Unknown availability.** If broadcast data is missing or no connected provider matches, the app does not fabricate certainty. The Watch button shows "Broadcast TBD" when `game.broadcast` is null and the game is live. If no connected provider matches a known broadcast, the button shows the broadcast name ("On ESPN") without a Watch action.
 
-**Local blackouts and regional restrictions.** The current system does not have blackout detection. Broadcast data from ESPN/SportsDataIO reflects national coverage. Regional sports networks and local blackouts are a known gap. If a user encounters a blackout, the deep link may fail silently — this is documented as a known limitation.
+**Local blackouts and regional restrictions.** NORMA classifies broadcasts as national or regional (RSN) using `isRegionalBroadcast()`. When the broadcast is a known RSN (Bally Sports, NESN, MSG, YES Network, SNY, MASN, Root Sports, Altitude, Spectrum Sports, AT&T SportsNet), the Watch button adds a subordinate caveat: "May be subject to local blackout." The deep-link chain is unchanged — the caveat is honest uncertainty, not a routing block. True per-market blackout detection is not possible without an API that doesn't exist; this remains a known gap for user education.
 
 ## Sportsbook / Prediction Market Flow
 
