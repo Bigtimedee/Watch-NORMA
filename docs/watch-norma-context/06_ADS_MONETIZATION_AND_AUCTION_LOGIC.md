@@ -183,7 +183,14 @@ Non-sportsbook advertisers (streaming services, merchandise, ticketing) are not 
 
 ### CTA Geo-Gating (implemented)
 
-`lib/geo-compliance.ts` exposes `inferStateFromTimezone()` (shared between the auction engine and the mobile client). The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` renders disabled with "Not available in your region" when the user's derived state is not in the sportsbook's allowed list. Optimistic-renders as enabled while the check loads to avoid blocking UX.
+Two canonical geo-compliance modules exist — one per runtime:
+
+- **Server** (`supabase/functions/_shared/geo-compliance.ts`) — exports `inferStateFromTimezone()` and `isGeoEligible()`. Used by the auction engine.
+- **Client** (`lib/geo-compliance.ts`) — exports the same `inferStateFromTimezone()` function with an identical `STATE_BY_TIMEZONE` map. Used by the `useSportsbookGeo` hook.
+
+Both files must remain in sync. `supabase/functions/_shared/geo-compliance_test.ts` enforces parity: it verifies that `isGeoEligible(state, allowedJurisdictions)` (auction path) and `allowedStates.includes(state)` (CTA path) produce identical results for every mapped (timezone → state) × sportsbook combination in the `sportsbook_restrictions` seed data. 20 tests; all pass.
+
+The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` renders disabled with "Not available in your region" when the user's derived state is not in the sportsbook's allowed list. Optimistic-renders as enabled while the check loads to avoid blocking UX.
 
 ## Compliance and Risk
 

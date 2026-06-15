@@ -51,6 +51,37 @@ const TEAM_ALIASES: Record<string, string[]> = {
   "Colorado State": ["ColSt", "CSU"],
   "Boise State": ["BoiseSt", "Broncos"],
   "Fresno State": ["FresnoSt", "Bulldogs"],
+
+  // NBA — name variants seen in The Odds API / broadcast feeds
+  "Los Angeles Lakers": ["LA Lakers", "Lakers"],
+  "Los Angeles Clippers": ["LA Clippers", "Clippers"],
+  "Golden State Warriors": ["GSW", "GS Warriors"],
+  "Oklahoma City Thunder": ["OKC Thunder", "OKC"],
+  "Philadelphia 76ers": ["Sixers", "76ers"],
+  "Portland Trail Blazers": ["Trail Blazers", "Blazers"],
+  "Minnesota Timberwolves": ["Timberwolves", "Minnesota Wolves"],
+  "New Orleans Pelicans": ["Pelicans"],
+  "Memphis Grizzlies": ["Grizzlies"],
+  "Indiana Pacers": ["Pacers"],
+  "San Antonio Spurs": ["SA Spurs"],
+  "New York Knicks": ["NY Knicks"],
+  "Brooklyn Nets": ["BK Nets"],
+
+  // MLB — name variants seen in The Odds API / broadcast feeds
+  "Arizona Diamondbacks": ["D-backs", "AZ Diamondbacks", "Arizona D-Backs"],
+  "Chicago White Sox": ["White Sox", "Chi White Sox"],
+  "Chicago Cubs": ["Cubs", "Chi Cubs"],
+  "Cleveland Guardians": ["Guardians"],
+  "Kansas City Royals": ["KC Royals"],
+  "Los Angeles Angels": ["Angels", "LA Angels", "Los Angeles Angels of Anaheim"],
+  "Los Angeles Dodgers": ["LA Dodgers"],
+  "New York Yankees": ["NY Yankees"],
+  "New York Mets": ["NY Mets"],
+  "Oakland Athletics": ["A's", "Oakland A's", "Athletics"],
+  "San Diego Padres": ["SD Padres"],
+  "San Francisco Giants": ["SF Giants"],
+  "St. Louis Cardinals": ["STL Cardinals", "St Louis Cardinals"],
+  "Tampa Bay Rays": ["TB Rays"],
 };
 
 // Build a reverse lookup: lowercased alias -> canonical name

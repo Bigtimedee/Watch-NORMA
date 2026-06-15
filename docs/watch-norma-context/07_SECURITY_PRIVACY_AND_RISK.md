@@ -71,9 +71,9 @@ Core principles:
 | Risk Area | Current State | Notes |
 |-----------|---------------|-------|
 | **Gambling/betting data** | App tracks wagers and prediction positions. | Does not provide betting advice or facilitate bets. Manual entry + OCR + email parsing only. |
-| **Sportsbook referral ads** | Sportsbook CTAs appear in alert cards. | Must comply with state-by-state gambling advertising laws. Geographic targeting not yet enforced. |
+| **Sportsbook referral ads** | Sportsbook CTAs appear in alert cards. | Must comply with state-by-state gambling advertising laws. Geographic targeting enforced at both auction and CTA level (see doc 06). |
 | **Prediction-market referral** | Kalshi/Polymarket links in app. | Kalshi is CFTC-regulated. Polymarket has varying regulatory status. |
-| **Geofencing** | Not implemented. | Sportsbook ads may need to be suppressed in states where that book is illegal. Known gap. |
+| **Geofencing** | Implemented. | Sportsbook ads suppressed in states where that book is not permitted. Enforced at auction (server) and CTA (client). Multi-state timezones (America/Chicago, America/Los_Angeles) conservatively treated as unknown jurisdiction — all sportsbook ads excluded. Parity verified by 20 automated tests in `_shared/geo-compliance_test.ts`. |
 | **Age gating** | App Store rating and restrictions. | App must not serve betting-related content to minors. Age verification is delegated to the sportsbook/platform. |
 | **Privacy disclosures** | Privacy policy exists (`docs/privacy-policy.html`). | Must accurately describe data collection, especially wager data, prediction positions, and email parsing. |
 | **Push notification consent** | iOS system prompt + in-app toggle. | iOS handles consent natively. Users can disable push in Profile settings. |

@@ -37,11 +37,13 @@ Sportradar provides detailed play-by-play events and game summaries used by the 
 
 The Odds API provides pre-game and live odds from major sportsbooks.
 
-- **Endpoints used:** `basketball_ncaab` odds endpoint
+- **Endpoints used:** `basketball_ncaab` (NCAAB), `basketball_nba` (NBA), `baseball_mlb` (MLB)
 - **Bookmakers tracked:** DraftKings, FanDuel, BetMGM, ESPNBet
 - **Market types:** Spreads, totals (over/under), head-to-head (moneyline)
-- **Polling frequency:** Every 5 minutes via `poll-odds`
-- **Game matching:** Odds API events are matched to DB games using fuzzy team name matching (`_shared/team-matching.ts`) with 50+ aliases and multi-word validation to prevent false positives (e.g., "Purdue" vs "Purdue Fort Wayne")
+- **Polling frequency:** Every 5 minutes via `poll-odds`; all three sports fetched sequentially in one invocation
+- **Game matching:** Odds API events are matched to DB games using fuzzy team name matching (`_shared/team-matching.ts`) with 80+ aliases including NBA and MLB name variants. Each sport fetch is pre-filtered by the DB `sport` column (e.g., only `sport='nba'` teams/games are passed when fetching NBA odds), preventing cross-sport team-name collisions (e.g., "Indiana Pacers" vs "Indiana Hoosiers").
+- **Quota usage:** 3 API calls per 5-minute cycle (one per sport). To disable a sport without redeploying, set `ODDS_DISABLED_SPORTS=basketball_nba,baseball_mlb` (comma-separated Odds API sport keys).
+- **Per-sport coverage audit (P1-08):** Previously only `basketball_ncaab` was fetched; NBA and MLB were silent gaps. Extended in P1-08 to cover all three sports NORMA supports. No schema change needed — the `sport` column on `games` and `teams` (migration 049) was already in place.
 
 ## Streaming Availability Data
 

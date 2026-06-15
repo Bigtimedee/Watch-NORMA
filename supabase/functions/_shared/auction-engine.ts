@@ -12,6 +12,7 @@ import {
 } from "./pricing-engine.ts";
 import { selectCreativeVariant } from "./ai-ad-engine.ts";
 import { computeFatigueScore } from "./fatigue-model.ts";
+import { inferStateFromTimezone } from "./geo-compliance.ts";
 
 // --- Types ---
 
@@ -276,56 +277,6 @@ async function fetchUserTimezone(
     .eq("id", userId)
     .maybeSingle();
   return data?.timezone ?? null;
-}
-
-/**
- * Map a US timezone string to a single state code.
- * Conservative: returns null for timezones that span multiple states
- * (e.g., America/Chicago covers TX + IL + WI + MN + MO, etc.).
- * Only returns a state when the timezone is unambiguous or represents
- * the dominant state, so we avoid showing sportsbook ads in illegal states.
- *
- * For multi-state timezones we return null and the caller blocks the ad.
- * This is intentional: regulatory risk is asymmetric (serving an illegal ad
- * is worse than missing a legal impression).
- */
-function inferStateFromTimezone(tz: string): string | null {
-  // State-specific timezones (unambiguous)
-  const unambiguous: Record<string, string> = {
-    "America/New_York":    "NY", // also covers many NE states — but NY is legal so safe
-    "America/Detroit":     "MI",
-    "America/Indiana/Indianapolis": "IN",
-    "America/Indiana/Knox": "IN",
-    "America/Indiana/Marengo": "IN",
-    "America/Indiana/Petersburg": "IN",
-    "America/Indiana/Tell_City": "IN",
-    "America/Indiana/Vevay": "IN",
-    "America/Indiana/Vincennes": "IN",
-    "America/Indiana/Winamac": "IN",
-    "America/Kentucky/Louisville": "KY",
-    "America/Kentucky/Monticello": "KY",
-    "America/Denver":      "CO",
-    "America/Boise":       "ID",
-    "America/Phoenix":     "AZ",
-    "America/Anchorage":   "AK",
-    "America/Adak":        "AK",
-    "America/Nome":        "AK",
-    "America/Sitka":       "AK",
-    "America/Yakutat":     "AK",
-    "Pacific/Honolulu":    "HI",
-  };
-
-  if (unambiguous[tz]) {
-    return unambiguous[tz];
-  }
-
-  // Multi-state timezones — return null (conservative block)
-  // America/Chicago: IL, TX, WI, MN, MO, IA, KS, OK, AR, LA, MS, AL, TN, ND, SD, NE
-  // America/Los_Angeles: CA, WA, OR, NV
-  // America/New_York also spans MA, CT, NJ, PA, VA, WV, NC, OH, MD, DE — all legal for major books
-  // We handle New_York above as "NY" since every NY-timezone state is in the major books' lists
-  // For Chicago/LA we cannot safely infer a single state
-  return null;
 }
 
 // --- Eligible Bids Query ---

@@ -1,5 +1,10 @@
-// poll-odds: Fetch NCAAB odds from The Odds API
+// poll-odds: Fetch odds from The Odds API for all enabled sports
 // Trigger: pg_cron every 5 minutes
+//
+// Sports covered: NCAAB (ncaam), NBA (nba), MLB (mlb)
+// To disable a sport at runtime without a redeploy, set the env var:
+//   ODDS_DISABLED_SPORTS=basketball_nba,baseball_mlb
+// Each entry is the Odds API sport key (oddsApiKey column below).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -9,6 +14,14 @@ const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 const ODDS_API_KEY = Deno.env.get("THE_ODDS_API_KEY")!;
 const BOOKMAKERS = ["draftkings", "fanduel", "betmgm", "espnbet"];
 const MARKETS = ["spreads", "totals", "h2h"];
+
+// Maps Odds API sport keys → our DB sport enum values.
+// Adding a new sport here is sufficient — no code change needed.
+const SPORT_CONFIG: Array<{ oddsApiKey: string; dbSport: string }> = [
+  { oddsApiKey: "basketball_ncaab", dbSport: "ncaam" },
+  { oddsApiKey: "basketball_nba",   dbSport: "nba"   },
+  { oddsApiKey: "baseball_mlb",     dbSport: "mlb"   },
+];
 
 interface OddsOutcome {
   name: string;
@@ -45,96 +58,130 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch odds from The Odds API
-    const url = `${ODDS_API_BASE}/sports/basketball_ncaab/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=${MARKETS.join(",")}&bookmakers=${BOOKMAKERS.join(",")}`;
-    const oddsController = new AbortController();
-    const oddsTimer = setTimeout(() => oddsController.abort(), 10000);
-    let res: Response;
-    try {
-      res = await fetch(url, { signal: oddsController.signal });
-    } finally {
-      clearTimeout(oddsTimer);
+    // Filter enabled sports from env override
+    const disabledSet = new Set(
+      (Deno.env.get("ODDS_DISABLED_SPORTS") ?? "").split(",").filter(Boolean)
+    );
+    const enabledSports = SPORT_CONFIG.filter(s => !disabledSet.has(s.oddsApiKey));
+
+    if (enabledSports.length === 0) {
+      return new Response(JSON.stringify({ success: true, oddsUpserted: 0, perSport: {} }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (!res.ok) {
-      throw new Error(`Odds API returned ${res.status}: ${await res.text()}`);
-    }
-
-    const events: OddsEvent[] = await res.json();
-
-    // Get our teams and active games for matching
+    // Fetch all teams + active games once; filter by sport per iteration
     const { data: dbTeams } = await supabase
       .from("teams")
-      .select("id, name, market, abbreviation");
+      .select("id, name, market, abbreviation, sport");
     const { data: dbGames } = await supabase
       .from("games")
-      .select("id, home_team_id, away_team_id, status")
+      .select("id, home_team_id, away_team_id, status, sport")
       .in("status", ["scheduled", "inprogress", "halftime"]);
 
     if (!dbTeams || !dbGames) {
       throw new Error("Failed to fetch teams or games from database");
     }
 
-    let upsertCount = 0;
+    let totalUpserted = 0;
+    const perSport: Record<string, { events: number; matched: number; upserted: number }> = {};
 
-    for (const event of events) {
-      const gameId = matchGame(
-        event.home_team,
-        event.away_team,
-        dbTeams,
-        dbGames
-      );
+    for (const { oddsApiKey, dbSport } of enabledSports) {
+      // Sport-scoped slices prevent cross-sport team-name collisions
+      // (e.g., Indiana Pacers vs Indiana Hoosiers).
+      const sportTeams = dbTeams.filter(t => t.sport === dbSport);
+      const sportGames = dbGames.filter(g => g.sport === dbSport);
 
-      if (!gameId) continue;
+      const url = `${ODDS_API_BASE}/sports/${oddsApiKey}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=${MARKETS.join(",")}&bookmakers=${BOOKMAKERS.join(",")}`;
+      const oddsController = new AbortController();
+      const oddsTimer = setTimeout(() => oddsController.abort(), 10000);
+      let res: Response;
+      try {
+        res = await fetch(url, { signal: oddsController.signal });
+      } finally {
+        clearTimeout(oddsTimer);
+      }
 
-      for (const bookmaker of event.bookmakers) {
-        if (!BOOKMAKERS.includes(bookmaker.key)) continue;
+      if (!res.ok) {
+        const body = await res.text();
+        console.warn(JSON.stringify({
+          function: "poll-odds",
+          event: "fetch_failed",
+          sport: oddsApiKey,
+          status: res.status,
+          body,
+        }));
+        perSport[oddsApiKey] = { events: 0, matched: 0, upserted: 0 };
+        continue;
+      }
 
-        for (const market of bookmaker.markets) {
-          const row: Record<string, unknown> = {
-            game_id: gameId,
-            sportsbook: bookmaker.key,
-            market_type: market.key,
-            last_update: new Date().toISOString(),
-          };
+      const events: OddsEvent[] = await res.json();
+      let sportMatched = 0;
+      let sportUpserted = 0;
 
-          if (market.key === "spreads") {
-            const home = market.outcomes.find((o) => o.name === event.home_team);
-            const away = market.outcomes.find((o) => o.name === event.away_team);
-            row.home_line = home?.point ?? null;
-            row.away_line = away?.point ?? null;
-            row.home_price = home?.price ?? null;
-            row.away_price = away?.price ?? null;
-          } else if (market.key === "totals") {
-            const over = market.outcomes.find((o) => o.name === "Over");
-            const under = market.outcomes.find((o) => o.name === "Under");
-            row.over_under = over?.point ?? null;
-            row.over_price = over?.price ?? null;
-            row.under_price = under?.price ?? null;
-          } else if (market.key === "h2h") {
-            const home = market.outcomes.find((o) => o.name === event.home_team);
-            const away = market.outcomes.find((o) => o.name === event.away_team);
-            row.home_price = home?.price ?? null;
-            row.away_price = away?.price ?? null;
-          }
+      for (const event of events) {
+        const gameId = matchGame(
+          event.home_team,
+          event.away_team,
+          sportTeams,
+          sportGames
+        );
 
-          const { error } = await supabase.from("game_odds").upsert(row, {
-            onConflict: "game_id,sportsbook,market_type",
-          });
+        if (!gameId) continue;
+        sportMatched++;
 
-          if (error) {
-            console.warn(`Upsert error for ${gameId}/${bookmaker.key}/${market.key}:`, error);
-          } else {
-            upsertCount++;
+        for (const bookmaker of event.bookmakers) {
+          if (!BOOKMAKERS.includes(bookmaker.key)) continue;
+
+          for (const market of bookmaker.markets) {
+            const row: Record<string, unknown> = {
+              game_id: gameId,
+              sportsbook: bookmaker.key,
+              market_type: market.key,
+              last_update: new Date().toISOString(),
+            };
+
+            if (market.key === "spreads") {
+              const home = market.outcomes.find((o) => o.name === event.home_team);
+              const away = market.outcomes.find((o) => o.name === event.away_team);
+              row.home_line = home?.point ?? null;
+              row.away_line = away?.point ?? null;
+              row.home_price = home?.price ?? null;
+              row.away_price = away?.price ?? null;
+            } else if (market.key === "totals") {
+              const over = market.outcomes.find((o) => o.name === "Over");
+              const under = market.outcomes.find((o) => o.name === "Under");
+              row.over_under = over?.point ?? null;
+              row.over_price = over?.price ?? null;
+              row.under_price = under?.price ?? null;
+            } else if (market.key === "h2h") {
+              const home = market.outcomes.find((o) => o.name === event.home_team);
+              const away = market.outcomes.find((o) => o.name === event.away_team);
+              row.home_price = home?.price ?? null;
+              row.away_price = away?.price ?? null;
+            }
+
+            const { error } = await supabase.from("game_odds").upsert(row, {
+              onConflict: "game_id,sportsbook,market_type",
+            });
+
+            if (error) {
+              console.warn(`Upsert error for ${gameId}/${bookmaker.key}/${market.key}:`, error);
+            } else {
+              sportUpserted++;
+            }
           }
         }
       }
+
+      totalUpserted += sportUpserted;
+      perSport[oddsApiKey] = { events: events.length, matched: sportMatched, upserted: sportUpserted };
     }
 
     const result = {
       success: true,
-      eventsReceived: events.length,
-      oddsUpserted: upsertCount,
+      oddsUpserted: totalUpserted,
+      perSport,
     };
 
     console.log(JSON.stringify({
