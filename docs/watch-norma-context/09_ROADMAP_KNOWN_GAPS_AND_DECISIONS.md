@@ -16,7 +16,7 @@ Based on repository inspection and the outage report:
 
 - **Blackout uncertainty surfaced, not resolved.** As of P1-11, NORMA classifies broadcasts as national or regional (RSN) using `isRegionalBroadcast()` in `lib/deep-links.ts`. When the broadcast is a known RSN (Bally, NESN, MSG, YES, SNY, MASN, Root Sports, etc.), the Watch button shows a "May be subject to local blackout" caveat. When no broadcast data exists for a live game, the button shows "Broadcast TBD" instead of "Watch". The deep-link chain is unchanged — the caveat is informational only, not a routing change. True per-market blackout detection remains impossible without a blackout data API (no such API is publicly available).
 - **Limited MLB odds support.** The Odds API polling is configured for `basketball_ncaab`. NBA and MLB odds may not be ingested (needs verification of whether additional sport endpoints are called).
-- **No NFL/NHL/college football support.** The system currently supports NCAA basketball, NBA, and MLB. Other sports are not yet integrated.
+- **NFL/NCAAF ingestion scaffold in place; alert rules pending.** As of P1-12, the data layer supports NFL and NCAAF: `sport_key` ENUM extended (migration 072), ESPN and SportsDataIO base URLs registered in `poll-schedule` and `poll-boxscore`, Sportradar bases added in `_shared/sportradar.ts`, and `ENABLED_SPORTS` gated on `SPORTRADAR_NFL_API_KEY` / `SPORTRADAR_NCAAF_API_KEY`. `evaluate-alerts` returns a no-op 200 for football games until sport-specific alert rules are implemented. NHL and soccer remain unintegrated.
 - **Stale broadcast data.** Broadcast assignments can change close to game time. The system relies on the most recent poll data and has no mechanism to detect last-minute changes.
 
 ### Alert Engine
@@ -72,7 +72,7 @@ These decisions require owner confirmation:
 
 Based on repository inspection, the highest-impact immediate work:
 
-1. **Expand sports coverage.** Adding NFL (for fall) and college football would dramatically increase the addressable user base and align with the betting calendar.
+1. ~~**Expand sports coverage (data layer).**~~ **Done (P1-12).** NFL and NCAAF ingestion scaffold is in place: schedule polling, boxscore polling, and Sportradar bases are all wired. Alert evaluation for football is explicitly a no-op; sport-specific football alert rules are the next step.
 2. **Stabilize deep-link health.** Continue monitoring via `deep-link-health-check`. Consider a periodic cron that automatically checks each provider's universal link for HTTP 200 + correct redirect.
 3. ~~**Enforce geo-compliance at the CTA level.**~~ **Done** — `BetNowButton` geo-gating is live.
 4. **Implement automated health monitoring.** Connect the `health-check` endpoint to an external uptime monitor (e.g., Better Uptime, PagerDuty) that alerts on degradation.
@@ -85,10 +85,10 @@ Based on repository inspection, the highest-impact immediate work:
 ### Sports Data Reliability
 - Add health-check alerting for stale watchers and failed polls
 - Implement automatic provider failover (if ESPN is down, auto-promote SportsDataIO)
-- Add NFL/college football data sources and sport-specific parsing
+- ~~Add NFL/college football data sources~~ — **Done (P1-12)**: data layer wired; sport-specific alert rules still pending
 
 ### Alert Engine
-- Add user feedback mechanism (thumbs up/down on alerts)
+- ~~Add user feedback mechanism (thumbs up/down on alerts)~~ — **Done (P1-09)**: thumbs up/down on `AlertCard` persists to `alerts.feedback_polarity`
 - Use feedback data to refine scoring weights
 - "Tonight's Games" briefing is live (6 PM CT daily via `morning-briefing` function)
 - Add personalized "tonight's watchlist" push that filters by user follows and open wagers

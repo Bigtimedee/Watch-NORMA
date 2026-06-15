@@ -13,10 +13,13 @@ import { hashPayload, mapStatus } from "../_shared/utils.ts";
 import { isTerminalStatus } from "../_shared/polling-state.ts";
 
 // Sport-specific SportsDataIO base URLs
+// ncaaf/nfl: ingestion only; alert evaluation is blocked until football rules are ready
 const SPORTSDATAIO_BASES: Record<string, string> = {
   ncaam: "https://api.sportsdata.io/v3/cbb",
   nba:   "https://api.sportsdata.io/v3/nba",
   mlb:   "https://api.sportsdata.io/v3/mlb",
+  ncaaf: "https://api.sportsdata.io/v3/cfb",
+  nfl:   "https://api.sportsdata.io/v3/nfl",
 };
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
@@ -25,6 +28,8 @@ const ESPN_BASES: Record<string, string> = {
   ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
   nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
   mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+  ncaaf: "https://site.api.espn.com/apis/site/v2/sports/football/college-football",
+  nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 };
 
 // Kept for the SportsDataIO date format: CBB uses YYYY-MMM-DD

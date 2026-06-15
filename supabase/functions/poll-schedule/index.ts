@@ -14,15 +14,20 @@ import type { SportradarScheduleGame } from "../_shared/sportradar.ts";
 import { matchTeamName, teamMatchScore } from "../_shared/team-matching.ts";
 
 // Sport-specific base URLs
+// ncaaf/nfl are ingestion-only — alert rules not yet implemented (see doc 09 roadmap)
 const SPORTSDATAIO_BASES: Record<string, string> = {
   ncaam: "https://api.sportsdata.io/v3/cbb",
   nba:   "https://api.sportsdata.io/v3/nba",
   mlb:   "https://api.sportsdata.io/v3/mlb",
+  ncaaf: "https://api.sportsdata.io/v3/cfb",
+  nfl:   "https://api.sportsdata.io/v3/nfl",
 };
 const ESPN_BASES: Record<string, string> = {
   ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
   nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
   mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+  ncaaf: "https://site.api.espn.com/apis/site/v2/sports/football/college-football",
+  nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 };
 
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
@@ -32,10 +37,14 @@ const ESPN_BASE = ESPN_BASES.ncaam;
 const HAS_SPORTRADAR = !!Deno.env.get("SPORTRADAR_API_KEY");
 
 // Which sports to ingest (driven by env vars — if key missing, sport is skipped)
+// ncaaf/nfl: schedule + score ingestion only; alert evaluation is a no-op until
+// football-specific alert rules are implemented (see evaluate-alerts guard).
 const ENABLED_SPORTS: Array<{ key: string; hasSportradar: boolean }> = [
   { key: "ncaam", hasSportradar: HAS_SPORTRADAR },
   { key: "nba",   hasSportradar: !!Deno.env.get("SPORTRADAR_NBA_API_KEY") || HAS_SPORTRADAR },
   { key: "mlb",   hasSportradar: !!Deno.env.get("SPORTRADAR_MLB_API_KEY") || HAS_SPORTRADAR },
+  { key: "ncaaf", hasSportradar: !!Deno.env.get("SPORTRADAR_NCAAF_API_KEY") },
+  { key: "nfl",   hasSportradar: !!Deno.env.get("SPORTRADAR_NFL_API_KEY") },
 ];
 
 interface SportsDataIOGame {
@@ -571,8 +580,8 @@ Deno.serve(async (req) => {
 
       const { data: allTeamsForMulti } = await supabase
         .from("teams")
-        .select("id, name, market, abbreviation, sportsdataio_id");
-      const multiTeamCache: Array<{ id: string; name: string | null; market: string | null; abbreviation: string | null; sportsdataio_id: number | null }> = allTeamsForMulti ?? [];
+        .select("id, name, market, abbreviation, sportsdataio_id, sport");
+      const multiTeamCache: Array<{ id: string; name: string | null; market: string | null; abbreviation: string | null; sportsdataio_id: number | null; sport: string | null }> = allTeamsForMulti ?? [];
 
       // Teams whose mascot is more than one word — the city/market is everything before these.
       const MULTI_WORD_MASCOTS: Record<string, string> = {

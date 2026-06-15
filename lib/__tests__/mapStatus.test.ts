@@ -149,6 +149,39 @@ describe("mapStatus", () => {
     });
   });
 
+  // === Football (NFL/NCAAF) status values ===
+  // Football uses the same ESPN status format as basketball/baseball,
+  // so no new mappings are needed. These tests verify the existing
+  // mapStatus() handles all football-specific ESPN description strings.
+  describe("football (NFL / NCAAF) ESPN status descriptions", () => {
+    it("maps 'In Progress' to inprogress (live NFL/NCAAF quarter)", () => {
+      expect(mapStatus("In Progress", false)).toBe("inprogress");
+    });
+    it("maps 'Halftime' to halftime (NFL/NCAAF halftime)", () => {
+      expect(mapStatus("Halftime", false)).toBe("halftime");
+    });
+    it("maps 'Final' to closed (NFL/NCAAF game final)", () => {
+      expect(mapStatus("Final", false)).toBe("closed");
+    });
+    it("maps 'F/OT' to closed (NFL overtime final)", () => {
+      expect(mapStatus("F/OT", false)).toBe("closed");
+    });
+    it("maps 'Scheduled' to scheduled (pre-game NFL/NCAAF)", () => {
+      expect(mapStatus("Scheduled", false)).toBe("scheduled");
+    });
+    it("maps 'Postponed' to postponed (NFL/NCAAF postponed game)", () => {
+      expect(mapStatus("Postponed", false)).toBe("postponed");
+    });
+    it("maps 'End of Period' to inprogress (end of NFL quarter — clock stopped)", () => {
+      expect(mapStatus("End of Period", false)).toBe("inprogress");
+    });
+    it("STATUS_IN_PROGRESS machine code still works for football (rule #19 compliance)", () => {
+      // Rule #19: use type.description, not type.name — but mapStatus handles both
+      // to be defensive. Canonical football ESPN descriptions use type.description.
+      expect(mapStatus("STATUS_IN_PROGRESS", false)).toBe("inprogress");
+    });
+  });
+
   // === INVARIANT: NEVER returns a non-canonical value ===
   describe("canonical output invariant", () => {
     const ESPN_MACHINE_CODES = [

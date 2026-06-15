@@ -2,12 +2,15 @@
 // Supports NCAAMB, NBA, and MLB via sport-specific base URLs and API keys.
 // Each sport may have its own Sportradar product license and key.
 
-export type SportKey = "ncaam" | "nba" | "mlb";
+// ncaaf/nfl are ingestion-only; Sportradar PBP/summary for football is TBD
+export type SportKey = "ncaam" | "nba" | "mlb" | "ncaaf" | "nfl";
 
 const SPORTRADAR_BASES: Record<SportKey, string> = {
   ncaam: "https://api.sportradar.com/ncaamb/production/v8/en",
   nba:   "https://api.sportradar.com/nba/production/v8/en",
   mlb:   "https://api.sportradar.com/mlb/production/v8/en",
+  ncaaf: "https://api.sportradar.com/ncaafb/production/v8/en",
+  nfl:   "https://api.sportradar.com/nfl/production/v8/en",
 };
 
 // Each sport may have its own API key; fall back to the shared key
@@ -17,6 +20,12 @@ function getSportradarKey(sport: SportKey): string {
   }
   if (sport === "mlb") {
     return Deno.env.get("SPORTRADAR_MLB_API_KEY") ?? Deno.env.get("SPORTRADAR_API_KEY") ?? "";
+  }
+  if (sport === "ncaaf") {
+    return Deno.env.get("SPORTRADAR_NCAAF_API_KEY") ?? Deno.env.get("SPORTRADAR_API_KEY") ?? "";
+  }
+  if (sport === "nfl") {
+    return Deno.env.get("SPORTRADAR_NFL_API_KEY") ?? Deno.env.get("SPORTRADAR_API_KEY") ?? "";
   }
   return Deno.env.get("SPORTRADAR_API_KEY") ?? "";
 }

@@ -88,6 +88,26 @@ Deno.serve(async (req) => {
 
     const gameState = game as unknown as GameState;
 
+    // --- Football guard (P1-12: ingestion-only) ---
+    // NFL and NCAAF games are ingested but alert rules are not yet implemented.
+    // Returning early here prevents half-built alerts from firing for football.
+    // Follow-up: implement football alert rules, then remove this guard.
+    const ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb"]);
+    if (!ALERTABLE_SPORTS.has((game as any).sport ?? "ncaam")) {
+      console.log(JSON.stringify({
+        function: "evaluate-alerts",
+        event: "skipped_football",
+        game_id: gameId,
+        sport: (game as any).sport,
+        reason: "football_alert_rules_not_yet_implemented",
+        timestamp: new Date().toISOString(),
+      }));
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "football_alert_rules_not_yet_implemented" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // --- Stage 0: Candidate Generation ---
     // v2: Include users who FOLLOW teams/players in this game, not just wager holders
 
