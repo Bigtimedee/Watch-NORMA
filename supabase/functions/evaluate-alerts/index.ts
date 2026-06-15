@@ -478,6 +478,7 @@ Deno.serve(async (req) => {
           user_segment: userSegment,
           tournament_round: gameState.tournament_round ?? null,
           period: gameState.period ?? null,
+          sport: (game as any).sport ?? null,
         };
         auctionResult = await runAuction(supabase, auctionInput);
 

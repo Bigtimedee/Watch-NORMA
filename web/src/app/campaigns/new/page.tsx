@@ -24,6 +24,7 @@ export default function NewCampaignPage() {
 
   // Basics
   const [name, setName] = useState("");
+  const [demandType, setDemandType] = useState<"sportsbook" | "streaming" | "commerce">("sportsbook");
   const [budgetDollars, setBudgetDollars] = useState("");
   const [dailyBudgetDollars, setDailyBudgetDollars] = useState("");
   const [flightStart, setFlightStart] = useState("");
@@ -72,6 +73,7 @@ export default function NewCampaignPage() {
       .insert({
         advertiser_id: advertiser.id,
         name,
+        demand_type: demandType,
         budget_cents: budgetCents,
         daily_budget_cents: dailyBudget,
         flight_start: flightStart || null,
@@ -216,6 +218,33 @@ export default function NewCampaignPage() {
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none" />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Demand Category *</label>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Controls the CTA shown on the alert card. Geo-filter applies to sportsbook only.
+                </p>
+                <div className="mt-2 grid grid-cols-3 gap-3">
+                  {([
+                    { key: "sportsbook", label: "Sportsbook", cta: "Bet Now", desc: "Sportsbook offers — geo-restricted" },
+                    { key: "streaming", label: "Streaming", cta: "Watch Now", desc: "Streaming services (YouTube TV, Prime, Peacock)" },
+                    { key: "commerce", label: "Commerce", cta: "Shop Now", desc: "Merchandise, ticketing (Fanatics, etc.)" },
+                  ] as const).map((opt) => (
+                    <button key={opt.key} type="button" onClick={() => setDemandType(opt.key)}
+                      className={`rounded-lg border p-3 text-left transition-colors ${
+                        demandType === opt.key
+                          ? "border-orange-500 bg-orange-500/10"
+                          : "border-slate-700 bg-slate-800 hover:border-slate-600"
+                      }`}>
+                      <p className="text-sm font-semibold text-white">{opt.label}</p>
+                      <p className="mt-0.5 text-xs text-orange-400 font-medium">{opt.cta}</p>
+                      <p className="mt-1 text-xs text-slate-400">{opt.desc}</p>
+                      {opt.key !== "sportsbook" && (
+                        <p className="mt-1 text-xs text-yellow-600">Scaffolded — no live deals</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button onClick={() => setStep("targeting")} disabled={!name || !budgetDollars}
                 className="mt-4 rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
                 Next: Targeting
@@ -326,7 +355,7 @@ export default function NewCampaignPage() {
                   <label className="block text-sm font-medium text-slate-300">CTA Text</label>
                   <input type="text" value={ctaText} onChange={(e) => setCtaText(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none"
-                    placeholder="Bet Now" />
+                    placeholder={demandType === "streaming" ? "Watch Now" : demandType === "commerce" ? "Shop Now" : "Bet Now"} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300">CTA URL</label>
@@ -359,6 +388,7 @@ export default function NewCampaignPage() {
               <h3 className="text-lg font-semibold text-white">Campaign Summary</h3>
               <dl className="grid grid-cols-2 gap-4 text-sm">
                 <div><dt className="text-slate-400">Name</dt><dd className="text-white">{name}</dd></div>
+                <div><dt className="text-slate-400">Category</dt><dd className="capitalize text-white">{demandType}</dd></div>
                 <div><dt className="text-slate-400">Budget</dt><dd className="text-white">${budgetDollars}</dd></div>
                 <div><dt className="text-slate-400">Daily Budget</dt><dd className="text-white">{dailyBudgetDollars ? `$${dailyBudgetDollars}` : "No cap"}</dd></div>
                 <div><dt className="text-slate-400">Flight</dt><dd className="text-white">{flightStart && flightEnd ? `${flightStart} - ${flightEnd}` : "No dates"}</dd></div>

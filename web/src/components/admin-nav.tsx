@@ -11,6 +11,7 @@ const adminNavItems = [
   { href: "/admin/advertisers", label: "Advertisers" },
   { href: "/admin/campaigns", label: "Campaigns" },
   { href: "/admin/revenue", label: "Revenue" },
+  { href: "/admin/revenue/yield", label: "Yield" },
   { href: "/admin/fraud", label: "Fraud" },
   { href: "/admin/auction-engine", label: "Auction Engine" },
   { href: "/admin/auction-engine/live", label: "Live Monitor" },

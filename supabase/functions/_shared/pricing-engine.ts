@@ -9,7 +9,13 @@ export interface FloorPrice {
   moment_type: string;
   floor_cents: number;
   premium_multiplier: number;
+  min_floor_cents: number;
+  max_floor_cents: number;
+  sport?: string | null;
 }
+
+const DEFAULT_MIN_FLOOR = 5;
+const DEFAULT_MAX_FLOOR = 200;
 
 // Default floor prices (fallback if DB query fails)
 const DEFAULT_FLOORS: Record<string, number> = {
@@ -26,23 +32,78 @@ const DEFAULT_FLOORS: Record<string, number> = {
   follow_alert: 10,
 };
 
+/**
+ * Blend learned floor with base floor (60/40) and clamp to guardrails.
+ * Deterministic: same inputs always produce same output.
+ */
+export function applyFloorGuardrails(
+  baseCents: number,
+  learnedCents: number | null,
+  minCents: number,
+  maxCents: number
+): number {
+  const blended = learnedCents != null
+    ? Math.round(learnedCents * 0.6 + baseCents * 0.4)
+    : baseCents;
+  return Math.max(minCents, Math.min(maxCents, blended));
+}
+
+/**
+ * Per-category floor lookup: tries sport-specific row first, falls back to global (sport IS NULL).
+ * Returns floor already clamped to guardrails with learned blending applied.
+ */
+export async function getCategoryFloor(
+  supabase: SupabaseClient,
+  momentType: string,
+  sport: string | null
+): Promise<FloorPrice> {
+  try {
+    const { data: rows } = await supabase
+      .from("floor_prices")
+      .select("moment_type, floor_cents, premium_multiplier, min_floor_cents, max_floor_cents, learned_floor_cents, sport")
+      .eq("moment_type", momentType)
+      .order("sport", { ascending: true, nullsFirst: false }); // sport-specific before NULL
+
+    if (rows && rows.length > 0) {
+      // Prefer sport-specific row; fall back to global (sport IS NULL)
+      const specific = sport ? rows.find((r: any) => r.sport === sport) : null;
+      const global = rows.find((r: any) => r.sport == null);
+      const row: any = specific ?? global;
+
+      if (row) {
+        const min = row.min_floor_cents ?? DEFAULT_MIN_FLOOR;
+        const max = row.max_floor_cents ?? DEFAULT_MAX_FLOOR;
+        return {
+          moment_type: row.moment_type,
+          floor_cents: applyFloorGuardrails(row.floor_cents, row.learned_floor_cents, min, max),
+          premium_multiplier: row.premium_multiplier ?? 1.0,
+          min_floor_cents: min,
+          max_floor_cents: max,
+          sport: row.sport ?? null,
+        };
+      }
+    }
+  } catch {
+    // Fall through to hardcoded default
+  }
+
+  const defaultBase = DEFAULT_FLOORS[momentType] ?? 10;
+  return {
+    moment_type: momentType,
+    floor_cents: Math.max(DEFAULT_MIN_FLOOR, Math.min(DEFAULT_MAX_FLOOR, defaultBase)),
+    premium_multiplier: 1.0,
+    min_floor_cents: DEFAULT_MIN_FLOOR,
+    max_floor_cents: DEFAULT_MAX_FLOOR,
+    sport: null,
+  };
+}
+
+/** Backward-compatible wrapper (no sport discrimination). */
 export async function getFloorPrice(
   supabase: SupabaseClient,
   momentType: string
 ): Promise<FloorPrice> {
-  const { data } = await supabase
-    .from("floor_prices")
-    .select("moment_type, floor_cents, premium_multiplier")
-    .eq("moment_type", momentType)
-    .single();
-
-  if (data) return data as FloorPrice;
-
-  return {
-    moment_type: momentType,
-    floor_cents: DEFAULT_FLOORS[momentType] ?? 10,
-    premium_multiplier: 1.0,
-  };
+  return getCategoryFloor(supabase, momentType, null);
 }
 
 // --- Dynamic Premium Multiplier ---

@@ -47,21 +47,28 @@ After the auction winner is determined, `selectCreativeVariant()` from `_shared/
 
 `recordAuctionResult()` logs the impression to the `impressions` table with: campaign_id, creative_id, alert_id, user_id, clearing_price, moment_type, game context, and delivery_ms. It also deducts the clearing price from the campaign's remaining budget.
 
-## Floor Pricing
+## Floor Pricing (P2-05)
 
-### Base Floor Prices
+### Per-Category Floor Prices
 
-Stored in `floor_prices` table, per moment type. Defaults from `_shared/pricing-engine.ts`:
+Stored in `floor_prices` table. Migration 076 added a `sport` column (NULL = global fallback) so floors can be differentiated by `(moment_type, sport)`. The auction engine calls `getCategoryFloor(supabase, momentType, sport)` which prefers a sport-specific row and falls back to the global row.
+
+**Guardrails (migration 076):** Every floor row has `min_floor_cents` (default $0.05) and `max_floor_cents` (default $2.00) columns. The optimizer and manual admin changes are bounded by these values. They are configurable per moment_type × sport.
+
+**Learned floor blending:** When `learned_floor_cents` is set by the optimizer, the effective floor = `learned × 0.6 + base × 0.4`, then clamped to [min, max]. The transform is deterministic and documented.
+
+Hardcoded defaults from `_shared/pricing-engine.ts` (used when DB query fails):
 
 | Moment Type | Default Floor |
 |-------------|---------------|
 | `prediction_resolved` | $0.60 |
-| `bet_resolved` / `game_resolved` | $0.50 |
-| `spread_alert` | $0.40 |
+| `bet_resolved` | $0.50 |
 | `close_game` | $0.35 |
-| `overtime` | $0.35 |
-| `comeback` | $0.30 |
-| Default (other types) | $0.25 |
+| `overtime` | $0.40 |
+| `spread_alert` | $0.30 |
+| `moneyline_alert` | $0.30 |
+| `total_alert` | $0.25 |
+| Default (other types) | $0.10 |
 
 ### Dynamic Premium Multipliers
 
@@ -83,7 +90,25 @@ The `floor-price-optimizer` Edge Function runs daily at 3 AM ET and adjusts floo
 - Low fill rate (< 30%) + weak clearing (< 1.2) → -10%
 - Low fill (< 50%) + declining trend (< 0.9) → -5%
 
-Guardrails: max ±20% per day, absolute range $0.05–$2.00, minimum 50 auctions per moment type before any adjustment.
+Guardrails: max ±20% per day, bounded by per-row `min_floor_cents`/`max_floor_cents`, minimum 50 auctions per moment type before any adjustment.
+
+### Admin Yield Panel
+
+`/admin/revenue/yield` — server-rendered, admin-gated. Shows floor vs. avg clearing price vs. fill rate per `moment_type × sport`, rolling 30 days. Data source: `floor_yield_stats` view (migration 076). Admins can see which moment/sport combos are hitting guardrails and whether floors are over- or under-priced.
+
+## Demand Categories (P2-06)
+
+Campaigns now have a `demand_type` column (migration 077): `sportsbook | streaming | commerce`. This controls:
+
+| Demand Type | CTA Label | Geo-filter | Conversion type (inferred) |
+|-------------|-----------|------------|---------------------------|
+| `sportsbook` | Bet Now | Yes — state jurisdiction check | `sportsbook_open`, `wager_placed` |
+| `streaming` | Watch Now | No — unrestricted | `stream_open` |
+| `commerce` | Shop Now | No — unrestricted | `commerce_open` |
+
+**Live vs. scaffolded:** Sportsbook campaigns are live. Streaming and commerce demand types are fully plumbed (eligible for auction, correct CTA rendered, attribution recorded with inferred labels) but have no live advertiser deals. The campaign creation UI labels streaming/commerce as "Scaffolded — no live deals."
+
+**What changes:** Campaign creation flow asks buyers to select a demand type; the CTA placeholder updates accordingly. Auction clearing logic is unchanged — only eligibility and rendering are category-aware.
 
 ## Fraud Detection
 

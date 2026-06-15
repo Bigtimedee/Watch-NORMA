@@ -4,7 +4,7 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  getFloorPrice,
+  getCategoryFloor,
   computeDynamicPremium,
   getEffectiveFloor,
   checkBudgetPacing,
@@ -25,6 +25,7 @@ export interface AuctionInput {
   tournament_round: string | null;
   period: number | null;
   user_timezone?: string | null; // from profiles.timezone — used for geo-compliance
+  sport?: string | null; // for per-category floor lookup (P2-05)
 }
 
 export interface AuctionResult {
@@ -98,8 +99,8 @@ export async function runAuction(
     return null;
   }
 
-  // 4. Get floor price
-  const floorPrice = await getFloorPrice(supabase, input.moment_type);
+  // 4. Get floor price (sport-specific if available, global fallback)
+  const floorPrice = await getCategoryFloor(supabase, input.moment_type, input.sport ?? null);
 
   // Count simultaneous live games for premium calculation
   const { count: liveGameCount } = await supabase
