@@ -13,6 +13,7 @@ const adminNavItems = [
   { href: "/admin/revenue", label: "Revenue" },
   { href: "/admin/fraud", label: "Fraud" },
   { href: "/admin/auction-engine", label: "Auction Engine" },
+  { href: "/admin/auction-engine/live", label: "Live Monitor" },
 ];
 
 export function AdminNav() {

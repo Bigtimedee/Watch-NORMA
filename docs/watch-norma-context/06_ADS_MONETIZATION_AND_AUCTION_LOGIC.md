@@ -160,6 +160,7 @@ The Next.js advertiser portal provides full self-service campaign management:
 - `/admin/revenue` — revenue dashboard, bucket analysis, lifetime value
 - `/admin/users` — user management
 - `/admin/auction-engine` — auction configuration (floor prices, multipliers)
+- `/admin/auction-engine/live` — **(P2-02) Live auction monitor**: rolling 5/15/60-min windows of moments fired by type, fill rate, avg/median clearing price, no-fill reason breakdown (filled/unfilled/ineligible). Updates via Supabase Realtime subscription on `intent_moments`. Aggregate only — no user identity. Implemented in `LiveAuctionDashboard` client component.
 - `/cmo` — social content calendar, approve/reject/publish posts
 
 **Campaign state machine:** draft → pending_review → active → paused/completed/archived. Activation requires sufficient wallet balance for remaining budget.
