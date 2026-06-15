@@ -1,4 +1,4 @@
-// Shared Kalshi RSA-PSS signing — deduplicated from kalshi-proxy and poll-markets
+// Shared Kalshi RSA-PSS signing + AES-GCM credential encryption
 
 /**
  * Wrap a PKCS#1 (RSA PRIVATE KEY) DER blob in a PKCS#8 envelope.
@@ -77,6 +77,52 @@ export async function importRsaPrivateKey(pemKey: string): Promise<CryptoKey> {
     ["sign"]
   );
 }
+
+// ─── AES-GCM encryption for at-rest credential storage ───────────────────────
+// Key is derived from KALSHI_ENCRYPTION_KEY (Supabase secret, never in DB).
+// Ciphertext format: base64(iv[12 bytes] || ciphertext)
+
+async function deriveAesKey(rawKey: string): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(rawKey).slice(0, 32), // 256-bit key
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: new TextEncoder().encode("kalshi-key-v1"), iterations: 1, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+export async function encryptPrivateKey(plaintext: string, encryptionKey: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveAesKey(encryptionKey);
+  const cipherBytes = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(plaintext)
+  );
+  const combined = new Uint8Array(12 + cipherBytes.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(cipherBytes), 12);
+  return btoa(String.fromCharCode(...combined));
+}
+
+export async function decryptPrivateKey(ciphertext: string, encryptionKey: string): Promise<string> {
+  const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const data = combined.slice(12);
+  const key = await deriveAesKey(encryptionKey);
+  const plainBytes = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+  return new TextDecoder().decode(plainBytes);
+}
+
+// ─── RSA-PSS signing ──────────────────────────────────────────────────────────
 
 export async function signKalshiRequest(
   privateKey: CryptoKey,

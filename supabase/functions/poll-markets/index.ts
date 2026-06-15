@@ -6,7 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { importRsaPrivateKey, signKalshiRequest } from "../_shared/kalshi-crypto.ts";
+import { importRsaPrivateKey, signKalshiRequest, decryptPrivateKey } from "../_shared/kalshi-crypto.ts";
 
 const KALSHI_API_BASE = "https://api.elections.kalshi.com";
 const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com";
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
     // Get all Kalshi connections
     const { data: kalshiConns } = await supabase
       .from("connections")
-      .select("user_id, metadata")
+      .select("user_id, metadata, private_key_enc")
       .eq("provider_key", "kalshi")
       .eq("connected", true);
 
@@ -271,16 +271,32 @@ Deno.serve(async (req) => {
     let positionsMatched = 0;
     let positionsUnmatched = 0;
 
+    const kalshiEncKey = Deno.env.get("KALSHI_ENCRYPTION_KEY");
+
     // Process Kalshi users (RSA-PSS API key auth)
     for (const conn of kalshiConns ?? []) {
       const meta = conn.metadata as {
         api_key_id?: string;
         private_key?: string;
       } | null;
-      if (!meta?.api_key_id || !meta?.private_key) continue;
+      if (!meta?.api_key_id) continue;
+
+      // Prefer encrypted column; fall back to legacy plaintext in metadata
+      let privateKeyPem: string | undefined;
+      if (conn.private_key_enc && kalshiEncKey) {
+        try {
+          privateKeyPem = await decryptPrivateKey(conn.private_key_enc, kalshiEncKey);
+        } catch {
+          console.warn(`Kalshi decrypt failed for user ${conn.user_id} — skipping`);
+          continue;
+        }
+      } else if (meta?.private_key) {
+        privateKeyPem = meta.private_key;
+      }
+      if (!privateKeyPem) continue;
 
       try {
-        const cryptoKey = await importRsaPrivateKey(meta.private_key);
+        const cryptoKey = await importRsaPrivateKey(privateKeyPem);
         const posPath = "/trade-api/v2/portfolio/positions";
         const ts = Date.now().toString();
         const sig = await signKalshiRequest(cryptoKey, ts, "GET", posPath);

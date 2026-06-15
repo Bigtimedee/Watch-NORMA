@@ -137,10 +137,11 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 
 - **Connection:** User provides API Key ID + RSA private key (.pem) via `KalshiWizard`
 - **Auth:** RSA-PSS signed requests (SHA-256) via `kalshi-crypto.ts`
+- **Credential encryption:** On connect, `kalshi-proxy` encrypts the RSA private key with AES-GCM (WebCrypto, 256-bit key) using `KALSHI_ENCRYPTION_KEY` (Supabase secret). Ciphertext (IV prepended, base64) is stored in `connections.private_key_enc` (migration 071). The API key ID is stored in `connections.metadata` (no private key plaintext in metadata for new connections). Legacy connections with `metadata.private_key` still work via a fallback read path — users are encouraged to reconnect to migrate.
 - **Proxy:** `kalshi-proxy` Edge Function whitelists read-only GET requests (balance, positions, markets, events). No trade execution is permitted.
 - **Position sync:** `poll-markets` fetches positions every 5 minutes, matches markets to games via team name extraction from market titles
 - **Settlement:** `resolve-predictions` settles positions when games close, using Kalshi public market API for outcomes, with fallback to score inference
-- **Storage:** `connections` table (encrypted credentials), `prediction_positions` table (positions with settlement status)
+- **Storage:** `connections` table (`private_key_enc` column for encrypted key; `metadata` for API key ID), `prediction_positions` table (positions with settlement status)
 
 ### Polymarket (Implemented)
 

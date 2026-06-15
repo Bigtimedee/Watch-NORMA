@@ -17,7 +17,7 @@ Core principles:
 |----------|---------------|-------------|
 | Connected streaming accounts | `connections` table (provider key, no credentials) | Low — just indicates "I use this service" |
 | Sportsbook connections | `connections` table (provider key, no credentials) | Low — same as streaming |
-| Kalshi API credentials | `connections.metadata` (API key ID + RSA private key) | **High** — enables read-only account access |
+| Kalshi API credentials | `connections.private_key_enc` (AES-GCM encrypted) + `connections.metadata` (API key ID only) | **High** — enables read-only account access |
 | Polymarket wallet address | `connections.metadata` (public address) | Medium — public on-chain but links to NORMA identity |
 | Notification history | `alerts`, `delivery_log` tables | Medium — reveals user interests and engagement |
 | Wager data | `wagers` table | **High** — reveals betting behavior, amounts, outcomes |
@@ -57,7 +57,7 @@ Core principles:
 - **`.env.example`:** Contains only placeholder values for the three client-side variables (Supabase URL, anon key, SportsDataIO key).
 - **`.gitignore`:** Excludes `.env`, `.env.local`, `.env.production`, and other sensitive files.
 - **CI/CD secrets:** `EXPO_TOKEN` is stored as a GitHub Actions secret for OTA updates.
-- **Kalshi credentials:** RSA private keys are stored in `connections.metadata`. RLS ensures only the owning user can access their own connection record. For future partner API integrations, the CLAUDE.md plan calls for `pgcrypto` column-level encryption.
+- **Kalshi credentials:** RSA private keys are encrypted with AES-GCM via WebCrypto in the Edge Function before storage. The ciphertext (IV prepended, base64-encoded) is stored in `connections.private_key_enc` (migration 071). The encryption key (`KALSHI_ENCRYPTION_KEY`) is stored as a Supabase secret and never written to the database. The API key ID (not the private key) is stored in `connections.metadata`. Legacy connections storing plaintext in `metadata.private_key` are still supported via a fallback path and should be migrated by reconnecting. 5 Deno tests in `_shared/kalshi-crypto_test.ts` verify roundtrip correctness, IV randomness, wrong-key rejection, and base64 output format.
 - **Stripe keys:** `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are Supabase secrets. The webhook handler verifies Stripe's signature before processing.
 - **Google service account:** `GOOGLE_SERVICE_ACCOUNT_JSON` is a Supabase secret used for Gmail API access (email wager ingestion).
 

@@ -6,7 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { importRsaPrivateKey, signKalshiRequest } from "../_shared/kalshi-crypto.ts";
+import { importRsaPrivateKey, signKalshiRequest, encryptPrivateKey, decryptPrivateKey } from "../_shared/kalshi-crypto.ts";
 
 const KALSHI_API_BASE = "https://api.elections.kalshi.com";
 
@@ -92,7 +92,10 @@ Deno.serve(async (req) => {
         return json({ error: "Invalid Kalshi credentials — please check your API Key ID and Private Key" }, 401);
       }
 
-      // Credentials work — store them
+      // Credentials work — store them (private key encrypted at rest)
+      const encKey = Deno.env.get("KALSHI_ENCRYPTION_KEY");
+      const encryptedKey = encKey ? await encryptPrivateKey(privateKey, encKey) : null;
+
       const { error: upsertError } = await supabase.from("connections").upsert(
         {
           user_id: user.id,
@@ -100,7 +103,8 @@ Deno.serve(async (req) => {
           provider_key: "kalshi",
           provider_name: "Kalshi",
           connected: true,
-          metadata: { api_key_id: apiKeyId, private_key: privateKey },
+          metadata: { api_key_id: apiKeyId },
+          private_key_enc: encryptedKey,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id,provider_type,provider_key" }
@@ -127,25 +131,33 @@ Deno.serve(async (req) => {
       // Get stored connection
       const { data: connection } = await supabase
         .from("connections")
-        .select("metadata")
+        .select("metadata, private_key_enc")
         .eq("user_id", user.id)
         .eq("provider_key", "kalshi")
         .eq("connected", true)
         .single();
 
-      if (!connection?.metadata) {
+      if (!connection) {
         return json({ error: "No Kalshi connection found" }, 400);
       }
 
-      const meta = connection.metadata as {
-        api_key_id?: string;
-        private_key?: string;
-      };
-      if (!meta.api_key_id || !meta.private_key) {
+      const meta = (connection.metadata ?? {}) as { api_key_id?: string; private_key?: string };
+      if (!meta.api_key_id) {
         return json({ error: "Incomplete Kalshi credentials — please reconnect" }, 400);
       }
 
-      const cryptoKey = await importRsaPrivateKey(meta.private_key);
+      // Prefer encrypted column; fall back to legacy plaintext in metadata
+      let privateKeyPem: string;
+      const encKey = Deno.env.get("KALSHI_ENCRYPTION_KEY");
+      if (connection.private_key_enc && encKey) {
+        privateKeyPem = await decryptPrivateKey(connection.private_key_enc, encKey);
+      } else if (meta.private_key) {
+        privateKeyPem = meta.private_key;
+      } else {
+        return json({ error: "Incomplete Kalshi credentials — please reconnect" }, 400);
+      }
+
+      const cryptoKey = await importRsaPrivateKey(privateKeyPem);
       const timestamp = Date.now().toString();
       const signature = await signKalshiRequest(
         cryptoKey,
