@@ -138,9 +138,10 @@ export function AlertCard({ alert }: AlertCardProps) {
             </View>
           ) : null}
 
-          {/* Sponsor row */}
+          {/* Sponsor row — paid placement, visually separated from editorial alert copy */}
           {alert.sponsor_text && (
             <View style={s.sponsorRow}>
+              <Text style={s.sponsoredLabel}>Sponsored</Text>
               {alert.sponsor_logo_url && (
                 <Image
                   source={{ uri: alert.sponsor_logo_url }}
@@ -275,6 +276,14 @@ const s = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: "rgba(100, 116, 139, 0.3)",
+  },
+  sponsoredLabel: {
+    color: "#64748b",
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginRight: 6,
   },
   sponsorLogo: {
     width: 20,
