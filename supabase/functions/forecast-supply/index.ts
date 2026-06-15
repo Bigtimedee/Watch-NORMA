@@ -1,6 +1,8 @@
-// forecast-supply: Generate 7-day supply forecasts
+// forecast-supply: Generate 7-day supply forecasts (P2-04 enhanced)
 // Trigger: Cron daily at 2 AM
-// Predicts available moment inventory from scheduled games + historical rates
+// Predicts available moment inventory from scheduled games + historical rates.
+// Uses intent_moments history where available; degrades gracefully to hardcoded
+// fallbacks with a wide uncertainty band for sports with insufficient history.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -42,7 +44,6 @@ async function getMomentRates(
           blended[row.moment_type] =
             row.observed_rate * confidence + hardcoded * (1 - confidence);
         } else {
-          // New moment type learned from data — use directly
           blended[row.moment_type] = row.observed_rate;
         }
       }
@@ -52,6 +53,75 @@ async function getMomentRates(
   }
 
   return blended;
+}
+
+// P2-04: Compute moment rates from intent_moments historical data.
+// Returns rates with 80% confidence bands (Wald interval).
+// Returns null if sport has insufficient history (< MIN_SAMPLE_GAMES).
+const MIN_SAMPLE_GAMES = 10;
+
+interface HistoricalRate {
+  mean: number;
+  low: number;
+  high: number;
+  sample_games: number;
+}
+
+export async function getIntentMomentRates(
+  supabase: ReturnType<typeof createClient>,
+  sport: string,
+  windowDays = 30,
+): Promise<{ rates: Record<string, HistoricalRate>; basis: string } | null> {
+  const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const { data: moments } = await supabase
+      .from("intent_moments")
+      .select("game_id, moment_type")
+      .eq("sport", sport)
+      .gte("fired_at", cutoff);
+
+    if (!moments || moments.length === 0) {
+      return null;
+    }
+
+    // Count unique games and whether each moment_type fired per game
+    const gameMoments = new Map<string, Set<string>>();
+    for (const m of moments as Array<{ game_id: string; moment_type: string }>) {
+      if (!gameMoments.has(m.game_id)) gameMoments.set(m.game_id, new Set());
+      gameMoments.get(m.game_id)!.add(m.moment_type);
+    }
+
+    const sampleGames = gameMoments.size;
+    if (sampleGames < MIN_SAMPLE_GAMES) {
+      return null; // Caller should use hardcoded fallback and wide band
+    }
+
+    // Fire rate per moment_type = games where type fired / total games
+    const typeFireCount = new Map<string, number>();
+    for (const [, typesSet] of gameMoments) {
+      for (const t of typesSet) {
+        typeFireCount.set(t, (typeFireCount.get(t) ?? 0) + 1);
+      }
+    }
+
+    const rates: Record<string, HistoricalRate> = {};
+    for (const [type, count] of typeFireCount) {
+      const mean = count / sampleGames;
+      // Wald 80% CI: p ± 1.282 * sqrt(p*(1-p)/n)
+      const se = Math.sqrt(mean * (1 - mean) / sampleGames);
+      rates[type] = {
+        mean,
+        low: Math.max(0, mean - 1.282 * se),
+        high: Math.min(1, mean + 1.282 * se),
+        sample_games: sampleGames,
+      };
+    }
+
+    return { rates, basis: `${sampleGames} games (last ${windowDays} days from intent_moments)` };
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -73,6 +143,9 @@ Deno.serve(async (req) => {
       predicted_eligible_users: number;
       confidence: number;
       games_scheduled: number;
+      predicted_moments_low: number | null;
+      predicted_moments_high: number | null;
+      basis_note: string;
     }> = [];
 
     // Get average eligible users per game from recent data
@@ -103,42 +176,98 @@ Deno.serve(async (req) => {
     // Fetch learned moment rates (blended with hardcoded fallbacks)
     const learnedRates = await getMomentRates(supabase);
 
+    // P2-04: Fetch historical rates from intent_moments per sport
+    // Sports supported for forecasting
+    const FORECAST_SPORTS = [
+      { sport: "ncaam", league: "ncaa_basketball" },
+      { sport: "nba", league: "nba" },
+      { sport: "mlb", league: "mlb" },
+      { sport: "ncaaf", league: "ncaaf" },
+      { sport: "nfl", league: "nfl" },
+    ];
+
+    const intentRatesBySport = new Map<string, Awaited<ReturnType<typeof getIntentMomentRates>>>();
+    for (const { sport } of FORECAST_SPORTS) {
+      intentRatesBySport.set(sport, await getIntentMomentRates(supabase, sport));
+    }
+
     // Generate forecasts for next 7 days
     for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
       const forecastDate = new Date();
       forecastDate.setDate(forecastDate.getDate() + dayOffset);
       const dateStr = forecastDate.toISOString().split("T")[0];
 
-      // Count scheduled games for this date
       const dayStart = new Date(dateStr + "T00:00:00Z");
       const dayEnd = new Date(dateStr + "T23:59:59Z");
-
-      const { count: gamesScheduled } = await supabase
-        .from("games")
-        .select("*", { count: "exact", head: true })
-        .gte("scheduled_at", dayStart.toISOString())
-        .lte("scheduled_at", dayEnd.toISOString())
-        .in("status", ["scheduled", "inprogress", "halftime"]);
-
-      const gameCount = gamesScheduled ?? 0;
 
       // Confidence decreases for further-out days
       const dayConfidence = baseConfidence * (1 - dayOffset * 0.05);
 
-      // Generate forecast for each moment type (using learned rates)
-      for (const [momentType, rate] of Object.entries(learnedRates)) {
-        const predictedMoments = Math.round(gameCount * rate);
-        const predictedUsers = Math.round(predictedMoments * avgUsersPerGame);
+      for (const { sport, league } of FORECAST_SPORTS) {
+        // Count scheduled games for this sport + date
+        const { count: gamesScheduled } = await supabase
+          .from("games")
+          .select("*", { count: "exact", head: true })
+          .gte("scheduled_at", dayStart.toISOString())
+          .lte("scheduled_at", dayEnd.toISOString())
+          .in("status", ["scheduled", "inprogress", "halftime"])
+          .eq("sport", sport);
 
-        forecasts.push({
-          forecast_date: dateStr,
-          moment_type: momentType,
-          league: "ncaa_basketball",
-          predicted_moments: predictedMoments,
-          predicted_eligible_users: predictedUsers,
-          confidence: Math.max(0.1, dayConfidence),
-          games_scheduled: gameCount,
-        });
+        const gameCount = gamesScheduled ?? 0;
+
+        const intentHistory = intentRatesBySport.get(sport);
+
+        // Determine moment types to forecast for this sport
+        const momentTypesToForecast: string[] =
+          intentHistory
+            ? Object.keys(intentHistory.rates)
+            : Object.keys(learnedRates);
+
+        for (const momentType of momentTypesToForecast) {
+          let predicted: number;
+          let low: number | null = null;
+          let high: number | null = null;
+          let basisNote: string;
+          let confidence: number;
+
+          if (intentHistory && intentHistory.rates[momentType]) {
+            // Use observed rates from intent_moments history
+            const r = intentHistory.rates[momentType];
+            predicted = Math.round(gameCount * r.mean);
+            low = Math.round(gameCount * r.low);
+            high = Math.round(gameCount * r.high);
+            basisNote = intentHistory.basis;
+            confidence = Math.min(r.sample_games / 50, 0.95) * (1 - dayOffset * 0.04);
+          } else if (intentHistory === null) {
+            // Insufficient history for this sport — use hardcoded with wide band
+            const rate = learnedRates[momentType] ?? 0.3;
+            predicted = Math.round(gameCount * rate);
+            // Wide band: ±50% to signal high uncertainty
+            low = Math.round(predicted * 0.5);
+            high = Math.round(predicted * 1.5);
+            basisNote = `Statistical projection (insufficient history — <${MIN_SAMPLE_GAMES} comparable games)`;
+            confidence = Math.max(0.1, dayConfidence * 0.5); // lower confidence
+          } else {
+            // momentType not in intent_moments history for this sport — use learned rate
+            const rate = learnedRates[momentType] ?? 0;
+            predicted = Math.round(gameCount * rate);
+            basisNote = intentHistory?.basis ?? "Statistical projection";
+            confidence = Math.max(0.1, dayConfidence);
+          }
+
+          forecasts.push({
+            forecast_date: dateStr,
+            moment_type: momentType,
+            league,
+            predicted_moments: predicted,
+            predicted_eligible_users: Math.round(predicted * avgUsersPerGame),
+            confidence: Math.max(0.05, confidence),
+            games_scheduled: gameCount,
+            predicted_moments_low: low,
+            predicted_moments_high: high,
+            basis_note: basisNote,
+          });
+        }
       }
     }
 

@@ -128,14 +128,16 @@ The `intent_moments` table feeds:
 - Live auction dashboard (P2-02): real-time moment stream
 - Programmatic Intent API (P2-09): inventory queries
 
-## Supply Forecasting
+## Supply Forecasting (P2-04)
 
 The `forecast-supply` Edge Function runs daily at 2 AM and generates 7-day supply forecasts:
 
-- Uses learned moment rates (historical alerts per game per moment type), blended with hardcoded fallbacks.
-- `predicted_moments = games_scheduled × moment_rate`
-- `eligible_users = predicted_moments × avg_users_per_game`
-- Stored in `supply_forecasts` table. Available to advertisers via the reporting API and the `/inventory` page.
+- Primary source: `intent_moments` historical data per sport (last 30 days). When ≥10 comparable games exist, computes observed fire rates + 80% Wald confidence interval (p ± 1.282 × √(p(1−p)/n)).
+- Fallback: blended learned rates (from `learned_moment_rates` table) + hardcoded defaults. Used when a sport has <10 historical games; applies ±50% wide band and labels the forecast "Statistical projection (insufficient history)".
+- `predicted_moments = games_scheduled × moment_rate`; `eligible_users = predicted_moments × avg_users_per_game`.
+- Stored in `supply_forecasts` table with columns `predicted_moments_low`, `predicted_moments_high` (80% CI bounds) and `basis_note` (human-readable data source description added by migration 075).
+- The `/inventory` page surfaces the point estimate, CI band (e.g. "12–18"), and color-codes insufficient-history rows as "Projection" (yellow) vs. data-based rows (green/yellow/red availability). A per-sport basis legend shows the sample size and window.
+- Aggregate only — no user-level data exposed to advertisers.
 
 ## Advertiser Portal (web/)
 

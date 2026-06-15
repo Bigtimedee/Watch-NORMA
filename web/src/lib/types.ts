@@ -147,6 +147,9 @@ export interface SupplyForecast {
   predicted_eligible_users: number;
   confidence: number;
   games_scheduled: number;
+  predicted_moments_low: number | null;
+  predicted_moments_high: number | null;
+  basis_note: string | null;
 }
 
 export interface CampaignMetrics {
