@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +20,7 @@ import {
 import { useTapToStream } from "../lib/tap-to-stream-context";
 import { LIVE_STATUSES } from "../lib/constants";
 import { SponsorCTAButton } from "./SponsorCTAButton";
+import { useSubmitAlertFeedback } from "../hooks/useAlertFeedback";
 
 interface AlertCardProps {
   alert: Alert;
@@ -27,6 +29,8 @@ interface AlertCardProps {
 export function AlertCard({ alert }: AlertCardProps) {
   const router = useRouter();
   const markRead = useMarkAlertRead();
+  const [localRating, setLocalRating] = useState<"up" | "down" | null>(null);
+  const submitFeedback = useSubmitAlertFeedback();
   const color = alertTypeColor(alert.alert_type);
   const icon = alertTypeIcon(alert.alert_type);
   const urgent = isUrgent(alert.alert_type);
@@ -57,6 +61,14 @@ export function AlertCard({ alert }: AlertCardProps) {
       markRead.mutate(alert.id);
     }
     triggerStream(bestProvider);
+  };
+
+  const handleFeedback = (rating: "up" | "down") => {
+    const next = localRating === rating ? null : rating;
+    setLocalRating(next);
+    if (next !== null) {
+      submitFeedback.mutate({ alertId: alert.id, rating: next });
+    }
   };
 
   return (
@@ -158,6 +170,35 @@ export function AlertCard({ alert }: AlertCardProps) {
               />
             )}
           </View>
+
+          {/* Feedback — visually subordinate; data feeds future scoring tuning */}
+          <View style={s.feedbackRow}>
+            <Text style={s.feedbackLabel}>Useful?</Text>
+            <Pressable
+              onPress={() => handleFeedback("up")}
+              accessibilityLabel="Alert was useful"
+              testID="feedback-btn-up"
+              style={s.feedbackBtn}
+            >
+              <Ionicons
+                name={localRating === "up" ? "thumbs-up" : "thumbs-up-outline"}
+                size={14}
+                color={localRating === "up" ? "#22c55e" : "#475569"}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => handleFeedback("down")}
+              accessibilityLabel="Alert was not useful"
+              testID="feedback-btn-down"
+              style={s.feedbackBtn}
+            >
+              <Ionicons
+                name={localRating === "down" ? "thumbs-down" : "thumbs-down-outline"}
+                size={14}
+                color={localRating === "down" ? "#f97316" : "#475569"}
+              />
+            </Pressable>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -252,6 +293,20 @@ const s = StyleSheet.create({
     gap: 8,
     marginTop: 10,
     flexWrap: "wrap",
+  },
+  feedbackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 6,
+  },
+  feedbackLabel: {
+    color: "#475569",
+    fontSize: 11,
+    marginRight: 2,
+  },
+  feedbackBtn: {
+    padding: 4,
   },
   sportBadge: {
     backgroundColor: "#1e40af",

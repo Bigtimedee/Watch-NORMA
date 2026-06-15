@@ -76,35 +76,35 @@ beforeEach(() => {
 });
 
 it("renders thumbs-up and thumbs-down feedback buttons", () => {
-  const { getByLabelText } = render(<AlertCard alert={ALERT} />);
-  expect(getByLabelText("Alert was useful")).toBeTruthy();
-  expect(getByLabelText("Alert was not useful")).toBeTruthy();
+  const { getByTestId } = render(<AlertCard alert={ALERT} />);
+  expect(getByTestId("feedback-btn-up")).toBeTruthy();
+  expect(getByTestId("feedback-btn-down")).toBeTruthy();
 });
 
 it("pressing thumbs-up calls mutate with rating=up", () => {
-  const { getByLabelText } = render(<AlertCard alert={ALERT} />);
-  fireEvent.press(getByLabelText("Alert was useful"));
+  const { getByTestId } = render(<AlertCard alert={ALERT} />);
+  fireEvent.press(getByTestId("feedback-btn-up"));
   expect(mockMutate).toHaveBeenCalledWith({ alertId: 100, rating: "up" });
 });
 
 it("pressing thumbs-down calls mutate with rating=down", () => {
-  const { getByLabelText } = render(<AlertCard alert={ALERT} />);
-  fireEvent.press(getByLabelText("Alert was not useful"));
+  const { getByTestId } = render(<AlertCard alert={ALERT} />);
+  fireEvent.press(getByTestId("feedback-btn-down"));
   expect(mockMutate).toHaveBeenCalledWith({ alertId: 100, rating: "down" });
 });
 
 it("pressing the active rating again deselects it without re-mutating", () => {
-  const { getByLabelText } = render(<AlertCard alert={ALERT} />);
-  fireEvent.press(getByLabelText("Alert was useful")); // select up
+  const { getByTestId } = render(<AlertCard alert={ALERT} />);
+  fireEvent.press(getByTestId("feedback-btn-up")); // select up
   expect(mockMutate).toHaveBeenCalledTimes(1);
-  fireEvent.press(getByLabelText("Alert was useful")); // deselect — no mutate
+  fireEvent.press(getByTestId("feedback-btn-up")); // deselect — no mutate
   expect(mockMutate).toHaveBeenCalledTimes(1);
 });
 
 it("switching from up to down fires mutate with down", () => {
-  const { getByLabelText } = render(<AlertCard alert={ALERT} />);
-  fireEvent.press(getByLabelText("Alert was useful"));   // up
-  fireEvent.press(getByLabelText("Alert was not useful")); // down
+  const { getByTestId } = render(<AlertCard alert={ALERT} />);
+  fireEvent.press(getByTestId("feedback-btn-up"));   // up
+  fireEvent.press(getByTestId("feedback-btn-down")); // down
   expect(mockMutate).toHaveBeenNthCalledWith(1, { alertId: 100, rating: "up" });
   expect(mockMutate).toHaveBeenNthCalledWith(2, { alertId: 100, rating: "down" });
 });
