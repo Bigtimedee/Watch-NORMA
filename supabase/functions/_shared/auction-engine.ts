@@ -59,6 +59,8 @@ interface EligibleBid {
   creative_sponsor_text: string;
   creative_cta_url: string | null;
   creative_logo_url: string | null;
+  demand_type?: string | null;
+  brand_safety_approved?: boolean;
 }
 
 // --- Constants ---
@@ -156,8 +158,22 @@ export async function runAuction(
     return null;
   }
 
+  // 5c. Brand-safety filter: streaming/commerce campaigns require brand_safety_status='approved'.
+  //     Sportsbook campaigns pass (covered by existing geo-compliance + campaign approval).
+  //     This is an eligibility gate only — clearing logic is unchanged.
+  const brandSafeFilteredBids = geoFilteredBids.filter((bid) => {
+    // sportsbook demand passes (existing geo-compliance covers it)
+    if (!bid.demand_type || bid.demand_type === "sportsbook") return true;
+    // streaming/commerce must have brand_safety_status = 'approved'
+    return bid.brand_safety_approved === true;
+  });
+
+  if (brandSafeFilteredBids.length === 0) {
+    return null;
+  }
+
   // 6. Check for direct deals (priority_tier > 0)
-  const directDeals = geoFilteredBids
+  const directDeals = brandSafeFilteredBids
     .filter((b) => b.priority_tier > 0)
     .sort((a, b) => b.priority_tier - a.priority_tier);
 
@@ -177,7 +193,7 @@ export async function runAuction(
   }
 
   // 7. Filter by floor price
-  const aboveFloor = geoFilteredBids.filter((b) => b.bid_cents >= effectiveFloor);
+  const aboveFloor = brandSafeFilteredBids.filter((b) => b.bid_cents >= effectiveFloor);
   if (aboveFloor.length === 0) {
     return null;
   }
@@ -311,6 +327,8 @@ async function queryEligibleBids(
         approval_status,
         category_exclusivity,
         priority_tier,
+        demand_type,
+        brand_safety_status,
         advertisers!inner (
           id,
           category,
@@ -384,6 +402,8 @@ async function queryEligibleBids(
       creative_sponsor_text: row.creatives.sponsor_text,
       creative_cta_url: row.creatives.cta_url,
       creative_logo_url: row.creatives.logo_url,
+      demand_type: row.campaigns.demand_type ?? null,
+      brand_safety_approved: row.campaigns.brand_safety_status === "approved",
     }));
 }
 

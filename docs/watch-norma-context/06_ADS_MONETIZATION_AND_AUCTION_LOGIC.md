@@ -270,10 +270,59 @@ Both files must remain in sync. `supabase/functions/_shared/geo-compliance_test.
 
 The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` renders disabled with "Not available in your region" when the user's derived state is not in the sportsbook's allowed list. Optimistic-renders as enabled while the check loads to avoid blocking UX.
 
+## Post-Outcome Commerce Moment (P2-07)
+
+A `post_outcome` intent moment is written once per closed game with a decisive winner (non-tied score). It fires AFTER all push notifications are dispatched — never alters live alert behavior or delivery latency (rule #11).
+
+**Qualifying conditions:** `gameState.status === "closed"` AND `home_score !== away_score`.
+
+**Qualifier flags** stored in `game_context`: `is_upset` (margin ≤ 5), `is_blowout` (margin > 20), `is_overtime` (period > 4 for basketball).
+
+**Dedup key:** `{game_id}:post_outcome:final:0` — guarantees at most one row per game.
+
+**Auction eligibility:** eligible for `commerce` demand campaigns. With no live commerce demand, the row records `auction_outcome: "unfilled"` — never a fabricated fill.
+
+**Attribution:** `commerce_open` is inferred (same honest labeling as `sportsbook_open`). No merchant callback exists. Never implies verified purchase.
+
+## Partner-API Readiness Scaffold (P2-08)
+
+**Status: Interface defined. No live partners. Requires BD agreement to activate.**
+
+Migration 078 adds `verification_source TEXT NOT NULL DEFAULT 'inferred'` to `conversions`. Only `'partner_api'` is the other allowed value, and it can only be set when a real signed partner callback arrives via a live `ConversionIngestor` adapter.
+
+`_shared/conversion-ingestor.ts` defines the `ConversionIngestor` interface + disabled stub adapters for DraftKings, FanDuel, and Fanatics. All stubs return `{ accepted: false, reason: "not_live" }` — no conversion can be marked verified without a live adapter.
+
+**Auth model (defined, not live):** HMAC-SHA256 signed callbacks; replay window 300s; secrets stored as Supabase secrets, never in the DB, never logged.
+
+## Programmatic Intent API (P2-09)
+
+**Status: Scaffolded. Gated by `INTENT_API_ENABLED` Supabase secret (default off).**
+
+Migration 079 creates the `api_keys` table: SHA-256 hash storage (raw key never stored), per-advertiser scoping, rate limit per key (default 50 req/min), revocation via `is_active=false`.
+
+Edge function `intent-api` implements:
+- `GET /inventory` — returns next-7-day supply forecasts joined with floor prices. Aggregate-only, no user data.
+- `POST /bid` — validates campaign ownership, floor price, and 500c cap; upserts into the existing `bids` table. Programmatic bids enter the unchanged second-price Vickrey auction identically to manual bids.
+
+Contact bd@norma-app.com to activate for production. Until then, every request returns 503.
+
+## Brand Safety & Editorial Separation (P2-10)
+
+Migration 080 adds:
+- `brand_safety_status TEXT` on `campaigns` (pending | approved | flagged). Streaming and commerce campaigns require `approved` before entering the auction.
+- `editorial_separation_ack BOOLEAN` on `creatives` — advertiser acknowledges the "Sponsored" label requirement.
+
+**Auction step 5c:** After geo-filter, streaming/commerce bids are filtered out unless `brand_safety_status = 'approved'`. Sportsbook bids pass (covered by geo-compliance). Clearing logic unchanged.
+
+**Ad labeling:** Every paid CTA is labeled "Sponsored" — visually distinct from NORMA's editorial "why now" copy. The auction winner's sponsor_text appears as a clearly labeled addition. Alert relevance is never influenced by which campaigns are in the auction.
+
+**Admin:** `/admin/campaigns` shows a Brand Safety badge per campaign (pending/approved/flagged).
+
 ## Compliance and Risk
 
 - **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is enforced at both the auction level and at the `BetNowButton` CTA level (see Geo-Compliance section above). Both enforcement points use the same `inferStateFromTimezone` logic.
 - **Age gating.** The App Store requires apps with gambling-adjacent content to have age restrictions. The app's rating and content descriptors must accurately reflect the presence of sportsbook CTAs.
 - **Do not personalize sensitive betting offers unless legally permitted.** The ad personalization toggle gives users control. When off, behavioral signals are excluded.
-- **Separate editorial relevance from paid placement.** Alert explanations are generated independently of the ad auction. The sponsor appears as a clearly labeled addition, not as part of the alert content.
+- **Separate editorial relevance from paid placement.** Alert explanations are generated independently of the ad auction. The sponsor appears as a clearly labeled addition ("Sponsored"), never as part of the alert content. This is enforced by `editorial_separation_ack` on creatives.
 - **Frequency cap aggressively.** Max 3 ads per user per day, with fatigue model suppression at 6+ sponsored alerts in 24 hours. This is a trust-preservation mechanism.
+- **No verified conversion claims without partner API.** All `sportsbook_open`, `stream_open`, `commerce_open`, and `wager_placed` conversions are labeled `inferred`. `verification_source = 'partner_api'` requires a live signed server-to-server callback. No live partners exist as of 2026.

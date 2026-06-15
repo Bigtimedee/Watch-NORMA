@@ -28,13 +28,37 @@ function ApprovalBadge({ status }: { status: CampaignApprovalStatus }) {
   );
 }
 
+type BrandSafetyStatus = "pending" | "approved" | "flagged";
+
+const BRAND_SAFETY_STYLES: Record<BrandSafetyStatus, string> = {
+  pending: "bg-yellow-900/50 text-yellow-400",
+  approved: "bg-green-900/50 text-green-400",
+  flagged: "bg-red-900/50 text-red-400",
+};
+
+const BRAND_SAFETY_LABELS: Record<BrandSafetyStatus, string> = {
+  pending: "Pending review",
+  approved: "Approved",
+  flagged: "Flagged",
+};
+
+function BrandSafetyBadge({ status }: { status: BrandSafetyStatus }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${BRAND_SAFETY_STYLES[status]}`}
+    >
+      {BRAND_SAFETY_LABELS[status]}
+    </span>
+  );
+}
+
 export default async function AdminCampaignsPage() {
   const { supabase } = await requireAdmin();
 
   const { data: campaigns } = await supabase
     .from("campaigns")
     .select(
-      "id, advertiser_id, name, status, approval_status, approval_note, budget_cents, spent_cents, created_at"
+      "id, advertiser_id, name, status, approval_status, approval_note, budget_cents, spent_cents, brand_safety_status, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -107,6 +131,9 @@ export default async function AdminCampaignsPage() {
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-400">
                 Approval
               </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-400">
+                Brand Safety
+              </th>
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-slate-400">
                 Budget
               </th>
@@ -141,6 +168,11 @@ export default async function AdminCampaignsPage() {
                     </p>
                   )}
                 </td>
+                <td className="px-6 py-4">
+                  <BrandSafetyBadge
+                    status={(c.brand_safety_status ?? "pending") as BrandSafetyStatus}
+                  />
+                </td>
                 <td className="px-6 py-4 text-right text-slate-300">
                   {formatCents(c.budget_cents)}
                 </td>
@@ -163,7 +195,7 @@ export default async function AdminCampaignsPage() {
             {sortedCampaigns.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="px-6 py-8 text-center text-slate-500"
                 >
                   No campaigns found.

@@ -700,6 +700,60 @@ Deno.serve(async (req) => {
       }
     }
 
+    // P2-07: Post-outcome commerce moment — written once per closed game with a winner.
+    // Observational only; does not affect alert delivery. Commerce demand eligible.
+    if (gameState.status === "closed" &&
+        gameState.home_score !== gameState.away_score) {
+      const sport = (game as any).sport ?? "ncaam";
+      const margin = Math.abs(gameState.home_score - gameState.away_score);
+      const postOutcomeDedupKey = `${gameId}:post_outcome:final:0`;
+      const isUpset = margin <= 5;
+      const isBlowout = margin > 20;
+      const isOT = (gameState.period ?? 0) > 4;
+      const intentScore = computeIntentScore(75, {
+        is_overtime: isOT,
+        is_final_two: false,
+        is_close_game: margin <= 6,
+        is_final_minutes: false,
+      });
+      try {
+        await supabase.from("intent_moments").upsert({
+          game_id: gameId,
+          sport,
+          moment_type: "post_outcome",
+          dedup_key: postOutcomeDedupKey,
+          fired_at: new Date().toISOString(),
+          intent_score: intentScore,
+          eligible_user_count: enabledUserIds.size,
+          game_context: {
+            home_score: gameState.home_score,
+            away_score: gameState.away_score,
+            margin,
+            period: gameState.period,
+            status: gameState.status,
+            is_upset: isUpset,
+            is_blowout: isBlowout,
+            is_overtime: isOT,
+          },
+          signals_snapshot: {
+            margin,
+            period: gameState.period,
+            status: gameState.status,
+            post_outcome: true,
+          },
+          auction_outcome: "unfilled",
+          clearing_price_cents: null,
+        }, { onConflict: "dedup_key" });
+      } catch (e) {
+        console.warn(JSON.stringify({
+          function: "evaluate-alerts",
+          event: "post_outcome_write_error",
+          gameId,
+          error: (e as Error).message,
+        }));
+      }
+    }
+
     const result = {
       success: true,
       usersEvaluated: enabledUserIds.size,
