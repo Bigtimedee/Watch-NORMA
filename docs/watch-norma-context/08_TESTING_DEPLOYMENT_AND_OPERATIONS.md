@@ -251,6 +251,8 @@ All Edge Functions log structured JSON with consistent fields:
 | Provider degraded/critical | `deep-link-health-check` | Provider deep links failing |
 | Sportradar rate budget low | `game-watcher-orchestrator` | May need to reduce polling |
 | Watcher stale (> 5 min overdue) | `health-check` | Orchestrator may be stuck |
+| ESPN score source failover | `poll-boxscore` (event: failover) | ESPN unavailable; using SportsDataIO |
+| ESPN degraded | `health-check` (espn_failover.espn_degraded) | SportsDataIO-only snapshots in last 5 min |
 | Auction won / no fill | `evaluate-alerts` | Ad revenue health |
 | Fraud detected | `ad-fraud-check` | Campaign may need review |
 | Push delivery failed | `send-push` / `delivery_log` | Token may be stale |

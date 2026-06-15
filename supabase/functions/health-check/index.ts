@@ -98,6 +98,21 @@ Deno.serve(async (req) => {
       sportradar_budget_remaining: Math.max(0, 25 - (rateRow?.calls_made ?? 0)),
     };
 
+    // --- ESPN Failover State (last 5 min) ---
+    // Counts score snapshots where poll-boxscore fell back to SportsDataIO-only.
+    // A non-zero count means ESPN was unavailable for at least one game recently.
+    const { count: espnFailoverCount } = await supabase
+      .from("game_snapshots")
+      .select("*", { count: "exact", head: true })
+      .eq("snapshot_type", "scores")
+      .contains("payload", { source: "sdio_only" })
+      .gte("created_at", fiveMinAgo);
+
+    const espnFailover = {
+      sdio_only_snapshots_5min: espnFailoverCount ?? 0,
+      espn_degraded: (espnFailoverCount ?? 0) > 0,
+    };
+
     const durationMs = Date.now() - startMs;
 
     const result = {
@@ -108,6 +123,7 @@ Deno.serve(async (req) => {
       watchers: watcherSummary,
       alert_pipeline: alertPipeline,
       rate_budget: rateBudget,
+      espn_failover: espnFailover,
     };
 
     console.log(JSON.stringify({
@@ -119,6 +135,8 @@ Deno.serve(async (req) => {
       alerts_generated_last_hour: alertPipeline.last_hour.generated,
       alerts_delivered_last_hour: alertPipeline.last_hour.delivered,
       sportradar_calls_this_minute: rateBudget.sportradar_calls_this_minute,
+      espn_degraded: espnFailover.espn_degraded,
+      espn_failover_snapshots_5min: espnFailover.sdio_only_snapshots_5min,
       duration_ms: durationMs,
       timestamp: nowIso,
     }));

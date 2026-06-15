@@ -28,6 +28,10 @@ interface HealthCheckResult {
       failed: number;
     };
   };
+  espn_failover?: {
+    espn_degraded: boolean;
+    sdio_only_snapshots_5min: number;
+  };
 }
 
 interface DeepLinkHealthResult {
@@ -94,6 +98,15 @@ function buildAlerts(hc: HealthCheckResult, dlhc: DeepLinkHealthResult): AlertPa
         body: `${hc.alert_pipeline.last_hour.failed} of ${totalDelivery} alert deliveries failed in the last hour.`,
       });
     }
+  }
+
+  if (hc.espn_failover?.espn_degraded) {
+    alerts.push({
+      fingerprint: "espn_score_source_failover",
+      severity: "warning",
+      title: `ESPN score source degraded — using SportsDataIO failover`,
+      body: `poll-boxscore fell back to SportsDataIO-only for ${hc.espn_failover.sdio_only_snapshots_5min} snapshot(s) in the last 5 minutes. ESPN may be unavailable.`,
+    });
   }
 
   if (dlhc.status === "critical" || dlhc.no_fallback_events_1h > 0) {

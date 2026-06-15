@@ -69,6 +69,19 @@ The `lib/deep-links.ts` module implements the 3-step fallback chain:
 
 Success/failure and method used are logged to `deep_link_events` table for monitoring.
 
+### ESPN → SportsDataIO Automatic Failover (P1-06)
+
+`poll-boxscore` now makes failover **explicit and automatic**. For each poll:
+
+1. ESPN is tried first. If the API request fails (non-2xx, timeout, network error), `fetchFailed=true` is returned and a structured `event: "espn_unavailable"` log is emitted.
+2. Per game, source selection is tracked: `"espn+sdio"` (both available), `"espn_only"`, or `"sdio_only"` (failover).
+3. When a game falls back to SportsDataIO-only, a structured `event: "failover"` log is emitted with `reason: "espn_api_down"` or `"no_espn_match"`.
+4. The `source` field in `game_snapshots.payload` accurately reflects which data source was used.
+5. `health-check` surfaces `espn_failover.espn_degraded = true` when any `sdio_only` snapshot was created in the last 5 minutes.
+6. `monitor-health` pages Slack when `espn_degraded` is true (fingerprint: `espn_score_source_failover`).
+
+**Non-negotiable preserved:** ESPN `status.type.description` is still used (never `status.type.name`). When both sources fail, no score is fabricated — the game record is not updated.
+
 ### Proactive Universal-Link Verification (P1-05)
 
 `verify-provider-links` is a separate Edge Function (not part of `deep-link-health-check`) that proactively tests each `streaming`/`tv` provider's `universal_link` every 6 hours (pg_cron, migration 069). It does not modify routing behavior — detection only.

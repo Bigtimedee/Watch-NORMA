@@ -80,17 +80,32 @@ function parseMLBClockAndPeriod(status: any): { clock: string | null; period: nu
   return { clock, period: inning };
 }
 
-/** Fetch all scores from ESPN for a given Eastern date and sport */
-async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESPNGameData[]> {
-  const games: ESPNGameData[] = [];
+interface ESPNFetchResult {
+  games: ESPNGameData[];
+  /** True when the ESPN API request itself failed (network/timeout/non-2xx) */
+  fetchFailed: boolean;
+  failReason?: string;
+}
+
+/** Fetch all scores from ESPN for a given Eastern date and sport.
+ *  Returns a structured result so callers can detect ESPN unavailability explicitly. */
+async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESPNFetchResult> {
   const espnBase = ESPN_BASES[sport] ?? ESPN_BASES.ncaam;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+
   try {
     const espnDate = toEspnDate(easternDate);
-    // NCAA uses groups=50; NBA and MLB use simpler limit param
     const groupsParam = sport === "ncaam" ? "&groups=50" : "";
-    const res = await fetch(`${espnBase}/scoreboard?dates=${espnDate}${groupsParam}&limit=300`);
-    if (!res.ok) return games;
+    const res = await fetch(
+      `${espnBase}/scoreboard?dates=${espnDate}${groupsParam}&limit=300`,
+      { signal: controller.signal },
+    );
+    if (!res.ok) {
+      return { games: [], fetchFailed: true, failReason: `HTTP ${res.status}` };
+    }
     const data = await res.json();
+    const games: ESPNGameData[] = [];
     for (const event of data.events ?? []) {
       const comp = event.competitions?.[0];
       if (!comp) continue;
@@ -126,10 +141,14 @@ async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESP
         espnEventId: event.id ?? undefined,
       });
     }
+    return { games, fetchFailed: false };
   } catch (e) {
-    console.warn(`ESPN fetch failed for sport=${sport} (non-critical):`, e);
+    const reason = (e as Error).message ?? "fetch error";
+    console.warn(`ESPN fetch failed for sport=${sport}: ${reason}`);
+    return { games: [], fetchFailed: true, failReason: reason };
+  } finally {
+    clearTimeout(timer);
   }
-  return games;
 }
 
 /** Normalize a string for fuzzy matching: lowercase, strip accents, remove punctuation */
@@ -248,10 +267,23 @@ Deno.serve(async (req) => {
 
     // Fetch ESPN scores for all relevant sport+date combos (primary source)
     const espnGamesBySportDate: Map<string, ESPNGameData[]> = new Map();
+    const espnFetchFailedBySportDate: Map<string, string> = new Map(); // key → failReason
     for (const key of sportDatesToFetch) {
       const [sport, dateStr] = key.split("|");
-      const espnGames = await fetchEspnGames(dateStr, sport);
-      espnGamesBySportDate.set(key, espnGames);
+      const result = await fetchEspnGames(dateStr, sport);
+      espnGamesBySportDate.set(key, result.games);
+      if (result.fetchFailed) {
+        espnFetchFailedBySportDate.set(key, result.failReason ?? "unknown");
+        console.log(JSON.stringify({
+          function: "poll-boxscore",
+          event: "espn_unavailable",
+          sport,
+          date: dateStr,
+          reason: result.failReason,
+          failover_to: "SportsDataIO",
+          timestamp: new Date().toISOString(),
+        }));
+      }
     }
 
     // Fetch SportsDataIO scores as fallback (sport-routed)
@@ -305,6 +337,7 @@ Deno.serve(async (req) => {
 
     let updatedCount = 0;
     const gamesTransitionedToLive: string[] = [];
+    const failoverGameIds: string[] = [];
 
     for (const game of activeGames) {
       try {
@@ -319,6 +352,7 @@ Deno.serve(async (req) => {
         const homeFullName = (game as any).home_team?.name ?? "";
         const awayFullName = (game as any).away_team?.name ?? "";
         const espnData = findEspnMatch(espnDateGames, homeMarket, awayMarket, homeFullName, awayFullName);
+        const espnApiDown = espnKey != null && espnFetchFailedBySportDate.has(espnKey);
 
         const gameData = game.sportsdataio_id
           ? scoresByGameId[game.sportsdataio_id] ?? null
@@ -332,6 +366,8 @@ Deno.serve(async (req) => {
         let newStatus: string;
         let clock: string | null = null;
         let period: number | null = null;
+        // "espn_only" | "sdio_only" | "espn+sdio" — recorded in game_snapshots payload
+        let scoreSource: string;
 
         if (isMlb) {
           // MLB: use SportsDataIO for inning/half state; ESPN for scores
@@ -339,15 +375,16 @@ Deno.serve(async (req) => {
           bestAwayScore = espnData?.awayScore ?? gameData?.AwayTeamRuns ?? gameData?.AwayTeamScore ?? 0;
           if (gameData) {
             newStatus = mapStatus(gameData.Status, gameData.IsClosed);
-            // Encode clock as T/B + inning (e.g., "T7", "B9")
             const half = gameData.InningHalf ?? "T";
             const inning = gameData.Inning ?? 0;
             clock = inning > 0 ? `${half}${inning}` : null;
             period = inning || null;
+            scoreSource = espnData ? "espn+sdio" : "sdio_only";
           } else if (espnData) {
             newStatus = mapStatus(espnData.status, false);
             clock = espnData.clock;
             period = espnData.period || null;
+            scoreSource = "espn_only";
           } else {
             continue;
           }
@@ -360,6 +397,7 @@ Deno.serve(async (req) => {
             ? `${gameData.TimeRemainingMinutes}:${String(gameData.TimeRemainingSeconds).padStart(2, "0")}`
             : null;
           period = gameData.Period ? parseInt(gameData.Period) || null : null;
+          scoreSource = "espn+sdio";
         } else if (espnData) {
           // ESPN only — use ESPN clock and period data
           bestHomeScore = espnData.homeScore;
@@ -367,8 +405,9 @@ Deno.serve(async (req) => {
           newStatus = mapStatus(espnData.status, false);
           clock = espnData.clock;
           period = espnData.period || null;
+          scoreSource = "espn_only";
         } else {
-          // SportsDataIO only
+          // SportsDataIO only — ESPN was unavailable (failover)
           bestHomeScore = gameData!.HomeTeamScore ?? 0;
           bestAwayScore = gameData!.AwayTeamScore ?? 0;
           newStatus = mapStatus(gameData!.Status, gameData!.IsClosed);
@@ -376,6 +415,22 @@ Deno.serve(async (req) => {
             ? `${gameData!.TimeRemainingMinutes}:${String(gameData!.TimeRemainingSeconds).padStart(2, "0")}`
             : null;
           period = gameData!.Period ? parseInt(gameData!.Period) || null : null;
+          scoreSource = "sdio_only";
+
+          // Emit explicit failover event — ESPN was either down or didn't match this game
+          const failReason = espnApiDown
+            ? espnFetchFailedBySportDate.get(espnKey!)
+            : "no_espn_match";
+          console.log(JSON.stringify({
+            function: "poll-boxscore",
+            event: "failover",
+            game_id: game.id,
+            sport,
+            score_source: "sdio_only",
+            reason: failReason,
+            timestamp: new Date().toISOString(),
+          }));
+          failoverGameIds.push(game.id);
         }
 
         // Compute hash for dedup
@@ -411,11 +466,11 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Store snapshot
+        // Store snapshot (scoreSource accurately reflects which data was used)
         await supabase.from("game_snapshots").insert({
           game_id: game.id,
           snapshot_type: "scores",
-          payload: { Game: gameData ?? espnData, source: gameData ? "sdio" : "espn" },
+          payload: { Game: gameData ?? espnData, source: scoreSource },
           payload_hash: newHash,
         });
 
@@ -510,6 +565,9 @@ Deno.serve(async (req) => {
       activeGames: activeGames.length,
       updated: updatedCount,
       gamesTransitionedToLive: gamesTransitionedToLive.length,
+      failover_games: failoverGameIds.length,
+      failover_game_ids: failoverGameIds,
+      espn_fetch_failures: espnFetchFailedBySportDate.size,
       timestamp: new Date().toISOString(),
     }));
 
@@ -519,6 +577,8 @@ Deno.serve(async (req) => {
         activeGames: activeGames.length,
         updated: updatedCount,
         gamesTransitionedToLive: gamesTransitionedToLive.length,
+        failover_games: failoverGameIds.length,
+        espn_fetch_failures: espnFetchFailedBySportDate.size,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
