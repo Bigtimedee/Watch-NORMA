@@ -8,6 +8,10 @@ An alert should answer three questions: "Why should I care?", "What's happening?
 
 The alert engine uses a scoring system with a threshold to ensure only high-relevance moments generate notifications. This means most game moments produce no alert at all — that is by design. The user should trust that when NORMA sends a notification, it matters.
 
+## Alert Feedback Loop
+
+Users can rate any alert thumbs-up or thumbs-down directly from the alert card. Ratings are stored in the `alert_feedback` table (migration 070): one row per (alert_id, user_id), updatable via upsert. The data is the raw material for future scoring-weight tuning. **Current scoring behavior is not altered by feedback** — feedback only accumulates for analysis. The `useSubmitAlertFeedback` hook handles optimistic UI and idempotent writes. The control is intentionally visually subordinate to the Watch button to keep the primary action hierarchy intact.
+
 ## Alert Types
 
 The following alert types are implemented in `evaluate-alerts/logic.ts`:

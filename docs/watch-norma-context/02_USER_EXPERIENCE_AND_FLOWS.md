@@ -47,9 +47,11 @@ This is the core user experience and the reason Watch-NORMA exists.
 
 **8. User receives notification.** The push notification arrives on the user's phone. Tapping it opens the app and navigates to the relevant game detail screen.
 
-**9. Alert card.** In the Alerts tab, each alert is rendered as a rich card showing: alert type icon and badge (close_game, spread_alert, etc.), sport badge (NBA/MLB), time ago, title, body, explanation bullets, wager impact callout, sponsor logo and text (if present), and action buttons — "Watch on [Provider]" and "Bet Now" (sportsbook deep link).
+**9. Alert card.** In the Alerts tab, each alert is rendered as a rich card showing: alert type icon and badge (close_game, spread_alert, etc.), sport badge (NBA/MLB), time ago, title, body, explanation bullets, wager impact callout, sponsor logo and text (if present), action buttons — "Watch on [Provider]" and "Bet Now" (sportsbook deep link), and a subtle thumbs-up / thumbs-down feedback control.
 
 **10. Watch action.** Tapping "Watch on [Provider]" triggers the tap-to-stream animation and deep-links the user to the streaming app.
+
+**11. Alert feedback.** A small "Useful?" thumbs-up / thumbs-down control appears below each alert card's action buttons. Tapping saves the rating to the `alert_feedback` table (upsert — one rating per user per alert, updatable). The control uses optimistic local state so the UI responds immediately. Feedback is not used to alter scoring in real-time; it accumulates for future scoring-weight tuning. The control is intentionally small and visually subordinate to the primary Watch action.
 
 ## Streaming Provider Flow
 
