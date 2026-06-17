@@ -17,7 +17,7 @@ type Status = "idle" | "loading" | "success" | "error";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "#111",
+  background: "#1e293b",
   border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 10,
   padding: "12px 14px",
@@ -31,7 +31,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
   fontWeight: 600,
-  color: "#5A5A5A",
+  color: "#475569",
   letterSpacing: "0.08em",
   textTransform: "uppercase",
   marginBottom: 6,
@@ -57,8 +57,8 @@ export function DemoForm() {
   function fieldStyle(name: string): React.CSSProperties {
     return {
       ...inputStyle,
-      borderColor: focused === name ? "rgba(255,76,0,0.5)" : "rgba(255,255,255,0.08)",
-      boxShadow: focused === name ? "0 0 0 3px rgba(255,76,0,0.07)" : "none",
+      borderColor: focused === name ? "rgba(249,115,22,0.5)" : "rgba(255,255,255,0.08)",
+      boxShadow: focused === name ? "0 0 0 3px rgba(249,115,22,0.07)" : "none",
     };
   }
 
@@ -92,28 +92,28 @@ export function DemoForm() {
     return (
       <div
         className="rounded-2xl p-10 text-center"
-        style={{ background: "#111", border: "1px solid rgba(255,255,255,0.07)" }}
+        style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.07)" }}
       >
         {/* Check mark */}
         <div
           className="mx-auto mb-6 flex items-center justify-center rounded-full"
-          style={{ width: 64, height: 64, background: "rgba(255,76,0,0.1)", border: "1px solid rgba(255,76,0,0.25)" }}
+          style={{ width: 64, height: 64, background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)" }}
         >
           <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
-            <path d="M2 11L9.5 18.5L26 2" stroke="#FF4C00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 11L9.5 18.5L26 2" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <h2 className="font-display mb-4" style={{ fontSize: 40, color: "#F5F3EE", lineHeight: 1 }}>
           REQUEST RECEIVED.
         </h2>
-        <p style={{ fontSize: 15, color: "#6B6B6B", lineHeight: 1.7, marginBottom: 32 }}>
+        <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.7, marginBottom: 32 }}>
           The NORMA advertising team will reach out at{" "}
           <strong style={{ color: "#F5F3EE" }}>{fields.email}</strong> within one business day to schedule your demo.
         </p>
         <Link
           href="/advertisers"
           className="inline-block rounded-xl px-8 py-3 text-sm font-semibold"
-          style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#9A9A9A" }}
+          style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}
         >
           Explore the platform →
         </Link>
@@ -125,12 +125,12 @@ export function DemoForm() {
     <form
       onSubmit={handleSubmit}
       className="rounded-2xl p-8"
-      style={{ background: "#111", border: "1px solid rgba(255,255,255,0.07)" }}
+      style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.07)" }}
     >
       <h2 className="font-display mb-2" style={{ fontSize: 28, color: "#F5F3EE", lineHeight: 1 }}>
         REQUEST A DEMO
       </h2>
-      <p style={{ fontSize: 13, color: "#4A4A4A", marginBottom: 28 }}>
+      <p style={{ fontSize: 13, color: "#334155", marginBottom: 28 }}>
         We&apos;ll confirm a time via email within one business day.
       </p>
 
@@ -251,7 +251,7 @@ export function DemoForm() {
           disabled={status === "loading"}
           className="w-full rounded-xl py-4 text-base font-bold text-white"
           style={{
-            background: status === "loading" ? "#CC3D00" : "#FF4C00",
+            background: status === "loading" ? "#CC3D00" : "#f97316",
             opacity: status === "loading" ? 0.7 : 1,
             cursor: status === "loading" ? "not-allowed" : "pointer",
             border: "none",
@@ -261,7 +261,7 @@ export function DemoForm() {
           {status === "loading" ? "Sending…" : "Request Demo"}
         </button>
 
-        <p style={{ fontSize: 12, color: "#2A2A2A", textAlign: "center" }}>
+        <p style={{ fontSize: 12, color: "#1e293b", textAlign: "center" }}>
           We&apos;ll respond within one business day. No spam, ever.
         </p>
       </div>

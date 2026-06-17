@@ -21,7 +21,7 @@ const jsonLd = {
 const momentTypes = [
   { name: "Bet Resolved", sub: "Win or lose — your result is in", accent: "#4ADE80", bg: "rgba(74,222,128,0.07)" },
   { name: "Close Game", sub: "Within 6 pts, final 5 minutes", accent: "#F87171", bg: "rgba(248,113,113,0.07)" },
-  { name: "Overtime", sub: "Peak adrenaline, extra time", accent: "#FF4C00", bg: "rgba(255,76,0,0.09)" },
+  { name: "Overtime", sub: "Peak adrenaline, extra time", accent: "#f97316", bg: "rgba(249,115,22,0.09)" },
   { name: "Spread Alert", sub: "Your line is being crossed", accent: "#60A5FA", bg: "rgba(96,165,250,0.07)" },
   { name: "Moneyline Alert", sub: "Outcome flipping in real time", accent: "#A78BFA", bg: "rgba(167,139,250,0.07)" },
   { name: "Total Alert", sub: "Over/under pace is shifting", accent: "#FBBF24", bg: "rgba(251,191,36,0.07)" },
@@ -38,7 +38,7 @@ const useCases = [
     label: "Sports Bettors",
     headline: "Your 3-leg parlay is live. Two legs hit.",
     body: "NORMA alerts you the moment the third leg is in play. DraftKings, FanDuel, BetMGM — scan your slip or enter manually. She watches while you live.",
-    accent: "#FF4C00",
+    accent: "#f97316",
   },
   {
     id: "02",
@@ -79,7 +79,7 @@ const useCases = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen" style={{ background: "#080808", color: "#F5F3EE" }}>
+    <div className="min-h-screen" style={{ background: "#0f172a", color: "#F5F3EE" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ════════════════════════════════════════
@@ -90,19 +90,8 @@ export default function HomePage() {
         style={{ background: "rgba(8,8,8,0.85)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex flex-col items-start gap-0.5">
+          <Link href="/">
             <img src="/logo.png" alt="NORMA" className="h-11 w-auto" />
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "#4A4A4A",
-              }}
-            >
-              This B*tch is Brilliant
-            </span>
           </Link>
           <div className="flex items-center gap-6">
             <a
@@ -110,17 +99,17 @@ export default function HomePage() {
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:block text-sm font-medium"
-              style={{ color: "#9A9A9A" }}
+              style={{ color: "#94a3b8" }}
             >
               Download App
             </a>
-            <a href="#advertisers" className="hidden sm:block text-sm font-medium" style={{ color: "#9A9A9A" }}>
+            <a href="#advertisers" className="hidden sm:block text-sm font-medium" style={{ color: "#94a3b8" }}>
               Advertisers
             </a>
             <Link
               href="/auth"
               className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              style={{ background: "#FF4C00" }}
+              style={{ background: "#f97316" }}
             >
               Advertiser Portal
             </Link>
@@ -136,6 +125,14 @@ export default function HomePage() {
         style={{ minHeight: "92vh", display: "flex", alignItems: "center" }}
       >
         <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-20">
+          {/* Mascot showcase — the brand's primary visual anchor */}
+          <div className="flex justify-center mb-14">
+            <img
+              src="/logo.png"
+              alt="NORMA"
+              style={{ height: "clamp(180px, 20vw, 260px)", width: "auto" }}
+            />
+          </div>
           <div className="flex flex-col items-center gap-16 lg:flex-row lg:items-center lg:gap-8">
 
             {/* ── Left: Text ── */}
@@ -144,18 +141,18 @@ export default function HomePage() {
               <div
                 className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8"
                 style={{
-                  background: "rgba(255,76,0,0.1)",
-                  border: "1px solid rgba(255,76,0,0.22)",
+                  background: "rgba(249,115,22,0.1)",
+                  border: "1px solid rgba(249,115,22,0.22)",
                   fontSize: 11,
                   fontWeight: 700,
-                  color: "#FF4C00",
+                  color: "#f97316",
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                 }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: "#FF4C00", animation: "pulse-dot 1.6s ease-in-out infinite", display: "inline-block" }}
+                  style={{ background: "#f97316", animation: "pulse-dot 1.6s ease-in-out infinite", display: "inline-block" }}
                 />
                 Live Now — NBA · MLB · NCAA
               </div>
@@ -166,14 +163,14 @@ export default function HomePage() {
                 style={{ fontSize: "clamp(72px, 9vw, 120px)", color: "#F5F3EE", lineHeight: 0.93 }}
               >
                 WATCH AT THE<br />
-                <span style={{ color: "#FF4C00" }}>PERFECT</span><br />
+                <span style={{ color: "#f97316" }}>PERFECT</span><br />
                 MOMENT.
               </h1>
 
               {/* Subheadline */}
               <p
                 className="mt-8 leading-relaxed"
-                style={{ fontSize: 18, color: "#9A9A9A", maxWidth: 480 }}
+                style={{ fontSize: 18, color: "#94a3b8", maxWidth: 480 }}
               >
                 Your wagers and predictions tell NORMA exactly what matters to you. When your bet is about to cover, your prediction is resolving, or your team forces overtime — she pulls you into the action.
               </p>
@@ -187,7 +184,7 @@ export default function HomePage() {
                 >
                   <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-14 w-auto" />
                 </a>
-                <p style={{ fontSize: 13, color: "#4A4A4A" }}>iPhone · Free · No account required to start</p>
+                <p style={{ fontSize: 13, color: "#334155" }}>iPhone · Free · No account required to start</p>
               </div>
 
               {/* Social proof */}
@@ -195,14 +192,14 @@ export default function HomePage() {
                 className="mt-10 flex flex-wrap items-center gap-4 justify-center lg:justify-start"
                 style={{ fontSize: 13 }}
               >
-                <span className="flex items-center gap-1.5" style={{ color: "#9A9A9A" }}>
-                  <span style={{ color: "#FF4C00" }}>★★★★★</span>
+                <span className="flex items-center gap-1.5" style={{ color: "#94a3b8" }}>
+                  <span style={{ color: "#f97316" }}>★★★★★</span>
                   5.0 App Store
                 </span>
-                <span style={{ color: "#2A2A2A" }}>|</span>
-                <span style={{ color: "#9A9A9A" }}>11 Alert Types</span>
-                <span style={{ color: "#2A2A2A" }}>|</span>
-                <span style={{ color: "#9A9A9A" }}>3 Sports Covered</span>
+                <span style={{ color: "#1e293b" }}>|</span>
+                <span style={{ color: "#94a3b8" }}>11 Alert Types</span>
+                <span style={{ color: "#1e293b" }}>|</span>
+                <span style={{ color: "#94a3b8" }}>3 Sports Covered</span>
               </div>
             </div>
 
@@ -217,16 +214,16 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           SPORTSBOOK LOGOS BAR
       ════════════════════════════════════════ */}
-      <div className="stripe-dim" style={{ background: "#0C0C0C" }}>
+      <div className="stripe-dim" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6 py-5">
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6">
-            <span style={{ fontSize: 11, color: "#3A3A3A", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, color: "#1e293b", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Works with
             </span>
             {["DraftKings", "FanDuel", "BetMGM", "Caesars", "ESPN BET", "Kalshi"].map((name) => (
               <span
                 key={name}
-                style={{ fontSize: 12, color: "#5A5A5A", fontWeight: 600 }}
+                style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}
               >
                 {name}
               </span>
@@ -238,12 +235,12 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           HOW IT WORKS
       ════════════════════════════════════════ */}
-      <section className="stripe-dim py-28" style={{ background: "#080808" }}>
+      <section className="stripe-dim py-28" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6">
           {/* Section label */}
           <div className="text-center mb-4">
             <span
-              style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}
+              style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#f97316", textTransform: "uppercase" }}
             >
               How It Works
             </span>
@@ -253,7 +250,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             THREE STEPS.<br />
-            <span style={{ color: "#4A4A4A" }}>THEN GO LIVE YOUR LIFE.</span>
+            <span style={{ color: "#334155" }}>THEN GO LIVE YOUR LIFE.</span>
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -262,13 +259,13 @@ export default function HomePage() {
                 num: "01",
                 title: "Tell NORMA What You Care About",
                 body: "Link your sportsbook and prediction market accounts. Follow your favorite teams. Your wagers and predictions tell NORMA exactly what matters to you.",
-                accent: "#FF4C00",
+                accent: "#f97316",
               },
               {
                 num: "02",
                 title: "Go Live Your Life",
                 body: "No producer. No algorithm guessing. NORMA already knows because you told her with your money. She watches every game so you don't have to.",
-                accent: "#9A9A9A",
+                accent: "#94a3b8",
               },
               {
                 num: "03",
@@ -301,7 +298,7 @@ export default function HomePage() {
                 >
                   {step.title}
                 </h3>
-                <p className="relative z-10" style={{ fontSize: 14, color: "#6B6B6B", lineHeight: 1.65 }}>
+                <p className="relative z-10" style={{ fontSize: 14, color: "#64748b", lineHeight: 1.65 }}>
                   {step.body}
                 </p>
               </div>
@@ -315,7 +312,7 @@ export default function HomePage() {
       ════════════════════════════════════════ */}
       <section
         className="py-28 noise-overlay"
-        style={{ background: "linear-gradient(180deg, #0C0C0C 0%, #080808 100%)", position: "relative" }}
+        style={{ background: "linear-gradient(180deg, #0f172a 0%, #0f172a 100%)", position: "relative" }}
       >
         <div className="mx-auto max-w-5xl px-6 text-center">
           <div
@@ -328,7 +325,7 @@ export default function HomePage() {
           </div>
           <div
             className="font-display mt-3"
-            style={{ fontSize: "clamp(40px, 6vw, 72px)", color: "#FF4C00", lineHeight: 1.05 }}
+            style={{ fontSize: "clamp(40px, 6vw, 72px)", color: "#f97316", lineHeight: 1.05 }}
           >
             NORMA OWNS THE MOMENT
             <br />
@@ -340,10 +337,10 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           MOMENT TYPES
       ════════════════════════════════════════ */}
-      <section className="stripe-dim py-28" style={{ background: "#080808" }}>
+      <section className="stripe-dim py-28" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-4">
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#f97316", textTransform: "uppercase" }}>
               Alert Types
             </span>
           </div>
@@ -355,7 +352,7 @@ export default function HomePage() {
           </h2>
           <h2
             className="font-display text-center"
-            style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#3A3A3A", lineHeight: 0.95, marginBottom: 56 }}
+            style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#1e293b", lineHeight: 0.95, marginBottom: 56 }}
           >
             ZERO NOISE.
           </h2>
@@ -379,7 +376,7 @@ export default function HomePage() {
                   >
                     {mt.name}
                   </div>
-                  <div style={{ fontSize: 12, color: "#5A5A5A", lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.4 }}>
                     {mt.sub}
                   </div>
                 </div>
@@ -390,11 +387,11 @@ export default function HomePage() {
             <div
               className="rounded-xl flex flex-col items-center justify-center text-center p-5"
               style={{
-                border: "1px solid rgba(255,76,0,0.2)",
-                background: "rgba(255,76,0,0.05)",
+                border: "1px solid rgba(249,115,22,0.2)",
+                background: "rgba(249,115,22,0.05)",
               }}
             >
-              <div style={{ fontSize: 12, color: "#FF4C00", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "#f97316", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
                 All 11 alerts. Free.
               </div>
               <a
@@ -412,10 +409,10 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           USE CASES
       ════════════════════════════════════════ */}
-      <section className="stripe-dim py-28" style={{ background: "#0B0B0B" }}>
+      <section className="stripe-dim py-28" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-4">
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#f97316", textTransform: "uppercase" }}>
               Built For You
             </span>
           </div>
@@ -424,7 +421,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             BUILT FOR HOW YOU<br />
-            <span style={{ color: "#3A3A3A" }}>ACTUALLY WATCH SPORTS.</span>
+            <span style={{ color: "#1e293b" }}>ACTUALLY WATCH SPORTS.</span>
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -452,7 +449,7 @@ export default function HomePage() {
                   {uc.headline}
                 </h3>
                 {/* Body */}
-                <p className="relative z-10" style={{ fontSize: 13.5, color: "#6B6B6B", lineHeight: 1.65 }}>
+                <p className="relative z-10" style={{ fontSize: 13.5, color: "#64748b", lineHeight: 1.65 }}>
                   {uc.body}
                 </p>
               </div>
@@ -469,7 +466,7 @@ export default function HomePage() {
             >
               <img src="/app-store-badge.svg" alt="Download on the App Store" style={{ height: 52, width: "auto" }} />
             </a>
-            <p style={{ fontSize: 12, color: "#3A3A3A", marginTop: 10 }}>
+            <p style={{ fontSize: 12, color: "#1e293b", marginTop: 10 }}>
               Free · No credit card · No account required to start
             </p>
           </div>
@@ -482,11 +479,11 @@ export default function HomePage() {
       <section
         id="advertisers"
         className="stripe-orange py-28 noise-overlay"
-        style={{ background: "#080808" }}
+        style={{ background: "#0f172a" }}
       >
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-4">
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#f97316", textTransform: "uppercase" }}>
               For Advertisers
             </span>
           </div>
@@ -495,7 +492,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             THE HIGHEST-INTENT<br />
-            <span style={{ color: "#FF4C00" }}>AD UNIT IN SPORTS.</span>
+            <span style={{ color: "#f97316" }}>AD UNIT IN SPORTS.</span>
           </h2>
 
           {/* Stats grid */}
@@ -515,7 +512,7 @@ export default function HomePage() {
               >
                 <div
                   className="font-display"
-                  style={{ fontSize: "clamp(64px, 8vw, 96px)", color: "#FF4C00", lineHeight: 1 }}
+                  style={{ fontSize: "clamp(64px, 8vw, 96px)", color: "#f97316", lineHeight: 1 }}
                 >
                   <StatCounter to={stat.value} prefix={stat.prefix ?? ""} suffix={stat.suffix} duration={1600} />
                 </div>
@@ -525,14 +522,14 @@ export default function HomePage() {
                 >
                   {stat.label}
                 </div>
-                <div style={{ fontSize: 12, color: "#4A4A4A", marginTop: 6 }}>{stat.note}</div>
+                <div style={{ fontSize: 12, color: "#334155", marginTop: 6 }}>{stat.note}</div>
               </div>
             ))}
           </div>
 
           {/* Advertiser description */}
           <div className="mt-16 mx-auto max-w-3xl text-center">
-            <p style={{ fontSize: 17, color: "#6B6B6B", lineHeight: 1.75 }}>
+            <p style={{ fontSize: 17, color: "#64748b", lineHeight: 1.75 }}>
               NORMA doesn&apos;t interrupt attention. It creates it. Every ad runs inside the push notification that brings a fan back to a live game they care about. Your brand is the reason they pick up their phone — not the thing they skip past.
             </p>
           </div>
@@ -541,14 +538,14 @@ export default function HomePage() {
             <Link
               href="/auth"
               className="rounded-xl px-8 py-3.5 text-base font-bold text-white"
-              style={{ background: "#FF4C00" }}
+              style={{ background: "#f97316" }}
             >
               Create Advertiser Account
             </Link>
             <Link
               href="/advertisers"
               className="rounded-xl px-8 py-3.5 text-base font-semibold"
-              style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#9A9A9A" }}
+              style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8" }}
             >
               See Full Platform →
             </Link>
@@ -561,11 +558,11 @@ export default function HomePage() {
       ════════════════════════════════════════ */}
       <section
         className="py-28 stripe-dim"
-        style={{ background: "#0C0C0C" }}
+        style={{ background: "#0f172a" }}
       >
         <div className="mx-auto max-w-xl px-6 text-center">
           <div className="mb-4">
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#f97316", textTransform: "uppercase" }}>
               Android + New Markets
             </span>
           </div>
@@ -574,10 +571,10 @@ export default function HomePage() {
             style={{ fontSize: "clamp(44px, 6vw, 72px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 20 }}
           >
             BE FIRST TO KNOW<br />
-            <span style={{ color: "#3A3A3A" }}>WHEN NORMA</span><br />
+            <span style={{ color: "#1e293b" }}>WHEN NORMA</span><br />
             COMES TO YOU.
           </h2>
-          <p style={{ fontSize: 15, color: "#5A5A5A", lineHeight: 1.7, marginBottom: 32 }}>
+          <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.7, marginBottom: 32 }}>
             Android support and new state markets are coming. Drop your email and we&apos;ll notify you the moment NORMA is ready for you.
           </p>
           <WaitlistForm />
@@ -587,28 +584,28 @@ export default function HomePage() {
       {/* ════════════════════════════════════════
           FOOTER
       ════════════════════════════════════════ */}
-      <footer className="stripe-dim py-12" style={{ background: "#080808" }}>
+      <footer className="stripe-dim py-12" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
             <div>
               <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
-              <p style={{ fontSize: 12, color: "#3A3A3A", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <p style={{ fontSize: 12, color: "#1e293b", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Real-Time Sports Intent Advertising
               </p>
             </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#4A4A4A" }}>
-              <a href="#advertisers" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Advertisers</a>
-              <Link href="/advertisers" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Advertising</Link>
-              <Link href="/auth" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
-              <Link href="/developers" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Developers</Link>
-              <a href="mailto:ads@norma-app.com" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Contact</a>
-              <a href="/privacy-policy" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Privacy</a>
-              <a href="/terms-of-service" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Terms</a>
+            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#334155" }}>
+              <a href="#advertisers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertisers</a>
+              <Link href="/advertisers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertising</Link>
+              <Link href="/auth" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
+              <Link href="/developers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Developers</Link>
+              <a href="mailto:ads@norma-app.com" style={{ color: "#334155" }} className="hover:text-white transition-colors">Contact</a>
+              <a href="/privacy-policy" style={{ color: "#334155" }} className="hover:text-white transition-colors">Privacy</a>
+              <a href="/terms-of-service" style={{ color: "#334155" }} className="hover:text-white transition-colors">Terms</a>
             </div>
           </div>
           <div
             className="mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#2A2A2A" }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#1e293b" }}
           >
             <p>&copy; {new Date().getFullYear()} NORMA. All rights reserved.</p>
             <p>Available on iPhone · Free to download</p>

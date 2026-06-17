@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-norma: #FF4C00;
-  --color-norma-hover: #E84300;
-  --color-norma-muted: rgba(255, 76, 0, 0.12);
-  --color-norma-border: rgba(255, 76, 0, 0.25);
-  --color-page: #080808;
+  --color-norma: #f97316;
+  --color-norma-hover: #ea6c0e;
+  --color-norma-muted: rgba(249, 115, 22, 0.12);
+  --color-norma-border: rgba(249, 115, 22, 0.25);
+  --color-page: #0f172a;
   --color-surface: #111111;
   --color-surface-2: #181818;
   --color-cream: #F5F3EE;
-  --color-muted: #6B6B6B;
+  --color-muted: #64748b;
   --color-divider: rgba(255, 255, 255, 0.07);
   --color-divider-bright: rgba(255, 255, 255, 0.12);
 
@@ -28,7 +28,7 @@ html {
 }
 
 body {
-  background-color: #080808;
+  background-color: #0f172a;
   color: #F5F3EE;
   font-family: var(--font-body, "DM Sans", sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -59,14 +59,14 @@ body {
 /* ─── Orange glow spot (hero) ─── */
 .hero-glow {
   background:
-    radial-gradient(ellipse 55% 60% at 80% 50%, rgba(255, 76, 0, 0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 20% 80%, rgba(255, 76, 0, 0.04) 0%, transparent 60%),
-    #080808;
+    radial-gradient(ellipse 55% 60% at 80% 50%, rgba(249, 115, 22, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 80%, rgba(249, 115, 22, 0.04) 0%, transparent 60%),
+    #0f172a;
 }
 
 /* ─── Section stripe ─── */
 .stripe-orange {
-  border-top: 1px solid rgba(255, 76, 0, 0.2);
+  border-top: 1px solid rgba(249, 115, 22, 0.2);
 }
 
 .stripe-dim {
@@ -99,7 +99,7 @@ body {
 }
 .moment-card:hover {
   border-color: rgba(255, 255, 255, 0.15);
-  background: #161616;
+  background: #162032;
 }
 
 /* ─── Inline CTR bar (advertisers table) ─── */
@@ -107,7 +107,7 @@ body {
   display: inline-block;
   height: 3px;
   border-radius: 2px;
-  background: #FF4C00;
+  background: #f97316;
   vertical-align: middle;
 }
 
@@ -137,5 +137,5 @@ body {
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #080808; }
-::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 3px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }

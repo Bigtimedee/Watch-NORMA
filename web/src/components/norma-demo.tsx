@@ -12,14 +12,14 @@ export function NormaDemo() {
       {/* ── Outer ambient glow ── */}
       <div
         className="absolute inset-0 rounded-[50px] blur-3xl opacity-30 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 50% 80%, #FF4C00, transparent 70%)", zIndex: 0 }}
+        style={{ background: "radial-gradient(ellipse at 50% 80%, #f97316, transparent 70%)", zIndex: 0 }}
       />
 
       {/* ── iPhone shell ── */}
       <div
         className="absolute inset-0 rounded-[46px] overflow-hidden"
         style={{
-          background: "linear-gradient(145deg, #2A2A2A 0%, #1A1A1A 100%)",
+          background: "linear-gradient(145deg, #1e293b 0%, #1A1A1A 100%)",
           border: "1px solid rgba(255,255,255,0.16)",
           boxShadow:
             "0 50px 100px rgba(0,0,0,0.7), 0 20px 40px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04) inset",
@@ -67,7 +67,7 @@ export function NormaDemo() {
             {/* League label */}
             <div
               className="text-xs font-bold tracking-widest uppercase mb-4"
-              style={{ color: "#FF4C00", letterSpacing: "0.14em" }}
+              style={{ color: "#f97316", letterSpacing: "0.14em" }}
             >
               NBA · LIVE Q4
             </div>
@@ -94,7 +94,7 @@ export function NormaDemo() {
               <div className="text-center px-2" style={{ minWidth: 52 }}>
                 <div
                   className="font-bold"
-                  style={{ fontSize: 11, color: "#6B6B6B", letterSpacing: "0.06em" }}
+                  style={{ fontSize: 11, color: "#64748b", letterSpacing: "0.06em" }}
                 >
                   FINAL
                 </div>
@@ -105,7 +105,7 @@ export function NormaDemo() {
                   1:23
                 </div>
                 <div
-                  style={{ fontSize: 10, color: "#6B6B6B", letterSpacing: "0.06em" }}
+                  style={{ fontSize: 10, color: "#64748b", letterSpacing: "0.06em" }}
                 >
                   LEFT
                 </div>
@@ -132,17 +132,17 @@ export function NormaDemo() {
             <div
               className="flex items-center gap-2 mt-3 rounded-full px-4 py-2"
               style={{
-                background: "rgba(255,76,0,0.1)",
-                border: "1px solid rgba(255,76,0,0.22)",
+                background: "rgba(249,115,22,0.1)",
+                border: "1px solid rgba(249,115,22,0.22)",
               }}
             >
               <div
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ background: "#FF4C00", animation: "pulse-dot 1.6s ease-in-out infinite" }}
+                style={{ background: "#f97316", animation: "pulse-dot 1.6s ease-in-out infinite" }}
               />
               <span
                 className="font-semibold uppercase"
-                style={{ fontSize: 10, color: "#FF4C00", letterSpacing: "0.1em" }}
+                style={{ fontSize: 10, color: "#f97316", letterSpacing: "0.1em" }}
               >
                 MIA -3.5 · YOUR BET
               </span>
@@ -150,7 +150,7 @@ export function NormaDemo() {
 
             {/* Spread indicator */}
             <div className="mt-4 w-full">
-              <div className="flex justify-between mb-1.5" style={{ fontSize: 10, color: "#6B6B6B" }}>
+              <div className="flex justify-between mb-1.5" style={{ fontSize: 10, color: "#64748b" }}>
                 <span>SPREAD: MIA -3.5</span>
                 <span style={{ color: "#4ADE80" }}>COVERING +3</span>
               </div>
@@ -185,7 +185,7 @@ export function NormaDemo() {
                 {/* App icon */}
                 <div
                   className="rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ width: 38, height: 38, background: "#FF4C00" }}
+                  style={{ width: 38, height: 38, background: "#f97316" }}
                 >
                   <span
                     className="font-display text-white"
@@ -215,7 +215,7 @@ export function NormaDemo() {
                 <button
                   className="flex-1 rounded-xl text-white font-bold text-center"
                   style={{
-                    background: "#FF4C00",
+                    background: "#f97316",
                     fontSize: 11,
                     padding: "6px 0",
                     border: "none",
@@ -258,19 +258,19 @@ export function NormaDemo() {
       {/* Physical side buttons */}
       <div
         className="absolute rounded-l-sm"
-        style={{ left: -2, top: 96, width: 3, height: 32, background: "#2A2A2A", zIndex: 2 }}
+        style={{ left: -2, top: 96, width: 3, height: 32, background: "#1e293b", zIndex: 2 }}
       />
       <div
         className="absolute rounded-l-sm"
-        style={{ left: -2, top: 144, width: 3, height: 60, background: "#2A2A2A", zIndex: 2 }}
+        style={{ left: -2, top: 144, width: 3, height: 60, background: "#1e293b", zIndex: 2 }}
       />
       <div
         className="absolute rounded-l-sm"
-        style={{ left: -2, top: 214, width: 3, height: 60, background: "#2A2A2A", zIndex: 2 }}
+        style={{ left: -2, top: 214, width: 3, height: 60, background: "#1e293b", zIndex: 2 }}
       />
       <div
         className="absolute rounded-r-sm"
-        style={{ right: -2, top: 120, width: 3, height: 76, background: "#2A2A2A", zIndex: 2 }}
+        style={{ right: -2, top: 120, width: 3, height: 76, background: "#1e293b", zIndex: 2 }}
       />
     </div>
   );

@@ -19,7 +19,7 @@ const whatYoullLearn = [
 
 export default function DemoPage() {
   return (
-    <div className="min-h-screen" style={{ background: "#080808", color: "#F5F3EE" }}>
+    <div className="min-h-screen" style={{ background: "#0f172a", color: "#F5F3EE" }}>
 
       {/* Nav */}
       <nav
@@ -27,20 +27,17 @@ export default function DemoPage() {
         style={{ background: "rgba(8,8,8,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex flex-col items-start gap-0.5">
+          <Link href="/">
             <img src="/logo.png" alt="NORMA" className="h-11 w-auto" />
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#4A4A4A" }}>
-              This B*tch is Brilliant
-            </span>
           </Link>
           <div className="flex items-center gap-6">
-            <Link href="/advertisers" className="hidden sm:block text-sm font-medium" style={{ color: "#9A9A9A" }}>
+            <Link href="/advertisers" className="hidden sm:block text-sm font-medium" style={{ color: "#94a3b8" }}>
               Advertisers
             </Link>
             <Link
               href="/auth/login"
               className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              style={{ background: "#FF4C00" }}
+              style={{ background: "#f97316" }}
             >
               Advertiser Login
             </Link>
@@ -52,7 +49,7 @@ export default function DemoPage() {
       <section
         className="noise-overlay"
         style={{
-          background: "radial-gradient(ellipse 60% 50% at 10% 40%, rgba(255,76,0,0.06) 0%, transparent 65%), #080808",
+          background: "radial-gradient(ellipse 60% 50% at 10% 40%, rgba(249,115,22,0.06) 0%, transparent 65%), #0f172a",
           paddingTop: 72,
           paddingBottom: 80,
         }}
@@ -64,7 +61,7 @@ export default function DemoPage() {
             <div className="flex-1" style={{ maxWidth: 520 }}>
               <div
                 className="inline-block mb-6 font-semibold uppercase"
-                style={{ fontSize: 11, color: "#FF4C00", letterSpacing: "0.14em" }}
+                style={{ fontSize: 11, color: "#f97316", letterSpacing: "0.14em" }}
               >
                 NORMA Advertising · 30-Minute Demo
               </div>
@@ -73,11 +70,11 @@ export default function DemoPage() {
                 style={{ fontSize: "clamp(60px, 7vw, 96px)", color: "#F5F3EE", lineHeight: 0.92 }}
               >
                 SCHEDULE<br />
-                <span style={{ color: "#FF4C00" }}>A DEMO.</span>
+                <span style={{ color: "#f97316" }}>A DEMO.</span>
               </h1>
               <p
                 className="mt-8 leading-relaxed"
-                style={{ fontSize: 17, color: "#6B6B6B", maxWidth: 440 }}
+                style={{ fontSize: 17, color: "#64748b", maxWidth: 440 }}
               >
                 Talk directly with the NORMA advertising team. We&apos;ll show you how moment-based push notification ads work, walk through your specific use case, and build a campaign strategy together.
               </p>
@@ -86,7 +83,7 @@ export default function DemoPage() {
               <div className="mt-10">
                 <div
                   className="font-semibold uppercase mb-5"
-                  style={{ fontSize: 11, color: "#3A3A3A", letterSpacing: "0.12em" }}
+                  style={{ fontSize: 11, color: "#1e293b", letterSpacing: "0.12em" }}
                 >
                   In 30 minutes you&apos;ll learn
                 </div>
@@ -95,13 +92,13 @@ export default function DemoPage() {
                     <li key={item} className="flex items-start gap-3">
                       <div
                         className="flex-shrink-0 rounded-full flex items-center justify-center mt-0.5"
-                        style={{ width: 20, height: 20, background: "rgba(255,76,0,0.12)", border: "1px solid rgba(255,76,0,0.25)" }}
+                        style={{ width: 20, height: 20, background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.25)" }}
                       >
                         <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="#FF4C00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 4L3.5 6.5L9 1" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
-                      <span style={{ fontSize: 14, color: "#6B6B6B", lineHeight: 1.55 }}>{item}</span>
+                      <span style={{ fontSize: 14, color: "#64748b", lineHeight: 1.55 }}>{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -109,9 +106,9 @@ export default function DemoPage() {
 
               {/* Contact fallback */}
               <div className="mt-12 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <p style={{ fontSize: 13, color: "#3A3A3A" }}>
+                <p style={{ fontSize: 13, color: "#1e293b" }}>
                   Prefer email?{" "}
-                  <a href="mailto:ads@norma-app.com" style={{ color: "#FF4C00" }}>
+                  <a href="mailto:ads@norma-app.com" style={{ color: "#f97316" }}>
                     ads@norma-app.com
                   </a>
                 </p>
@@ -128,8 +125,8 @@ export default function DemoPage() {
       </section>
 
       {/* Footer */}
-      <footer className="stripe-dim py-10" style={{ background: "#080808" }}>
-        <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ fontSize: 12, color: "#2A2A2A" }}>
+      <footer className="stripe-dim py-10" style={{ background: "#0f172a" }}>
+        <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ fontSize: 12, color: "#1e293b" }}>
           <Link href="/">
             <img src="/logo.png" alt="NORMA" className="h-7 w-auto opacity-40" />
           </Link>
