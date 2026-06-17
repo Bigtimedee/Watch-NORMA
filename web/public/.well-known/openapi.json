@@ -1,0 +1,2931 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NORMA Ads API",
+    "description": "The NORMA Ads API enables programmatic campaign management and reporting\nfor sports bettor push notification inventory.\n\nNORMA delivers ads at the exact moment users have active financial stakes\nin live games — generating 12–18% CTR on high-intent moments like\nBet Resolved, Overtime, and Spread Alert.\n\nThis API is designed for use by AI advertising agents and DSP integrations.\nIt supports OAuth 2.0 Client Credentials flow and is MCP-compatible via\nthe norma-ads-mcp server package.\n\nMCP Server: https://mcp.getnorma.app\nDeveloper Docs: https://getnorma.app/developers\nAgent Discovery: https://getnorma.app/adagents.json\n",
+    "version": "1.0.0",
+    "contact": {
+      "name": "NORMA Ads Platform",
+      "url": "https://getnorma.app/developers",
+      "email": "ads@getnorma.app"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://getnorma.app/terms"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.getnorma.app",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "OAuth 2.0 Client Credentials token issuance and JWKS discovery"
+    },
+    {
+      "name": "Inventory",
+      "description": "Moment types, supply forecasts, and market pricing data"
+    },
+    {
+      "name": "Campaigns",
+      "description": "Create, read, update, and control ad campaigns"
+    },
+    {
+      "name": "Reporting",
+      "description": "Campaign performance metrics, timeseries, and creative analytics"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Register and manage webhook endpoints for real-time event delivery"
+    },
+    {
+      "name": "Postbacks",
+      "description": "Inbound conversion signals from mobile attribution partners"
+    }
+  ],
+  "security": [
+    {
+      "oauth2": [
+        "campaigns:read",
+        "campaigns:write",
+        "reporting:read",
+        "inventory:read"
+      ]
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getnorma.app/api/auth/token",
+            "scopes": {
+              "campaigns:read": "Read campaign details and status",
+              "campaigns:write": "Create and modify campaigns",
+              "reporting:read": "Access performance reports and analytics",
+              "inventory:read": "Query inventory forecasts and market data"
+            }
+          }
+        }
+      },
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "Legacy API key (full access, equivalent to all scopes)"
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "description": "RFC 7807 Problem Details error response",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://api.getnorma.app/errors/bad-request"
+          },
+          "title": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "status": {
+            "type": "integer",
+            "example": 400
+          },
+          "detail": {
+            "type": "string",
+            "example": "bid_cpm_usd must be a positive number"
+          }
+        }
+      },
+      "OAuthToken": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in",
+          "scope"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "RS256-signed JWT bearer token",
+            "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token lifetime in seconds",
+            "example": 3600
+          },
+          "scope": {
+            "type": "string",
+            "description": "Space-separated list of granted scopes",
+            "example": "campaigns:read campaigns:write reporting:read"
+          }
+        }
+      },
+      "JWKSResponse": {
+        "type": "object",
+        "required": [
+          "keys"
+        ],
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "JSON Web Key (RFC 7517)",
+              "properties": {
+                "kty": {
+                  "type": "string",
+                  "example": "RSA"
+                },
+                "use": {
+                  "type": "string",
+                  "example": "sig"
+                },
+                "alg": {
+                  "type": "string",
+                  "example": "RS256"
+                },
+                "kid": {
+                  "type": "string",
+                  "example": "norma-ads-2024-01"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "e": {
+                  "type": "string",
+                  "example": "AQAB"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MomentType": {
+        "type": "object",
+        "required": [
+          "key",
+          "display_name",
+          "description",
+          "floor_cpm_usd",
+          "typical_ctr_low",
+          "typical_ctr_high",
+          "available_sports"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "bet_resolved",
+              "close_game",
+              "overtime",
+              "spread_alert",
+              "moneyline_alert",
+              "total_alert",
+              "prop_alert",
+              "position_alert",
+              "foul_trouble",
+              "follow_alert",
+              "prediction_resolved"
+            ],
+            "example": "bet_resolved"
+          },
+          "display_name": {
+            "type": "string",
+            "example": "Bet Resolved"
+          },
+          "description": {
+            "type": "string",
+            "example": "User's wager is settled"
+          },
+          "floor_cpm_usd": {
+            "type": "number",
+            "format": "float",
+            "description": "Minimum CPM bid accepted for this moment type (USD)",
+            "example": 0.5
+          },
+          "typical_ctr_low": {
+            "type": "integer",
+            "description": "Lower end of typical click-through rate range (percent)",
+            "example": 9
+          },
+          "typical_ctr_high": {
+            "type": "integer",
+            "description": "Upper end of typical click-through rate range (percent)",
+            "example": 15
+          },
+          "available_sports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ncaa_basketball",
+                "nba",
+                "nfl",
+                "mlb"
+              ]
+            },
+            "example": [
+              "ncaa_basketball",
+              "nba",
+              "nfl",
+              "mlb"
+            ]
+          }
+        }
+      },
+      "Creative": {
+        "type": "object",
+        "required": [
+          "id",
+          "headline",
+          "icon_url",
+          "action_url",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "42"
+          },
+          "headline": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Notification title shown to the user",
+            "example": "DraftKings – Bet $5, Get $150"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 120,
+            "nullable": true,
+            "description": "Notification body text",
+            "example": "Your team just went up. Lock in your winnings now."
+          },
+          "icon_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://cdn.example.com/logo.png"
+          },
+          "action_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://draftkings.com/promo/bet5get150"
+          },
+          "cta_text": {
+            "type": "string",
+            "maxLength": 20,
+            "nullable": true,
+            "example": "Bet Now"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "paused"
+            ]
+          },
+          "performance_score": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Thompson Sampling performance score (0–1)",
+            "example": 0.73
+          },
+          "variant_label": {
+            "type": "string",
+            "description": "A/B variant identifier",
+            "example": "variant_a"
+          }
+        }
+      },
+      "CreativeInput": {
+        "type": "object",
+        "required": [
+          "headline",
+          "body",
+          "icon_url",
+          "action_url"
+        ],
+        "properties": {
+          "headline": {
+            "type": "string",
+            "maxLength": 60,
+            "example": "DraftKings – Bet $5, Get $150"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Your team just went up. Lock in your winnings now."
+          },
+          "icon_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Must be a publicly reachable HTTPS URL",
+            "example": "https://cdn.example.com/logo.png"
+          },
+          "action_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://draftkings.com/promo/bet5get150"
+          },
+          "cta_text": {
+            "type": "string",
+            "maxLength": 20,
+            "nullable": true,
+            "example": "Bet Now"
+          }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "moment_types",
+          "sports",
+          "bid_cpm_usd",
+          "daily_budget_usd",
+          "total_budget_usd",
+          "start_date",
+          "spend_to_date_usd",
+          "impressions_to_date",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "DraftKings March Madness"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "ended",
+              "cancelled"
+            ]
+          },
+          "moment_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "bet_resolved",
+                "close_game",
+                "overtime",
+                "spread_alert",
+                "moneyline_alert",
+                "total_alert",
+                "prop_alert",
+                "position_alert",
+                "foul_trouble",
+                "follow_alert",
+                "prediction_resolved"
+              ]
+            },
+            "example": [
+              "bet_resolved",
+              "overtime",
+              "close_game"
+            ]
+          },
+          "sports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ncaa_basketball",
+                "nba",
+                "nfl",
+                "mlb"
+              ]
+            },
+            "example": [
+              "ncaa_basketball",
+              "nba"
+            ]
+          },
+          "bid_cpm_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 0.8
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "example": 100
+          },
+          "total_budget_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 1000
+          },
+          "target_cpa_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "CPA auto-bidding target (enables Thompson Sampling bid optimization)",
+            "example": 25
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2025-03-01"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2025-04-01"
+          },
+          "spend_to_date_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 42.5
+          },
+          "impressions_to_date": {
+            "type": "integer",
+            "example": 8500
+          },
+          "postback_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "URL for mobile attribution postback signals",
+            "example": "https://track.example.com/postback"
+          },
+          "creative": {
+            "$ref": "#/components/schemas/Creative"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CampaignSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "moment_types",
+          "sports",
+          "bid_cpm_usd",
+          "daily_budget_usd",
+          "total_budget_usd",
+          "spend_to_date_usd",
+          "impressions_to_date",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "DraftKings March Madness"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "ended",
+              "cancelled"
+            ]
+          },
+          "moment_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bid_cpm_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "total_budget_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "spend_to_date_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "impressions_to_date": {
+            "type": "integer"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CampaignCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "moment_types",
+          "sports",
+          "bid_cpm_usd",
+          "daily_budget_usd",
+          "total_budget_usd",
+          "start_date",
+          "creative"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "DraftKings March Madness"
+          },
+          "moment_types": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "bet_resolved",
+                "close_game",
+                "overtime",
+                "spread_alert",
+                "moneyline_alert",
+                "total_alert",
+                "prop_alert",
+                "position_alert",
+                "foul_trouble",
+                "follow_alert",
+                "prediction_resolved"
+              ]
+            },
+            "example": [
+              "bet_resolved",
+              "overtime"
+            ]
+          },
+          "sports": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "ncaa_basketball",
+                "nba",
+                "nfl",
+                "mlb"
+              ]
+            },
+            "example": [
+              "ncaa_basketball",
+              "nba"
+            ]
+          },
+          "bid_cpm_usd": {
+            "type": "number",
+            "format": "float",
+            "description": "CPM bid in USD — must meet or exceed floor for all selected moment types",
+            "example": 0.8
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "format": "float",
+            "minimum": 5,
+            "example": 100
+          },
+          "total_budget_usd": {
+            "type": "number",
+            "format": "float",
+            "minimum": 10,
+            "example": 1000
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Campaign start date (must be >= today)",
+            "example": "2025-03-01"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Campaign end date (must be after start_date)",
+            "example": "2025-04-01"
+          },
+          "target_cpa_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Enables CPA auto-bidding via Thompson Sampling",
+            "example": 25
+          },
+          "postback_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "example": "https://track.example.com/postback"
+          },
+          "creative": {
+            "$ref": "#/components/schemas/CreativeInput"
+          }
+        }
+      },
+      "CampaignUpdate": {
+        "type": "object",
+        "description": "All fields are optional. Immutable fields (moment_types, sports, start_date, creative) cannot be changed after creation.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "bid_cpm_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "total_budget_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "target_cpa_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "ended"
+            ]
+          },
+          "postback_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          }
+        }
+      },
+      "CampaignCreated": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active"
+            ]
+          },
+          "estimated_daily_impressions": {
+            "type": "integer",
+            "example": 3200
+          },
+          "estimated_daily_spend_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 2.56
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "per_page",
+          "total"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "per_page": {
+            "type": "integer",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "example": 47
+          }
+        }
+      },
+      "ReportTotals": {
+        "type": "object",
+        "required": [
+          "impressions",
+          "clicks",
+          "ctr",
+          "conversions",
+          "spend_usd",
+          "as_of"
+        ],
+        "properties": {
+          "impressions": {
+            "type": "integer",
+            "example": 8500
+          },
+          "clicks": {
+            "type": "integer",
+            "example": 1020
+          },
+          "ctr": {
+            "type": "number",
+            "format": "float",
+            "description": "Click-through rate (0.0–1.0)",
+            "example": 0.12
+          },
+          "conversions": {
+            "type": "integer",
+            "example": 34
+          },
+          "conversion_rate": {
+            "type": "number",
+            "format": "float",
+            "example": 0.004
+          },
+          "cpa_usd": {
+            "type": "number",
+            "format": "float",
+            "description": "Cost per acquisition in USD (0 if no conversions)",
+            "example": 18.5
+          },
+          "spend_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 629
+          },
+          "average_cpm_paid_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 0.74
+          },
+          "win_rate": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Auction win rate (not yet available)"
+          },
+          "auctions_entered": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Total auctions entered (not yet available)"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReportBreakdownItem": {
+        "type": "object",
+        "required": [
+          "dimension",
+          "value",
+          "impressions",
+          "clicks",
+          "ctr",
+          "spend_usd"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "moment_type",
+              "creative",
+              "day",
+              "sport",
+              "hour_of_day"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "example": "bet_resolved"
+          },
+          "impressions": {
+            "type": "integer"
+          },
+          "clicks": {
+            "type": "integer"
+          },
+          "ctr": {
+            "type": "number",
+            "format": "float"
+          },
+          "conversions": {
+            "type": "integer"
+          },
+          "cpa_usd": {
+            "type": "number",
+            "format": "float"
+          },
+          "spend_usd": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "CampaignReport": {
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "period",
+          "totals"
+        ],
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "example": "101"
+          },
+          "period": {
+            "type": "object",
+            "required": [
+              "start",
+              "end",
+              "timezone"
+            ],
+            "properties": {
+              "start": {
+                "type": "string",
+                "format": "date",
+                "example": "2025-03-01"
+              },
+              "end": {
+                "type": "string",
+                "format": "date",
+                "example": "2025-03-31"
+              },
+              "timezone": {
+                "type": "string",
+                "example": "America/New_York"
+              }
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ReportTotals"
+          },
+          "breakdown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportBreakdownItem"
+            }
+          }
+        }
+      },
+      "TimeseriesPoint": {
+        "type": "object",
+        "required": [
+          "ts",
+          "impressions",
+          "clicks",
+          "spend_usd"
+        ],
+        "properties": {
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-03-01T00:00:00Z"
+          },
+          "impressions": {
+            "type": "integer",
+            "example": 420
+          },
+          "clicks": {
+            "type": "integer",
+            "example": 50
+          },
+          "spend_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 31.2
+          }
+        }
+      },
+      "CreativePerformance": {
+        "type": "object",
+        "required": [
+          "creative_id",
+          "impressions",
+          "clicks",
+          "ctr"
+        ],
+        "properties": {
+          "creative_id": {
+            "type": "string",
+            "example": "42"
+          },
+          "impressions": {
+            "type": "integer",
+            "example": 2100
+          },
+          "clicks": {
+            "type": "integer",
+            "example": 315
+          },
+          "ctr": {
+            "type": "number",
+            "format": "float",
+            "example": 0.15
+          },
+          "conversions": {
+            "type": "integer",
+            "example": 12
+          },
+          "spend_usd": {
+            "type": "number",
+            "format": "float",
+            "example": 157.5
+          },
+          "traffic_allocation": {
+            "type": "number",
+            "format": "float",
+            "description": "Fraction of campaign traffic routed to this creative",
+            "example": 0.5
+          }
+        }
+      },
+      "MarketData": {
+        "type": "object",
+        "required": [
+          "as_of",
+          "moment_types"
+        ],
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moment_types": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "moment_type",
+                "floor_cpm_usd"
+              ],
+              "properties": {
+                "moment_type": {
+                  "type": "string",
+                  "example": "bet_resolved"
+                },
+                "floor_cpm_usd": {
+                  "type": "number",
+                  "format": "float",
+                  "example": 0.5
+                },
+                "clearing_price_p25_usd": {
+                  "type": "number",
+                  "format": "float",
+                  "nullable": true,
+                  "example": 0.52
+                },
+                "clearing_price_p50_usd": {
+                  "type": "number",
+                  "format": "float",
+                  "nullable": true,
+                  "example": 0.65
+                },
+                "clearing_price_p75_usd": {
+                  "type": "number",
+                  "format": "float",
+                  "nullable": true,
+                  "example": 0.8
+                },
+                "clearing_price_p90_usd": {
+                  "type": "number",
+                  "format": "float",
+                  "nullable": true,
+                  "example": 1.1
+                }
+              }
+            }
+          }
+        }
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "events",
+          "is_active",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://tracker.example.com/norma-webhook"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "batch_impressions": {
+            "type": "boolean",
+            "description": "Whether impression.served events are batched"
+          },
+          "failure_count": {
+            "type": "integer",
+            "example": 0
+          },
+          "last_delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WebhookEvent": {
+        "type": "string",
+        "enum": [
+          "impression.served",
+          "click.recorded",
+          "conversion.recorded",
+          "campaign.budget_50pct",
+          "campaign.budget_90pct",
+          "campaign.ended",
+          "campaign.bid_adjusted"
+        ]
+      },
+      "WebhookCreate": {
+        "type": "object",
+        "required": [
+          "url",
+          "events"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://tracker.example.com/norma-webhook"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            },
+            "example": [
+              "conversion.recorded",
+              "campaign.ended"
+            ]
+          },
+          "batch_impressions": {
+            "type": "boolean",
+            "default": false,
+            "description": "Batch impression.served events instead of sending one per impression"
+          }
+        }
+      },
+      "WebhookCreated": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEndpoint"
+          },
+          {
+            "type": "object",
+            "required": [
+              "secret",
+              "warning"
+            ],
+            "properties": {
+              "secret": {
+                "type": "string",
+                "description": "Signing secret for X-Norma-Signature verification — shown only once",
+                "example": "a3f9b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1"
+              },
+              "warning": {
+                "type": "string",
+                "example": "Save this secret — it will not be shown again. Use it to verify X-Norma-Signature headers."
+              }
+            }
+          }
+        ]
+      },
+      "ConversionPostback": {
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "click_id",
+          "event_type"
+        ],
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Campaign ID the click belongs to",
+            "example": "101"
+          },
+          "click_id": {
+            "type": "string",
+            "description": "NORMA-issued click identifier from the ad deep link",
+            "example": "clk_abc123def456"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "install",
+              "registration",
+              "deposit",
+              "purchase",
+              "custom"
+            ],
+            "example": "deposit"
+          },
+          "event_value_usd": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Monetary value of the conversion event",
+            "example": 100
+          },
+          "event_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Required when event_type is custom",
+            "example": "first_bet"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "nullable": true,
+            "description": "Prevents duplicate recording of the same conversion",
+            "example": "dep_xyz789"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "createToken",
+        "summary": "Issue OAuth 2.0 access token",
+        "description": "Implements RFC 6749 §4.4 Client Credentials grant. Returns a short-lived\nRS256-signed JWT bearer token. Rate limited to 10 requests/minute per IP.\n",
+        "x-rate-limit": "10/min per IP",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "grant_type",
+                  "client_id",
+                  "client_secret"
+                ],
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "enum": [
+                      "client_credentials"
+                    ]
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "example": "norma_client_abc123"
+                  },
+                  "client_secret": {
+                    "type": "string",
+                    "example": "base64url_secret_here"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "description": "Space-separated list of requested scopes",
+                    "example": "campaigns:read reporting:read"
+                  }
+                }
+              },
+              "example": {
+                "grant_type": "client_credentials",
+                "client_id": "norma_client_abc123",
+                "client_secret": "base64url_secret_here",
+                "scope": "campaigns:read campaigns:write reporting:read"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthToken"
+                },
+                "example": {
+                  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "scope": "campaigns:read campaigns:write reporting:read"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid grant_type or missing fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/.well-known/jwks.json": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "getJwks",
+        "summary": "Get JWKS public keys",
+        "description": "Returns the RSA public key set used to verify NORMA-issued JWTs.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "JSON Web Key Set",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=86400"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JWKSResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/moment-types": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "listMomentTypes",
+        "summary": "List all moment types",
+        "description": "Returns all 11 NORMA moment types with floor CPM prices and typical CTR\nranges. This endpoint is public (no authentication required) and cached\nfor 1 hour.\n",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Array of moment types",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=3600"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MomentType"
+                  }
+                },
+                "example": [
+                  {
+                    "key": "bet_resolved",
+                    "display_name": "Bet Resolved",
+                    "description": "User's wager is settled",
+                    "floor_cpm_usd": 0.5,
+                    "typical_ctr_low": 9,
+                    "typical_ctr_high": 15,
+                    "available_sports": [
+                      "ncaa_basketball",
+                      "nba",
+                      "nfl",
+                      "mlb"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/reporting/inventory/market": {
+      "get": {
+        "tags": [
+          "Inventory",
+          "Reporting"
+        ],
+        "operationId": "getMarketData",
+        "summary": "Get market pricing data",
+        "description": "Returns floor prices and clearing price percentiles (p25/p50/p75/p90)\nfor all moment types. Data is privacy-safe (no individual bids exposed)\nand cached for 15 minutes. Useful for bid strategy optimization.\n",
+        "x-rate-limit": "60/min per advertiser",
+        "security": [
+          {
+            "oauth2": [
+              "inventory:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market pricing data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/campaigns": {
+      "get": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "listCampaigns",
+        "summary": "List campaigns",
+        "description": "Returns all campaigns for the authenticated advertiser, newest first.",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by campaign status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "paused",
+                "ended",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of campaigns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "campaigns",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "campaigns": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CampaignSummary"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "createCampaign",
+        "summary": "Create a campaign",
+        "description": "Creates a new ad campaign with an initial creative. The campaign is\nset to active status immediately. The `icon_url` must be a publicly\nreachable HTTPS URL (verified via HEAD request at creation time).\nBid CPM must meet or exceed the floor price for all selected moment types.\n",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignCreate"
+              },
+              "example": {
+                "name": "DraftKings March Madness",
+                "moment_types": [
+                  "bet_resolved",
+                  "overtime",
+                  "close_game"
+                ],
+                "sports": [
+                  "ncaa_basketball",
+                  "nba"
+                ],
+                "bid_cpm_usd": 0.8,
+                "daily_budget_usd": 100,
+                "total_budget_usd": 1000,
+                "start_date": "2025-03-01",
+                "end_date": "2025-04-07",
+                "creative": {
+                  "headline": "DraftKings — Bet $5, Get $150",
+                  "body": "Your team just went up. Lock in your winnings now.",
+                  "icon_url": "https://cdn.draftkings.com/logo.png",
+                  "action_url": "https://draftkings.com/promo/march-madness",
+                  "cta_text": "Bet Now"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Campaign created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignCreated"
+                },
+                "example": {
+                  "id": "101",
+                  "status": "active",
+                  "estimated_daily_impressions": 3200,
+                  "estimated_daily_spend_usd": 2.56,
+                  "created_at": "2025-03-01T00:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or bid below floor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "bid_below_floor": {
+                    "value": {
+                      "type": "https://api.getnorma.app/errors/bid-below-floor",
+                      "title": "Bid Below Floor",
+                      "status": 400,
+                      "detail": "bid_cpm_usd ($0.20) is below the floor for bet_resolved ($0.50)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/campaigns/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "example": "101"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "getCampaign",
+        "summary": "Get campaign details",
+        "description": "Returns full campaign detail including the primary creative.",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "updateCampaign",
+        "summary": "Update a campaign",
+        "description": "Updates mutable campaign fields. The following fields are immutable after\ncreation and cannot be changed: `moment_types`, `sports`, `start_date`,\n`creative`. Bid changes propagate to the bids table synchronously.\n",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignUpdate"
+              },
+              "example": {
+                "bid_cpm_usd": 0.95,
+                "daily_budget_usd": 150
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated campaign",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or immutable field change attempted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/campaigns/{id}/pause": {
+      "post": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "pauseCampaign",
+        "summary": "Pause a campaign",
+        "description": "Transitions an active campaign to paused status. No-ops if already paused.",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paused": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "example": "101"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Campaign is not in a pausable state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/campaigns/{id}/resume": {
+      "post": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "resumeCampaign",
+        "summary": "Resume a paused campaign",
+        "description": "Transitions a paused campaign back to active. Fails if budget is exhausted.",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "resumed": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "example": "101"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Campaign is not paused or budget exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/campaigns/{id}/creatives": {
+      "post": {
+        "tags": [
+          "Campaigns"
+        ],
+        "operationId": "addCreativeVariant",
+        "summary": "Add A/B creative variant",
+        "description": "Adds a new creative variant to an existing campaign for A/B testing.\nTraffic is split equally across all approved variants. Variants are\nlabeled variant_a, variant_b, variant_c, etc. automatically.\n",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreativeInput"
+              },
+              "example": {
+                "headline": "DraftKings — Free $150 Bet",
+                "body": "The game is getting good. Don't miss your chance.",
+                "icon_url": "https://cdn.draftkings.com/logo-v2.png",
+                "action_url": "https://draftkings.com/promo/free150",
+                "cta_text": "Claim Now"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Creative variant added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "43"
+                    },
+                    "variant_label": {
+                      "type": "string",
+                      "example": "variant_b"
+                    },
+                    "traffic_allocation": {
+                      "type": "number",
+                      "format": "float",
+                      "example": 0.5,
+                      "description": "Fraction of campaign traffic routed to this variant"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/reporting/campaigns/{id}": {
+      "get": {
+        "tags": [
+          "Reporting"
+        ],
+        "operationId": "getCampaignReport",
+        "summary": "Get campaign performance report",
+        "description": "Returns aggregated performance metrics for a campaign over a date range.\nOptional breakdown by moment_type or creative for granular analysis.\nRate limited to 60 requests/minute per advertiser.\n",
+        "x-rate-limit": "60/min per advertiser",
+        "security": [
+          {
+            "oauth2": [
+              "reporting:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-01"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-31"
+          },
+          {
+            "name": "breakdown",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "moment_type",
+                "sport",
+                "creative",
+                "hour_of_day"
+              ]
+            },
+            "example": "moment_type"
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "UTC"
+            },
+            "example": "America/New_York"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign performance report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignReport"
+                },
+                "example": {
+                  "campaign_id": "101",
+                  "period": {
+                    "start": "2025-03-01",
+                    "end": "2025-03-31",
+                    "timezone": "UTC"
+                  },
+                  "totals": {
+                    "impressions": 8500,
+                    "clicks": 1020,
+                    "ctr": 0.12,
+                    "conversions": 34,
+                    "spend_usd": 629,
+                    "average_cpm_paid_usd": 0.74,
+                    "as_of": "2025-04-01T00:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid date range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/reporting/campaigns/{id}/timeseries": {
+      "get": {
+        "tags": [
+          "Reporting"
+        ],
+        "operationId": "getCampaignTimeseries",
+        "summary": "Get campaign performance timeseries",
+        "description": "Returns impression, click, and spend data over time. Use `granularity=day`\nfor daily aggregates (reads from materialized view, fast) or\n`granularity=hour` for hourly data (reads raw impressions, slower).\n",
+        "x-rate-limit": "60/min per advertiser",
+        "security": [
+          {
+            "oauth2": [
+              "reporting:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day"
+              ],
+              "default": "day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeseries data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "campaign_id",
+                    "granularity",
+                    "series"
+                  ],
+                  "properties": {
+                    "campaign_id": {
+                      "type": "string",
+                      "example": "101"
+                    },
+                    "granularity": {
+                      "type": "string",
+                      "enum": [
+                        "hour",
+                        "day"
+                      ]
+                    },
+                    "series": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeseriesPoint"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/reporting/creatives/{id}": {
+      "get": {
+        "tags": [
+          "Reporting"
+        ],
+        "operationId": "getCreativePerformance",
+        "summary": "Get creative performance",
+        "description": "Returns impression, click, and conversion metrics for a specific creative.",
+        "x-rate-limit": "60/min per advertiser",
+        "security": [
+          {
+            "oauth2": [
+              "reporting:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "42"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Creative performance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativePerformance"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Creative not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "listWebhooks",
+        "summary": "List webhook endpoints",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:read"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of webhook endpoints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "endpoints"
+                  ],
+                  "properties": {
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookEndpoint"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "createWebhook",
+        "summary": "Register a webhook endpoint",
+        "description": "Registers a URL to receive NORMA event notifications. A 32-byte hex\nsigning secret is generated and returned once — store it immediately.\nUse the `X-Norma-Signature` header (`sha256=<hex>`) to verify delivery.\n\nNORMA signs with HMAC-SHA256 using the shared secret:\n```\nX-Norma-Signature: sha256=<hmac_hex>\n```\n",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookCreate"
+              },
+              "example": {
+                "url": "https://tracker.example.com/norma-webhook",
+                "events": [
+                  "conversion.recorded",
+                  "campaign.ended"
+                ],
+                "batch_impressions": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook registered — secret shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL or events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/webhooks/{id}": {
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "deleteWebhook",
+        "summary": "Deactivate a webhook endpoint",
+        "description": "Sets the endpoint to inactive. Delivery will stop. Cannot be re-activated via API.",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook deactivated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deactivated": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/webhooks/{id}/test": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "testWebhook",
+        "summary": "Send a test event to a webhook",
+        "description": "Fires a `conversion.recorded` test event to the endpoint. Useful for\nverifying connectivity and signature verification before going live.\n",
+        "security": [
+          {
+            "oauth2": [
+              "campaigns:write"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test delivery result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "duration_ms",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "status_code": {
+                      "type": "integer",
+                      "nullable": true,
+                      "example": 200
+                    },
+                    "duration_ms": {
+                      "type": "integer",
+                      "example": 87
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Test event delivered successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ads/postback": {
+      "get": {
+        "tags": [
+          "Postbacks"
+        ],
+        "operationId": "receivePostbackGet",
+        "summary": "Record a conversion (GET)",
+        "description": "Records a conversion event for a click that originated from a NORMA ad.\nThe GET method is standard for mobile attribution partners who use URL\nmacros in postback URLs.\n\nDeduplication is enforced: if `converted=true` is already set on the\nclick, returns `{ status: \"already_recorded\" }`. Use `idempotency_key`\nto safely retry without creating duplicates.\n\nConversions outside the 7-day attribution window are rejected.\n",
+        "security": [],
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "101"
+          },
+          {
+            "name": "click_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "clk_abc123def456"
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "install",
+                "registration",
+                "deposit",
+                "purchase",
+                "custom"
+              ]
+            },
+            "example": "deposit"
+          },
+          {
+            "name": "event_value_usd",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "float"
+            },
+            "example": 100
+          },
+          {
+            "name": "event_name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "first_bet"
+          },
+          {
+            "name": "idempotency_key",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "dep_xyz789"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversion recorded or already recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "already_recorded"
+                      ]
+                    }
+                  }
+                },
+                "examples": {
+                  "recorded": {
+                    "value": {
+                      "status": "recorded"
+                    }
+                  },
+                  "already_recorded": {
+                    "value": {
+                      "status": "already_recorded"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or click outside attribution window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Click not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Postbacks"
+        ],
+        "operationId": "receivePostbackPost",
+        "summary": "Record a conversion (POST)",
+        "description": "Records a conversion event via JSON body. Equivalent to the GET endpoint\nbut accepts a JSON body instead of query parameters. Both formats are\nsupported for maximum partner compatibility.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionPostback"
+              },
+              "example": {
+                "campaign_id": "101",
+                "click_id": "clk_abc123def456",
+                "event_type": "deposit",
+                "event_value_usd": 100,
+                "idempotency_key": "dep_xyz789"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conversion recorded or already recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "already_recorded"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or click outside attribution window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Click not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,12 +6,24 @@ const adAgentHeaders = [
   { key: "Cache-Control", value: "public, max-age=3600" },
 ];
 
+const openApiHeaders = [
+  { key: "Content-Type", value: "application/json" },
+  { key: "Access-Control-Allow-Origin", value: "*" },
+  { key: "Cache-Control", value: "public, max-age=300" },
+];
+
 const nextConfig: NextConfig = {
   // Configured for Supabase SSR
   async headers() {
     return [
       { source: "/adagents.json", headers: adAgentHeaders },
       { source: "/.well-known/adagents.json", headers: adAgentHeaders },
+      { source: "/.well-known/openapi.json", headers: openApiHeaders },
+    ];
+  },
+  async redirects() {
+    return [
+      { source: "/api-docs", destination: "/api-docs/index.html", permanent: false },
     ];
   },
   async rewrites() {
