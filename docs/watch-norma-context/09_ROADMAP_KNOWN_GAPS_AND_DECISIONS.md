@@ -54,6 +54,8 @@ Based on repository inspection and the outage report:
 - **No automated alerting on system degradation.** The `health-check` endpoint exists but there is no automated monitor that calls it and pages on failure.
 - **No data retention policy.** Old game_snapshots, delivery_log entries, and impression records accumulate indefinitely. A cleanup job should be implemented.
 - **No staging environment documented.** The repo shows production-oriented config. A staging/preview environment strategy is not documented.
+- **Production database missing migrations 079–084.** Migrations `api_keys` (079), `oauth_clients` (081), and related tables (postback webhooks 082, brief_log 083, demo_requests 084) are committed to git but not yet applied to the production Supabase instance. An idempotent application script is at `supabase/apply-pending-migrations.sql`. Until this script is run in the Supabase SQL editor, the Settings → API Access "Create Client" button will return 500.
+- **`support@norma-app.com` placeholder email (fixed June 2026).** The settings page previously showed a fake email on the `norma-app.com` domain, which does not exist. Fixed to `support@getnorma.app`. Root cause: an AI agent invented the placeholder without verifying the domain.
 
 ## Product Decisions Needed
 
