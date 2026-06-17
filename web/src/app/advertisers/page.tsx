@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { StatCounter } from "@/components/stat-counter";
 
 export const metadata: Metadata = {
   title: "NORMA Advertising — 12-18% CTR Push Notification Ads for Sports Fans",
@@ -12,22 +13,120 @@ export const metadata: Metadata = {
   },
 };
 
+const momentRows = [
+  { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60", ctr: "14–20%", ctrMax: 20 },
+  { name: "Bet Resolved", desc: "User's wager just settled, win or lose", floor: "$0.50", ctr: "12–18%", ctrMax: 18 },
+  { name: "Overtime", desc: "Game goes to extra time, peak adrenaline", floor: "$0.40", ctr: "10–15%", ctrMax: 15 },
+  { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35", ctr: "8–14%", ctrMax: 14 },
+  { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30", ctr: "8–12%", ctrMax: 12 },
+  { name: "Moneyline Alert", desc: "Moneyline outcome flipping", floor: "$0.30", ctr: "7–11%", ctrMax: 11 },
+  { name: "Total Alert", desc: "Over/under pace changing", floor: "$0.25", ctr: "6–10%", ctrMax: 10 },
+  { name: "Prop Alert", desc: "Player prop stat line in play", floor: "$0.25", ctr: "6–9%", ctrMax: 9 },
+  { name: "Position Alert", desc: "Prediction market position at risk", floor: "$0.20", ctr: "5–8%", ctrMax: 8 },
+  { name: "Foul Trouble", desc: "Key starter picks up 4th foul", floor: "$0.15", ctr: "4–7%", ctrMax: 7 },
+  { name: "Follow Alert", desc: "Team follower with no financial stake", floor: "$0.10", ctr: "3–5%", ctrMax: 5 },
+];
+
+const differentiators = [
+  {
+    title: "The Push Notification Is the Ad Unit",
+    body: "Your brand lives inside the alert that makes someone grab their phone. Not beside it. Not after it. Inside it. That's why CTRs run 10-50x higher than display.",
+  },
+  {
+    title: "You're Buying Intent, Not Impressions",
+    body: "Every viewer has money on the line. A spread covering, a prop hitting, a prediction resolving. They don't just see your ad. They act on it.",
+  },
+  {
+    title: "11 Moment Types, Each Priced Differently",
+    body: "Bid on overtime moments, bet resolutions, spread crossings, or close games. Higher-intent moments cost more and convert more.",
+  },
+  {
+    title: "No Wasted Spend",
+    body: "Second-price auction: you only pay the minimum needed to win. Floor prices start at $0.10. Average CPAs run 3-5x lower than social ads.",
+  },
+  {
+    title: "Self-Optimizing Creatives",
+    body: "Upload multiple variants. NORMA's Thompson Sampling engine shifts traffic to the top converter automatically. No manual A/B test management.",
+  },
+  {
+    title: "Privacy-First by Design",
+    body: "No individual user data exposed. All targeting is cohort-based, all reporting is aggregate. Built for the post-IDFA world.",
+  },
+];
+
+const auctionSteps = [
+  {
+    num: "1",
+    title: "Moment Fires",
+    body: "A fan's bet is covering, their team hits overtime, or a prediction is about to resolve. NORMA detects the moment in real time.",
+  },
+  {
+    num: "2",
+    title: "Your Campaign Matches",
+    body: "NORMA finds all campaigns targeting this moment type, sport, and audience segment. Budget-paced, frequency-capped, brand-safe.",
+  },
+  {
+    num: "3",
+    title: "Floor Check",
+    body: "Bids below the moment's floor price are filtered out. Higher-intent moments have higher floors. Maximizes quality for both sides.",
+  },
+  {
+    num: "4",
+    title: "You Pay Second Price",
+    body: "Highest bid wins but only pays the second highest bid plus $0.01. Bid your true value. The system protects you from overpaying.",
+  },
+];
+
+const aiFeatures = [
+  {
+    title: "Thompson Sampling Creatives",
+    body: "Upload multiple variants. NORMA uses Beta distribution sampling to allocate traffic, locking to the statistical winner after 100 impressions per variant.",
+  },
+  {
+    title: "CPA-Based Auto-Bidding",
+    body: "Set a target cost-per-action and NORMA adjusts your bids every 30 minutes based on real conversion data. Stay on target without constant monitoring.",
+  },
+  {
+    title: "Smart Budget Pacing",
+    body: "Hourly pacing distributes spend evenly across each day's games. Daily caps prevent blowing your budget during a single high-traffic window.",
+  },
+  {
+    title: "Dynamic Floor Premiums",
+    body: "Floor prices automatically increase during high-demand windows: March Madness (1.5x), overtime late in a close game (1.5x), simultaneous games > 10 (1.3x).",
+  },
+  {
+    title: "Ad Fatigue Protection",
+    body: "NORMA tracks per-user ad exposure using exponential decay scoring. Users who've seen 6+ ads in 24 hours are automatically excluded to protect your brand CTR.",
+  },
+  {
+    title: "7-Day Supply Forecasting",
+    body: "See predicted inventory per moment type before you launch. Plan campaigns around live schedules with Bayesian-grounded confidence intervals.",
+  },
+];
+
 export default function AdvertisersPage() {
   return (
-    <div className="min-h-screen">
-      {/* Public Nav */}
-      <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <div className="min-h-screen" style={{ background: "#080808", color: "#F5F3EE" }}>
+
+      {/* ════════════════════════════════════════
+          NAV
+      ════════════════════════════════════════ */}
+      <nav
+        className="sticky top-0 z-50 stripe-dim"
+        style={{ background: "rgba(8,8,8,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/">
-            <img src="/logo.png" alt="NORMA" className="h-10 w-auto" />
+            <img src="/logo.png" alt="NORMA" className="h-9 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
-            <Link href="/advertisers" className="text-sm font-medium text-white">
+            <Link href="/advertisers" className="text-sm font-semibold" style={{ color: "#F5F3EE" }}>
               Advertisers
             </Link>
             <Link
               href="/auth/login"
-              className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              style={{ background: "#FF4C00" }}
             >
               Advertiser Login
             </Link>
@@ -35,309 +134,453 @@ export default function AdvertisersPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pt-24 pb-16 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-orange-400">
-          NORMA Advertising
-        </p>
-        <h1 className="mt-4 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
-          12-18% CTR. Not a Typo.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
-          NORMA doesn&apos;t interrupt attention. It creates it. Your brand appears inside the
-          push notification that brings a fan back to a live game. Not a banner. Not a pre-roll.{" "}
-          <strong className="text-white">The moment itself.</strong>
-        </p>
-        <div className="mt-8">
-          <Link
-            href="/auth/signup"
-            className="rounded-xl bg-orange-500 px-8 py-3.5 text-base font-bold text-white hover:bg-orange-600"
+      {/* ════════════════════════════════════════
+          HERO
+      ════════════════════════════════════════ */}
+      <section
+        className="noise-overlay"
+        style={{
+          background: "radial-gradient(ellipse 70% 60% at 30% 50%, rgba(255,76,0,0.06) 0%, transparent 65%), #080808",
+          paddingTop: 96,
+          paddingBottom: 80,
+        }}
+      >
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex flex-col gap-16 lg:flex-row lg:items-center">
+
+            {/* Left: Text */}
+            <div className="flex-1" style={{ maxWidth: 600 }}>
+              <div
+                className="inline-block mb-6 font-semibold uppercase"
+                style={{ fontSize: 11, color: "#FF4C00", letterSpacing: "0.14em" }}
+              >
+                NORMA Advertising Platform
+              </div>
+              <h1
+                className="font-display leading-none"
+                style={{ fontSize: "clamp(68px, 9vw, 110px)", color: "#F5F3EE", lineHeight: 0.92 }}
+              >
+                12-18% CTR.
+                <br />
+                <span style={{ color: "#3A3A3A" }}>NOT A TYPO.</span>
+              </h1>
+              <p
+                className="mt-8 leading-relaxed"
+                style={{ fontSize: 18, color: "#9A9A9A", maxWidth: 480 }}
+              >
+                NORMA doesn&apos;t interrupt attention. It creates it. Your brand appears inside the push notification that brings a fan back to a live game. Not a banner. Not a pre-roll.{" "}
+                <strong style={{ color: "#F5F3EE" }}>The moment itself.</strong>
+              </p>
+              <div className="mt-10">
+                <Link
+                  href="/auth/signup"
+                  className="inline-block rounded-xl px-8 py-4 text-base font-bold text-white"
+                  style={{ background: "#FF4C00" }}
+                >
+                  Create Your Advertiser Account
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: Stats */}
+            <div className="flex-shrink-0 grid grid-cols-1 gap-3" style={{ width: "clamp(280px, 35vw, 380px)" }}>
+              {[
+                { value: 18, suffix: "%", label: "CTR on Bet Resolution", note: "Top moment type" },
+                { value: 10, prefix: "$0.", suffix: "", label: "Floor Price Per Impression", note: "Follow Alert floor" },
+                { value: 50, suffix: "×", label: "Higher CTR than display", note: "Overhead banner comparison" },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-2xl p-6"
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  <div
+                    className="font-display"
+                    style={{ fontSize: 56, color: "#FF4C00", lineHeight: 1 }}
+                  >
+                    <StatCounter to={s.value} prefix={s.prefix ?? ""} suffix={s.suffix} duration={1400} />
+                  </div>
+                  <div
+                    className="font-semibold mt-2 uppercase"
+                    style={{ fontSize: 12, color: "#F5F3EE", letterSpacing: "0.08em" }}
+                  >
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#3A3A3A", marginTop: 4 }}>{s.note}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════
+          WHAT MAKES NORMA DIFFERENT
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-28" style={{ background: "#0B0B0B" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              Why NORMA
+            </span>
+          </div>
+          <h2
+            className="font-display"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
-            Create Your Advertiser Account
-          </Link>
-        </div>
-      </section>
+            THIS ISN&apos;T DISPLAY<br />
+            <span style={{ color: "#3A3A3A" }}>ADVERTISING.</span>
+          </h2>
 
-      {/* What Makes NORMA Different */}
-      <section className="border-t border-slate-800 bg-slate-900/50 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">This isn&apos;t display advertising.</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            Banners and pre-rolls fight for attention that&apos;s already somewhere else.
-            NORMA owns the push notification that creates the viewer. Your ad is the reason
-            a fan picks up their phone, not the thing they skip past.
-          </p>
-
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                title: "The Push Notification Is the Ad Unit",
-                description:
-                  "Your brand lives inside the alert that makes someone grab their phone. Not beside it, not after it. Inside it. That's why CTRs run 10-50x higher than display.",
-              },
-              {
-                title: "You're Buying Intent, Not Impressions",
-                description:
-                  "Every viewer has money on the line. A spread covering, a prop hitting, a prediction resolving. They don't just see your ad. They act on it.",
-              },
-              {
-                title: "11 Moment Types, Each Priced Differently",
-                description:
-                  "Bid on overtime moments, bet resolutions, spread crossings, or close games. Higher-intent moments cost more and convert more. You choose where your budget goes.",
-              },
-              {
-                title: "No Wasted Spend",
-                description:
-                  "You only pay the minimum needed to win each impression. Floor prices start at $0.10. Average CPAs run 3-5x lower than social ads for sportsbook install campaigns.",
-              },
-              {
-                title: "Self-Optimizing Creatives",
-                description:
-                  "Upload multiple variants. NORMA automatically shifts traffic to the one that converts best. No manual A/B test management. Just upload and let it run.",
-              },
-              {
-                title: "Privacy-First by Design",
-                description:
-                  "No individual user data exposed. All targeting is cohort-based, all reporting is aggregate. Built for the post-IDFA world. Users can opt out entirely.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                <h3 className="text-lg font-bold text-white">{item.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-slate-400">{item.description}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {differentiators.map((d) => (
+              <div key={d.title} className="glass-card glass-card-hover p-7">
+                <h3 className="font-semibold mb-3" style={{ fontSize: 16, color: "#F5F3EE", lineHeight: 1.3 }}>
+                  {d.title}
+                </h3>
+                <p style={{ fontSize: 14, color: "#5A5A5A", lineHeight: 1.7 }}>{d.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Moment Types + Pricing */}
-      <section className="border-t border-slate-800 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">Moment Types &amp; Floor Prices</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            Each moment type represents a different level of fan engagement. Higher-intent moments
-            command higher floor prices and deliver higher conversion rates.
-          </p>
+      {/* ════════════════════════════════════════
+          MOMENT TYPES + PRICING TABLE
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-28" style={{ background: "#080808" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              Inventory
+            </span>
+          </div>
+          <h2
+            className="font-display"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 16 }}
+          >
+            MOMENT TYPES
+          </h2>
+          <h2
+            className="font-display mb-16"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#3A3A3A", lineHeight: 0.95 }}
+          >
+            & FLOOR PRICES.
+          </h2>
 
-          <div className="mt-10 overflow-hidden rounded-xl border border-slate-800">
-            <table className="w-full">
-              <thead className="bg-slate-900">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase text-slate-400">
-                    Moment Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase text-slate-400">
-                    Description
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase text-slate-400">
-                    Floor Price
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase text-slate-400">
-                    Typical CTR
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {[
-                  { name: "Bet Resolved", desc: "User's wager just settled, win or lose", floor: "$0.50", ctr: "12-18%" },
-                  { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60", ctr: "14-20%" },
-                  { name: "Overtime", desc: "Game goes to extra time, peak adrenaline", floor: "$0.40", ctr: "10-15%" },
-                  { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35", ctr: "8-14%" },
-                  { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30", ctr: "8-12%" },
-                  { name: "Moneyline Alert", desc: "Moneyline outcome flipping", floor: "$0.30", ctr: "7-11%" },
-                  { name: "Total Alert", desc: "Over/under pace changing", floor: "$0.25", ctr: "6-10%" },
-                  { name: "Prop Alert", desc: "Player prop stat line in play", floor: "$0.25", ctr: "6-9%" },
-                  { name: "Position Alert", desc: "Prediction market position at risk", floor: "$0.20", ctr: "5-8%" },
-                  { name: "Foul Trouble", desc: "Key starter picks up 4th foul", floor: "$0.15", ctr: "4-7%" },
-                  { name: "Follow Alert", desc: "Team follower with no financial stake", floor: "$0.10", ctr: "3-5%" },
-                ].map((m) => (
-                  <tr key={m.name} className="hover:bg-slate-900/50">
-                    <td className="px-6 py-4 font-medium text-white">{m.name}</td>
-                    <td className="px-6 py-4 text-sm text-slate-400">{m.desc}</td>
-                    <td className="px-6 py-4 text-right font-mono text-sm text-orange-400">{m.floor}</td>
-                    <td className="px-6 py-4 text-right text-sm text-slate-300">{m.ctr}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            className="overflow-hidden rounded-2xl"
+            style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            {/* Table header */}
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: "2fr 2.5fr 80px 100px 100px",
+                background: "#111",
+                padding: "12px 24px",
+                borderBottom: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              {["Moment Type", "Description", "Floor", "CTR Range", ""].map((h) => (
+                <div
+                  key={h}
+                  style={{ fontSize: 10, fontWeight: 700, color: "#3A3A3A", letterSpacing: "0.12em", textTransform: "uppercase" }}
+                >
+                  {h}
+                </div>
+              ))}
+            </div>
+
+            {/* Table rows */}
+            {momentRows.map((row, i) => (
+              <div
+                key={row.name}
+                className="grid items-center"
+                style={{
+                  gridTemplateColumns: "2fr 2.5fr 80px 100px 100px",
+                  padding: "14px 24px",
+                  borderBottom: i < momentRows.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                  background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
+                }}
+              >
+                <div className="font-semibold" style={{ fontSize: 14, color: "#F5F3EE" }}>{row.name}</div>
+                <div style={{ fontSize: 13, color: "#5A5A5A" }}>{row.desc}</div>
+                <div
+                  className="font-display"
+                  style={{ fontSize: 18, color: "#FF4C00" }}
+                >
+                  {row.floor}
+                </div>
+                <div style={{ fontSize: 13, color: "#9A9A9A" }}>{row.ctr}</div>
+                {/* CTR visual bar */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      height: 3,
+                      borderRadius: 2,
+                      background: "#FF4C00",
+                      width: `${(row.ctrMax / 20) * 100}%`,
+                      opacity: 0.6 + (row.ctrMax / 20) * 0.4,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          <p className="mt-4 text-sm text-slate-500">
-            Floor prices reflect base rates. Dynamic premiums apply during high-traffic windows
-            (tournament games, weekends, simultaneous live games).
+          <p style={{ fontSize: 12, color: "#2A2A2A", marginTop: 12 }}>
+            Floor prices reflect base rates. Dynamic premiums apply during tournament games, weekends, and simultaneous live events.
           </p>
         </div>
       </section>
 
-      {/* How the Auction Works */}
-      <section className="border-t border-slate-800 bg-slate-900/50 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">How You Win Impressions</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            Every push notification triggers a real-time auction. The winning ad appears inside the
-            alert, and you never pay more than one cent above the next highest bid.
-          </p>
+      {/* ════════════════════════════════════════
+          HOW YOU WIN IMPRESSIONS (AUCTION)
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-28" style={{ background: "#0B0B0B" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              The Auction
+            </span>
+          </div>
+          <h2
+            className="font-display mb-16"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95 }}
+          >
+            HOW YOU WIN<br />
+            <span style={{ color: "#3A3A3A" }}>IMPRESSIONS.</span>
+          </h2>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                step: "1",
-                title: "Moment Fires",
-                description: "A fan's bet is covering, their team hits overtime, or a prediction is about to resolve.",
-              },
-              {
-                step: "2",
-                title: "Your Campaigns Match",
-                description: "NORMA finds all campaigns targeting this moment type, sport, and audience segment.",
-              },
-              {
-                step: "3",
-                title: "Floor Check",
-                description: "Bids below the moment's floor price are filtered out. Higher-intent moments have higher floors.",
-              },
-              {
-                step: "4",
-                title: "You Pay Second Price",
-                description:
-                  "Highest bid wins but only pays the second highest bid plus $0.01. Bid your true value. The system protects you from overpaying.",
-              },
-            ].map((item) => (
-              <div key={item.step} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500 text-lg font-bold text-white">
-                  {item.step}
-                </span>
-                <h3 className="mt-4 text-lg font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-slate-400">{item.description}</p>
+          {/* Step diagram */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {auctionSteps.map((step, i) => (
+              <div key={step.num} className="relative">
+                {/* Connector line */}
+                {i < auctionSteps.length - 1 && (
+                  <div
+                    className="absolute hidden lg:block"
+                    style={{
+                      top: 20,
+                      right: -16,
+                      width: 28,
+                      height: 1,
+                      background: "rgba(255,76,0,0.2)",
+                      zIndex: 10,
+                    }}
+                  />
+                )}
+                <div className="glass-card p-6 h-full">
+                  <div
+                    className="rounded-full flex items-center justify-center mb-5 font-bold"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      background: "#FF4C00",
+                      color: "#fff",
+                      fontSize: 16,
+                    }}
+                  >
+                    {step.num}
+                  </div>
+                  <h3 className="font-semibold mb-3" style={{ fontSize: 16, color: "#F5F3EE", lineHeight: 1.3 }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ fontSize: 13, color: "#5A5A5A", lineHeight: 1.65 }}>{step.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Second-price callout */}
+          <div
+            className="mt-12 rounded-2xl p-8"
+            style={{ background: "rgba(255,76,0,0.06)", border: "1px solid rgba(255,76,0,0.15)" }}
+          >
+            <div className="flex flex-col sm:flex-row gap-6 items-start">
+              <div
+                className="font-display flex-shrink-0"
+                style={{ fontSize: 64, color: "#FF4C00", lineHeight: 1 }}
+              >
+                2nd
+              </div>
+              <div>
+                <div className="font-semibold mb-2" style={{ fontSize: 16, color: "#F5F3EE" }}>
+                  Second-Price (Vickrey) Auction
+                </div>
+                <p style={{ fontSize: 14, color: "#6B6B6B", lineHeight: 1.7 }}>
+                  The highest bid wins, but only pays the second-highest bid plus one cent. Bid your true value — the auction mechanics protect you from overpaying. This is the same model used by Google Ads and The Trade Desk.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════
+          AI FEATURES — SET IT AND LET IT RUN
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-28" style={{ background: "#080808" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              AI Engine
+            </span>
+          </div>
+          <h2
+            className="font-display mb-4"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95 }}
+          >
+            SET IT AND
+          </h2>
+          <h2
+            className="font-display mb-16"
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#3A3A3A", lineHeight: 0.95 }}
+          >
+            LET IT RUN.
+          </h2>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {aiFeatures.map((f) => (
+              <div key={f.title} className="glass-card glass-card-hover p-7">
+                <div
+                  className="mb-4"
+                  style={{ width: 32, height: 3, background: "#FF4C00", borderRadius: 2 }}
+                />
+                <h3 className="font-semibold mb-3" style={{ fontSize: 15, color: "#F5F3EE", lineHeight: 1.3 }}>
+                  {f.title}
+                </h3>
+                <p style={{ fontSize: 13.5, color: "#5A5A5A", lineHeight: 1.7 }}>{f.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* AI Features */}
-      <section className="border-t border-slate-800 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">Set It and Let It Run</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            NORMA&apos;s engine continuously optimizes your campaigns so you don&apos;t have to.
-          </p>
-
-          <div className="mt-12 grid gap-8 sm:grid-cols-2">
-            {[
-              {
-                title: "Auto-Winning Creatives",
-                description:
-                  "Upload multiple variants. NORMA automatically shifts traffic to the one with the highest CTR. Most campaigns find a winner within the first 200 impressions.",
-              },
-              {
-                title: "CPA-Based Bidding",
-                description:
-                  "Set a target cost-per-action and NORMA adjusts your bids every 30 minutes based on real conversion data. Stay on target without constant monitoring.",
-              },
-              {
-                title: "Smart Budget Pacing",
-                description:
-                  "Daily caps prevent blowing your budget during one high-traffic window. Hourly pacing distributes spend evenly across each day's games.",
-              },
-              {
-                title: "Floor Price Optimizer",
-                description:
-                  "NORMA recommends floor-beating bids based on historical win rates for each moment type. See exactly where your bid sits relative to the competitive field.",
-              },
-              {
-                title: "Fatigue Protection",
-                description:
-                  "NORMA tracks per-user ad exposure and automatically withholds your ad when a user has seen too many recently. Protects your brand and your CTR.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                <h3 className="text-lg font-bold text-white">{item.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-slate-400">{item.description}</p>
-              </div>
-            ))}
+      {/* ════════════════════════════════════════
+          SPORTSBOOK INTEGRATIONS
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-24" style={{ background: "#0B0B0B" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              Integrations
+            </span>
           </div>
-        </div>
-      </section>
+          <h2
+            className="font-display mb-12"
+            style={{ fontSize: "clamp(40px, 5vw, 64px)", color: "#F5F3EE", lineHeight: 0.95 }}
+          >
+            DEEP SPORTSBOOK<br />
+            <span style={{ color: "#3A3A3A" }}>INTEGRATIONS.</span>
+          </h2>
 
-      {/* Sportsbook Integrations */}
-      <section className="border-t border-slate-800 bg-slate-900/50 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">Deep Sportsbook Integrations</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            If you&apos;re a sportsbook, NORMA offers game-contextual deep links that take users
-            from a live-game alert straight into your app with the right game pre-loaded.
-          </p>
-
-          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 mb-10">
             {["DraftKings", "FanDuel", "BetMGM", "Caesars", "ESPN BET"].map((name) => (
               <div
                 key={name}
-                className="flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900 py-6 text-sm font-semibold text-slate-300"
+                className="rounded-xl flex items-center justify-center py-6 font-semibold"
+                style={{
+                  background: "#111",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  fontSize: 13,
+                  color: "#6B6B6B",
+                }}
               >
                 {name}
               </div>
             ))}
           </div>
 
-          <div className="mt-8 max-w-3xl text-sm text-slate-400">
-            <p>
-              <strong className="text-slate-200">Affiliate attribution</strong>: Track which impressions
-              drive wager placements. Configurable attribution windows and postback URLs.
-            </p>
-            <p className="mt-3">
-              <strong className="text-slate-200">Branded CTAs</strong>: Your brand colors, your logo,
-              your deep link. &quot;Bet Now on DraftKings&quot; rendered natively in the alert card.
-            </p>
+          <div className="grid gap-6 sm:grid-cols-2 max-w-2xl">
+            <div>
+              <div className="font-semibold mb-2" style={{ fontSize: 14, color: "#F5F3EE" }}>Affiliate Attribution</div>
+              <p style={{ fontSize: 13, color: "#5A5A5A", lineHeight: 1.65 }}>
+                Track which impressions drive wager placements. Configurable attribution windows and postback URLs. 30-minute conversion window with honest inferred vs app-verified labeling.
+              </p>
+            </div>
+            <div>
+              <div className="font-semibold mb-2" style={{ fontSize: 14, color: "#F5F3EE" }}>Branded CTAs</div>
+              <p style={{ fontSize: 13, color: "#5A5A5A", lineHeight: 1.65 }}>
+                Your brand colors, your logo, your deep link. &quot;Bet Now on DraftKings&quot; rendered natively in the notification card — taking users directly into your app with the right game pre-loaded.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Self-Serve Portal Preview */}
-      <section className="border-t border-slate-800 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-3xl font-bold text-white">Self-Serve Advertiser Portal</h2>
-          <p className="mt-4 max-w-3xl text-slate-400">
-            Launch, manage, and optimize campaigns in one dashboard. No sales calls required.
-          </p>
+      {/* ════════════════════════════════════════
+          SELF-SERVE PORTAL
+      ════════════════════════════════════════ */}
+      <section className="stripe-dim py-24" style={{ background: "#080808" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-4">
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#FF4C00", textTransform: "uppercase" }}>
+              Platform
+            </span>
+          </div>
+          <h2
+            className="font-display mb-16"
+            style={{ fontSize: "clamp(40px, 5vw, 64px)", color: "#F5F3EE", lineHeight: 0.95 }}
+          >
+            SELF-SERVE.<br />
+            <span style={{ color: "#3A3A3A" }}>NO SALES CALLS.</span>
+          </h2>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { title: "Campaign Creation Wizard", desc: "5-step guided setup: basics, targeting, bidding, creatives, review." },
-              { title: "Real-Time Dashboard", desc: "Impressions, CTR, CPA, and spend updated every 15 minutes." },
-              { title: "Bid Management", desc: "Set bids per moment type with floor price indicators and win rate tracking." },
-              { title: "Creative A/B Testing", desc: "Upload variants, see which performs best, auto-optimize." },
-              { title: "Inventory Forecasting", desc: "7-day supply forecast by moment type. Plan campaigns around live schedules." },
-              { title: "Cross-Campaign Analytics", desc: "Compare performance across campaigns. Engagement funnel visualization." },
+              { title: "Campaign Creation Wizard", desc: "5-step guided setup: basics, targeting, bidding, creatives, review. Launch your first campaign in under 10 minutes." },
+              { title: "Real-Time Dashboard", desc: "Impressions, CTR, CPA, and spend updated every 15 minutes. No day-old reports." },
+              { title: "Bid Management", desc: "Set bids per moment type with floor price indicators and win rate tracking. Know where you stand." },
+              { title: "Creative A/B Testing", desc: "Upload variants, see which performs best via Thompson Sampling, auto-optimize. No manual management." },
+              { title: "Inventory Forecasting", desc: "7-day supply forecast by moment type per sport. Plan campaigns around live schedules with confidence intervals." },
+              { title: "Attribution Reporting", desc: "Closed-loop attribution with 30-minute window. App-verified vs inferred conversions labeled honestly." },
             ].map((item) => (
-              <div key={item.title} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-                <h3 className="font-semibold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm text-slate-400">{item.desc}</p>
+              <div
+                key={item.title}
+                className="rounded-xl p-5"
+                style={{ background: "#111", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <h3 className="font-semibold mb-2" style={{ fontSize: 14, color: "#F5F3EE" }}>{item.title}</h3>
+                <p style={{ fontSize: 13, color: "#5A5A5A", lineHeight: 1.6 }}>{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="border-t border-slate-800 bg-slate-900/50 py-20">
+      {/* ════════════════════════════════════════
+          FINAL CTA
+      ════════════════════════════════════════ */}
+      <section
+        className="stripe-orange py-28 noise-overlay"
+        style={{ background: "#080808" }}
+      >
         <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Ready to reach fans at their most engaged?
+          <h2
+            className="font-display"
+            style={{ fontSize: "clamp(44px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 20 }}
+          >
+            READY TO REACH FANS<br />
+            AT THEIR MOST<br />
+            <span style={{ color: "#FF4C00" }}>ENGAGED?</span>
           </h2>
-          <p className="mt-4 text-slate-400">
-            Create your free advertiser account. Set up your first campaign in minutes.
-            No minimum spend required.
+          <p style={{ fontSize: 17, color: "#6B6B6B", lineHeight: 1.7, marginBottom: 40 }}>
+            Create your free advertiser account. Set up your first campaign in minutes. No minimum spend required.
           </p>
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/auth/signup"
-              className="rounded-xl bg-orange-500 px-8 py-3.5 text-base font-bold text-white hover:bg-orange-600"
+              className="rounded-xl px-10 py-4 text-base font-bold text-white"
+              style={{ background: "#FF4C00" }}
             >
               Create Advertiser Account
             </Link>
             <a
               href="mailto:ads@norma-app.com"
-              className="rounded-xl border border-slate-700 px-8 py-3.5 text-base font-bold text-slate-300 hover:border-slate-500 hover:text-white"
+              className="rounded-xl px-10 py-4 text-base font-semibold"
+              style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#9A9A9A" }}
             >
               Contact Sales
             </a>
@@ -345,23 +588,33 @@ export default function AdvertisersPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800 py-12">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+      {/* ════════════════════════════════════════
+          FOOTER
+      ════════════════════════════════════════ */}
+      <footer className="stripe-dim py-12" style={{ background: "#080808" }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
             <div>
-              <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
-              <p className="mt-1 text-sm text-slate-500">Real-Time Sports Intent Advertising</p>
+              <Link href="/">
+                <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
+              </Link>
+              <p style={{ fontSize: 12, color: "#3A3A3A", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Real-Time Sports Intent Advertising
+              </p>
             </div>
-            <div className="flex gap-6 text-sm text-slate-400">
-              <Link href="/" className="hover:text-white">Home</Link>
-              <Link href="/auth/login" className="hover:text-white">Advertiser Portal</Link>
-              <a href="mailto:ads@norma-app.com" className="hover:text-white">Contact</a>
+            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#4A4A4A" }}>
+              <Link href="/" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Home</Link>
+              <Link href="/auth/login" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
+              <Link href="/developers" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Developers API</Link>
+              <a href="mailto:ads@norma-app.com" style={{ color: "#4A4A4A" }} className="hover:text-white transition-colors">Contact</a>
             </div>
           </div>
-          <p className="mt-8 text-center text-xs text-slate-600">
-            &copy; {new Date().getFullYear()} NORMA. All rights reserved.
-          </p>
+          <div
+            className="mt-10 pt-8"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#2A2A2A" }}
+          >
+            <p>&copy; {new Date().getFullYear()} NORMA. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

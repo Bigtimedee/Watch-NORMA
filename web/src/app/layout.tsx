@@ -1,5 +1,20 @@
 import type { Metadata } from "next";
+import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
+
+const bebasNeue = Bebas_Neue({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bebas",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm",
+  display: "swap",
+  axes: ["opsz"],
+});
 
 export const metadata: Metadata = {
   title: "NORMA: Sports Alerts & Scores — Live Game Notifications for Bettors & Fans",
@@ -48,11 +63,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`${bebasNeue.variable} ${dmSans.variable}`}>
       <head>
         <link rel="adagents" type="application/json" href="/adagents.json" />
       </head>
-      <body className="bg-slate-950 text-white antialiased">{children}</body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
