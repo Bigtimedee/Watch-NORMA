@@ -577,13 +577,13 @@ export default function AdvertisersPage() {
             >
               Create Advertiser Account
             </Link>
-            <a
-              href="mailto:ads@norma-app.com"
+            <Link
+              href="/demo"
               className="rounded-xl px-10 py-4 text-base font-semibold"
               style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#9A9A9A" }}
             >
-              Contact Sales
-            </a>
+              Schedule a Demo
+            </Link>
           </div>
         </div>
       </section>

@@ -381,7 +381,7 @@ GET /.well-known/adagents.json`} />
             </a>
             <span className="text-slate-700">|</span>
             <a
-              href="https://calendly.com/norma-ads"
+              href="/demo"
               className="rounded-lg border border-slate-600 px-5 py-2 font-semibold text-white hover:border-slate-400"
             >
               Schedule a demo
