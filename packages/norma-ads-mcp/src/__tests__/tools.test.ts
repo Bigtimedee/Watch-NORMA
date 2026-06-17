@@ -15,9 +15,8 @@ jest.mock("../lib/api-client", () => ({
   },
 }));
 
-// Mock the auth module
+// Mock the auth module (validateApiKey only — api-client no longer imports getApiKey)
 jest.mock("../lib/auth", () => ({
-  getApiKey: jest.fn().mockReturnValue("test-key"),
   validateApiKey: jest.fn(),
 }));
 
