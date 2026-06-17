@@ -91,7 +91,7 @@ export default function HomePage() {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/">
-            <img src="/logo.png" alt="NORMA" className="h-9 w-auto" />
+            <img src="/logo.png" alt="NORMA — This B*tch is Brilliant" className="h-12 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             <a
@@ -129,6 +129,15 @@ export default function HomePage() {
 
             {/* ── Left: Text ── */}
             <div className="flex-1 text-center lg:text-left" style={{ maxWidth: 580 }}>
+              {/* Logo — large enough that the tagline is legible */}
+              <div className="flex justify-center lg:justify-start mb-8">
+                <img
+                  src="/logo.png"
+                  alt="NORMA — This B*tch is Brilliant"
+                  style={{ height: "clamp(140px, 16vw, 220px)", width: "auto" }}
+                />
+              </div>
+
               {/* Eyebrow */}
               <div
                 className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8"
