@@ -17,6 +17,8 @@
     "supabase/functions",
     "supabase/assets",
     "web",
-    "scripts"
+    "scripts",
+    "packages",
+    ".claude"
   ]
 }
