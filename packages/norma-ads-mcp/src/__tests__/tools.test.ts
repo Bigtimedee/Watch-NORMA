@@ -3,6 +3,7 @@ import { getInventoryForecast } from "../tools/get-inventory-forecast";
 import { createCampaign } from "../tools/create-campaign";
 import { getCampaignPerformance } from "../tools/get-campaign-performance";
 import { updateCampaign } from "../tools/update-campaign";
+import { submitBrief } from "../tools/submit-brief";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types";
 
 // Mock the api-client module
@@ -304,5 +305,123 @@ describe("update_campaign", () => {
     mockPatch.mockRejectedValueOnce(new Error("campaign not found"));
     const result = await updateCampaign({ campaign_id: "cmp_abc123", status: "paused" });
     expect(result.isError).toBe(true);
+  });
+});
+
+// ─── submit_brief ─────────────────────────────────────────────────────────────
+
+describe("submit_brief", () => {
+  const mockProposedResponse = {
+    status: "proposed",
+    plan: {
+      name: "Campaign — nba bet resolved",
+      moment_types: ["bet_resolved"],
+      sports: ["nba"],
+      recommended_bid_cpm_usd: 0.68,
+      daily_budget_usd: 71.43,
+      total_budget_usd: 500,
+      target_cpa_usd: null,
+      start_date: "2026-03-15",
+      end_date: null,
+      estimated_impressions: 735294,
+      estimated_conversions_low: 367,
+      estimated_conversions_high: 735,
+      interpretation_notes: ["No start date specified — defaulting to tomorrow"],
+      creative_required: true,
+      creative_prompt: "Please provide a creative with headline...",
+    },
+    confirm_instruction: "Call POST /api/ads/briefs again with confirm: true and add a 'creative' field to execute this plan.",
+  };
+
+  const mockCreatedResponse = {
+    status: "created",
+    campaign_id: "42",
+    plan: mockProposedResponse.plan,
+  };
+
+  const mockInsufficientResponse = {
+    status: "insufficient",
+    message: "Brief is too vague to construct a campaign plan.",
+    clarifying_questions: [
+      "Which sports should the campaign target? (ncaa_basketball, nba, nfl, mlb)",
+      "What is your total campaign budget in USD?",
+    ],
+  };
+
+  it("returns toolError when brief is missing", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await submitBrief({}) as any;
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("brief is required");
+  });
+
+  it("returns toolError when brief is not a string", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await submitBrief({ brief: 123 }) as any;
+    expect(result.isError).toBe(true);
+  });
+
+  it("formats proposed response correctly", async () => {
+    mockPost.mockResolvedValueOnce(mockProposedResponse);
+    const result = await submitBrief({ brief: "Run NBA bet_resolved campaign with $500 budget" });
+    expect((result as any).isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Campaign Plan Proposed");
+    expect(result.content[0].text).toContain("Campaign — nba bet resolved");
+    expect(result.content[0].text).toContain("$0.68 CPM");
+    expect(result.content[0].text).toContain("$500");
+    expect(result.content[0].text).toContain("Next step:");
+  });
+
+  it("formats created response correctly", async () => {
+    mockPost.mockResolvedValueOnce(mockCreatedResponse);
+    const result = await submitBrief({
+      brief: "Run NBA bet_resolved campaign",
+      confirm: true,
+      creative: {
+        headline: "Your Bet Is Live",
+        body: "Check the score now.",
+        icon_url: "https://cdn.example.com/icon.png",
+        action_url: "https://example.com",
+      },
+    });
+    expect((result as any).isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Campaign created successfully");
+    expect(result.content[0].text).toContain("42");
+  });
+
+  it("formats insufficient response correctly", async () => {
+    mockPost.mockResolvedValueOnce(mockInsufficientResponse);
+    const result = await submitBrief({ brief: "Run some ads" });
+    expect((result as any).isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Brief needs more detail");
+    expect(result.content[0].text).toContain("Which sports");
+    expect(result.content[0].text).toContain("Clarifying questions:");
+  });
+
+  it("passes budget_usd and date overrides to the API", async () => {
+    mockPost.mockResolvedValueOnce(mockProposedResponse);
+    await submitBrief({
+      brief: "Run NBA ads",
+      budget_usd: 1000,
+      start_date: "2026-04-01",
+      end_date: "2026-04-30",
+    });
+    expect(mockPost).toHaveBeenCalledWith(
+      "/api/ads/briefs",
+      expect.objectContaining({
+        brief: "Run NBA ads",
+        budget_usd: 1000,
+        start_date: "2026-04-01",
+        end_date: "2026-04-30",
+      })
+    );
+  });
+
+  it("returns toolError on API failure", async () => {
+    mockPost.mockRejectedValueOnce(new Error("upstream timeout"));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await submitBrief({ brief: "Run NBA ads with $200 budget" }) as any;
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("upstream timeout");
   });
 });

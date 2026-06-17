@@ -12,6 +12,7 @@ import { getInventoryForecast } from "./tools/get-inventory-forecast.js";
 import { createCampaign } from "./tools/create-campaign.js";
 import { getCampaignPerformance } from "./tools/get-campaign-performance.js";
 import { updateCampaign } from "./tools/update-campaign.js";
+import { submitBrief } from "./tools/submit-brief.js";
 
 const server = new Server(
   { name: "norma-ads-mcp", version: "1.0.0" },
@@ -125,6 +126,49 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["campaign_id"],
       },
     },
+    {
+      name: "submit_brief",
+      description:
+        "Submit a natural-language advertising brief and let NORMA plan the campaign for you. Describe your goal in plain English (e.g. 'Run a retargeting push for NBA bettors during close games, $500 budget, starting March 15'). NORMA will extract parameters, recommend bids, estimate performance, and return a plan for review. Call again with confirm: true and a creative to execute.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          brief: {
+            type: "string",
+            description: "Natural-language description of the campaign goal, target audience, budget, timing, and any other relevant details",
+          },
+          budget_usd: {
+            type: "number",
+            description: "Override total budget in USD if not specified in the brief",
+          },
+          start_date: {
+            type: "string",
+            description: "Override start date (ISO 8601) if not specified in the brief",
+          },
+          end_date: {
+            type: "string",
+            description: "Override end date (ISO 8601) if not specified in the brief",
+          },
+          confirm: {
+            type: "boolean",
+            description: "Set to true to execute the proposed plan. Must also supply a creative object.",
+          },
+          creative: {
+            type: "object",
+            description: "Required when confirm is true. Ad creative content.",
+            properties: {
+              headline: { type: "string", description: "Max 60 characters" },
+              body: { type: "string", description: "Max 120 characters" },
+              icon_url: { type: "string", description: "HTTPS URL to advertiser icon/logo" },
+              action_url: { type: "string", description: "Destination URL when user taps" },
+              cta_text: { type: "string", description: "Optional call-to-action button label" },
+            },
+            required: ["headline", "body", "icon_url", "action_url"],
+          },
+        },
+        required: ["brief"],
+      },
+    },
   ],
 }));
 
@@ -142,6 +186,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return getCampaignPerformance(args);
     case "update_campaign":
       return updateCampaign(args);
+    case "submit_brief":
+      return submitBrief(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
