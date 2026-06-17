@@ -124,9 +124,9 @@ export default function HomePage() {
         className="hero-glow noise-overlay relative overflow-hidden"
         style={{ minHeight: "92vh", display: "flex", alignItems: "center" }}
       >
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-20">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 pt-10 pb-0">
           {/* Mascot showcase — the brand's primary visual anchor */}
-          <div className="flex justify-center mb-14">
+          <div className="flex justify-center mb-6">
             <img
               src="/logo.png"
               alt="NORMA"
