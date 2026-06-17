@@ -318,6 +318,66 @@ Migration 080 adds:
 
 **Admin:** `/admin/campaigns` shows a Brand Safety badge per campaign (pending/approved/flagged).
 
+## Agentic Advertising Infrastructure
+
+NORMA's ad platform is fully accessible to AI agents and DSPs through a layered stack of machine-readable standards. This is not aspirational — all components are implemented and tested as of June 2026.
+
+### MCP Server (`packages/norma-ads-mcp/`)
+
+A Model Context Protocol server exposes all six ad operations as named tools. It runs as a Node.js process and supports two transports:
+
+- **stdio** — for Claude Desktop and local agent integrations. Install via `npm install -g norma-ads-mcp`.
+- **HTTP/SSE** — for remote agents, DSPs, and any MCP-compatible client connecting over the network. Deploy via Docker/Railway; see `Dockerfile` and `railway.toml` in the package.
+
+**Tools:**
+
+| Tool | Purpose |
+|------|---------|
+| `list_moment_types` | Returns all 11 moment types with floor CPMs and CTR ranges |
+| `get_inventory_forecast` | 7-day supply forecast with bid guidance per moment/sport |
+| `create_campaign` | Full campaign creation with budget, targeting, flight dates, creative |
+| `get_campaign_performance` | Impressions, CTR, CPA, spend — breakdown by day/moment/sport/creative |
+| `update_campaign` | Adjust bid, budget, CPA target, status, end date |
+| `submit_brief` | Natural-language brief → two-stage plan/execute flow |
+
+**Auth:** Bearer token (NORMA API key). All tool calls require a valid key set via `NORMA_API_KEY` env var for stdio, or passed as `Authorization: Bearer <key>` header for HTTP/SSE.
+
+**Source:** `src/server-factory.ts` exports `createNormaServer()` — a factory that returns a fresh, fully-configured MCP `Server` instance. Both transports use this factory (MCP SDK 1.x enforces 1:1 server-per-transport; each HTTP/SSE connection gets its own instance).
+
+**HTTP/SSE server:** `src/http-server.ts` — Express app, `SSEServerTransport` on `GET /sse`, JSON-RPC routing on `POST /message?sessionId=<id>`, unauthenticated `GET /health`. Exports `startServer(port)` for programmatic startup and clean shutdown (used by tests). Contains an explicit pre-check for missing `Authorization` headers to prevent the SDK's stdio bypass from allowing unauthenticated HTTP connections.
+
+**Tests:** 6 Jest integration tests in `src/__tests__/http-server.test.ts` — health check, auth enforcement (missing/wrong key → 401), invalid session (404), SSE session establishment, and full SSE + tools/list round-trip. All pass. Shell e2e script at `scripts/test-e2e.sh` runs 10 curl-based tests; all pass.
+
+### Deployment Gap (pending DNS only)
+
+The HTTP/SSE server is production-ready and containerized. The `adagents.json` and `aamp-seller-profile.json` declare `mcp_server_url: "https://mcp.getnorma.app"`. The remaining step is:
+
+1. Deploy the `packages/norma-ads-mcp/` Docker image to Railway (see `railway.toml`).
+2. Add a DNS CNAME record: `mcp.getnorma.app → <railway-service>.up.railway.app`.
+
+Until those two steps are complete, `mcp.getnorma.app` resolves to nothing. The code is production-ready; the subdomain is not yet live.
+
+### Agent Discovery (`web/public/adagents.json`)
+
+Published at `getnorma.app/adagents.json`. Declares:
+- MCP server URL and transport types (`stdio`, `http-sse`)
+- OAuth token endpoint and required scopes
+- All 11 moment types with floor CPMs and CTR ranges
+- Attribution configuration (postback, click tracking, conversion windows)
+- IAB AAMP protocol support (`adcp@1.0`, `mcp@1.0`, `openrtb@2.6`)
+
+### OAuth Token Endpoint (`/api/auth/token`)
+
+Implements RFC 6749 Client Credentials. POST `client_id` + `client_secret` → RS256-signed JWT (1-hour TTL) scoped to `campaigns:read`, `campaigns:write`, `reporting:read`, `inventory:read`. Rate-limited at 10 req/min per IP. Every `/api/ads/*` route requires a valid Bearer token (except `GET /api/ads/moment-types`).
+
+### REST API (`/api/ads/`)
+
+18 routes covering the full campaign lifecycle. Complete OpenAPI 3.0.3 spec at `getnorma.app/api/ads/openapi.json` (also served at `/.well-known/openapi.json`). Includes campaigns, creatives, reporting with breakdown dimensions, market-level data (percentile CPMs, fill rates, auction depth), inbound conversion postbacks, and outbound HMAC-signed webhooks.
+
+### IAB AAMP Registry
+
+`web/public/aamp-seller-profile.json` and `web/public/sellers.json` are the seller-side registry documents. `web/public/.well-known/openapi.json` is the machine-readable API spec that agents crawl for introspection. The developers page meta tag `"adcp:endpoint": "https://mcp.getnorma.app"` is the machine-readable hook for agent discovery crawlers.
+
 ## Compliance and Risk
 
 - **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is enforced at both the auction level and at the `BetNowButton` CTA level (see Geo-Compliance section above). Both enforcement points use the same `inferStateFromTimezone` logic.

@@ -34,6 +34,8 @@ Based on repository inspection and the outage report:
 
 - **No real-time auction monitoring dashboard.** The admin portal has campaign metrics and fraud detection, but no live view of auctions happening in real-time.
 - **Advertiser self-service is basic.** Creative approval is manual. Targeting options are limited to moment types and basic campaign parameters.
+- ~~**MCP server only ran via stdio — no remote HTTP/SSE endpoint.**~~ **Closed (June 2026).** `src/http-server.ts` implements Express + `SSEServerTransport`. `Dockerfile` and `railway.toml` are in `packages/norma-ads-mcp/`. 6/6 Jest integration tests pass including full SSE + tools/list round-trip. `adagents.json` declares `mcp.getnorma.app` as the endpoint.
+- **`mcp.getnorma.app` DNS not yet configured.** The HTTP/SSE server is production-ready and containerized. Two steps remain: (1) deploy `packages/norma-ads-mcp/` to Railway using the committed `railway.toml`, (2) add CNAME `mcp.getnorma.app → <railway-service>.up.railway.app` in the DNS provider. Until done, `adagents.json` points to a non-functional hostname.
 
 ### Privacy and Compliance
 
