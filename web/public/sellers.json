@@ -1,0 +1,20 @@
+{
+  "contact_email": "ads@getnorma.app",
+  "contact_address": "NORMA / Watch NORMA Inc., United States",
+  "version": "1.0",
+  "identifiers": [
+    {
+      "name": "TAG-ID",
+      "value": "PENDING — apply at tagtoday.net"
+    }
+  ],
+  "sellers": [
+    {
+      "seller_id": "getnorma",
+      "name": "NORMA",
+      "domain": "getnorma.app",
+      "seller_type": "PUBLISHER",
+      "is_confidential": 0
+    }
+  ]
+}

@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
       { source: "/adagents.json", headers: adAgentHeaders },
       { source: "/.well-known/adagents.json", headers: adAgentHeaders },
       { source: "/.well-known/openapi.json", headers: openApiHeaders },
+      { source: "/sellers.json", headers: openApiHeaders },
+      { source: "/aamp-seller-profile.json", headers: openApiHeaders },
     ];
   },
   async redirects() {

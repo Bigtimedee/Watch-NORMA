@@ -1,0 +1,58 @@
+{
+  "aamp_version": "2.0",
+  "seller_id": "getnorma",
+  "seller_name": "NORMA",
+  "seller_domain": "getnorma.app",
+  "agent_endpoint": "https://mcp.getnorma.app",
+  "agent_protocols": ["mcp@1.0", "adcp@1.0"],
+  "agent_capabilities": {
+    "inventory_discovery": true,
+    "campaign_creation": true,
+    "campaign_management": true,
+    "performance_reporting": true,
+    "conversion_postback": true,
+    "real_time_webhooks": true,
+    "natural_language_brief": false,
+    "openrtb_bid_stream": false
+  },
+  "inventory_taxonomy": {
+    "ad_formats": ["push_notification"],
+    "iab_content_categories": ["IAB17", "IAB17-44"],
+    "moment_types": [
+      "bet_resolved",
+      "prediction_resolved",
+      "overtime",
+      "close_game",
+      "spread_alert",
+      "moneyline_alert",
+      "total_alert",
+      "prop_alert",
+      "position_alert",
+      "foul_trouble",
+      "follow_alert"
+    ],
+    "sports": ["ncaa_basketball", "nba", "nfl", "mlb"],
+    "geographic_coverage": ["US"],
+    "audience_type": "sports_bettors_and_prediction_market_participants",
+    "privacy_compliance": {
+      "coppa": false,
+      "ccpa": true,
+      "gdpr": false,
+      "targeting_method": "cohort_based_no_individual_ids"
+    }
+  },
+  "auction": {
+    "type": "second_price_vickrey",
+    "pricing_model": "cpm",
+    "floor_prices_published": true,
+    "floor_prices_url": "https://getnorma.app/adagents.json"
+  },
+  "attribution": {
+    "postback_url": "https://api.getnorma.app/api/ads/postback",
+    "conversion_windows_days": [7],
+    "supported_partners": ["appsflyer", "adjust", "singular", "custom"]
+  },
+  "openapi_spec": "https://api.getnorma.app/api/ads/openapi.json",
+  "documentation": "https://getnorma.app/developers",
+  "discovery_file": "https://getnorma.app/adagents.json"
+}
