@@ -8,6 +8,96 @@ MCP server for NORMA's agentic advertising marketplace. Connects AI agents to NO
 npm install -g norma-ads-mcp
 ```
 
+## Hosted Deployment (Railway)
+
+Deploy the MCP server as a persistent HTTP/SSE endpoint so remote agents can connect to it without installing anything locally.
+
+### Prerequisites
+
+- A [Railway](https://railway.app) account
+- A NORMA API key from [getnorma.app/developers](https://getnorma.app/developers)
+
+### Steps
+
+1. Fork or clone the Watch-NORMA repository.
+2. Log in to Railway:
+   ```bash
+   railway login
+   ```
+3. Link to an existing project or create a new one:
+   ```bash
+   railway link
+   # or: railway init
+   ```
+4. Set the required environment variable:
+   ```bash
+   railway variables set NORMA_API_KEY=your_norma_api_key_here
+   ```
+5. Deploy from the `packages/norma-ads-mcp/` directory:
+   ```bash
+   cd packages/norma-ads-mcp
+   railway up
+   ```
+
+### DNS
+
+Add a CNAME record at your DNS provider pointing `mcp.getnorma.app` to the Railway service domain:
+
+```
+mcp.getnorma.app  CNAME  <your-service>.up.railway.app
+```
+
+### Verify
+
+Once DNS propagates, confirm the server is healthy:
+
+```bash
+curl https://mcp.getnorma.app/health
+```
+
+Expected response:
+
+```json
+{"status":"ok",...}
+```
+
+> Note: Railway automatically injects a `PORT` environment variable. The server reads it at startup — no manual configuration needed.
+
+---
+
+## Remote Agent Connection (HTTP/SSE)
+
+Once deployed, remote AI agents connect over HTTP/SSE rather than stdio.
+
+**SSE connection endpoint**
+
+```
+GET https://mcp.getnorma.app/sse
+Authorization: Bearer <NORMA_API_KEY>
+```
+
+Open this as a persistent SSE stream. The server returns a `sessionId` in the opening event that you use for all subsequent messages.
+
+**Message endpoint**
+
+```
+POST https://mcp.getnorma.app/message?sessionId=<id>
+Content-Type: application/json
+Authorization: Bearer <NORMA_API_KEY>
+```
+
+Send MCP JSON-RPC requests to this endpoint using the `sessionId` received from the SSE connection.
+
+**Health check**
+
+```
+GET https://mcp.getnorma.app/health
+```
+
+No authentication required. Returns `{"status":"ok",...}` when the server is running.
+
+---
+
 ## Claude Desktop Configuration
 
 Add this block to your `claude_desktop_config.json`:

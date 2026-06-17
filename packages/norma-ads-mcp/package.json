@@ -4,20 +4,25 @@
   "description": "NORMA Agentic Ads MCP server — lets AI agents discover inventory, plan campaigns, execute buys, and pull performance data from NORMA's sports-bettor push notification marketplace.",
   "main": "dist/index.js",
   "bin": {
-    "norma-ads-mcp": "dist/index.js"
+    "norma-ads-mcp": "dist/index.js",
+    "norma-ads-mcp-http": "dist/http-server.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:http": "node dist/http-server.js",
     "dev": "ts-node src/index.ts",
+    "dev:http": "ts-node src/http-server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "express": "^4.18.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
     "jest": "^29.5.0",
