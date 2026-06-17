@@ -124,8 +124,11 @@ export default function DevelopersPage() {
       {/* Nav */}
       <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/">
-            <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
+          <Link href="/" className="flex flex-col items-start gap-0.5">
+            <img src="/logo.png" alt="NORMA" className="h-11 w-auto" />
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#4A4A4A" }}>
+              This B*tch is Brilliant
+            </span>
           </Link>
           <div className="flex items-center gap-6 text-sm">
             <a href="#quickstart" className="text-slate-400 hover:text-white">Quickstart</a>

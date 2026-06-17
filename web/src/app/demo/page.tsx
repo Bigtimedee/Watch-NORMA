@@ -27,8 +27,11 @@ export default function DemoPage() {
         style={{ background: "rgba(8,8,8,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/">
-            <img src="/logo.png" alt="NORMA" className="h-9 w-auto" />
+          <Link href="/" className="flex flex-col items-start gap-0.5">
+            <img src="/logo.png" alt="NORMA" className="h-11 w-auto" />
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#4A4A4A" }}>
+              This B*tch is Brilliant
+            </span>
           </Link>
           <div className="flex items-center gap-6">
             <Link href="/advertisers" className="hidden sm:block text-sm font-medium" style={{ color: "#9A9A9A" }}>
