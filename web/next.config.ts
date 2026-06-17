@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 
+const adAgentHeaders = [
+  { key: "Content-Type", value: "application/json" },
+  { key: "Access-Control-Allow-Origin", value: "*" },
+  { key: "Cache-Control", value: "public, max-age=3600" },
+];
+
 const nextConfig: NextConfig = {
   // Configured for Supabase SSR
+  async headers() {
+    return [
+      { source: "/adagents.json", headers: adAgentHeaders },
+      { source: "/.well-known/adagents.json", headers: adAgentHeaders },
+    ];
+  },
   async rewrites() {
     return [
       {

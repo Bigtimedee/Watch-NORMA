@@ -1,0 +1,132 @@
+{
+  "adcp_version": "1.0",
+  "publisher": {
+    "name": "NORMA",
+    "domain": "getnorma.app",
+    "description": "Real-time push notification ad platform for sports bettor audiences. Impressions fire at high-intent live game moments (bet resolved, overtime, spread alert, etc.).",
+    "contact_email": "ads@getnorma.app",
+    "iab_content_categories": ["IAB17", "IAB17-44"],
+    "supported_platforms": ["ios"],
+    "audience_type": "sports_bettors_and_prediction_market_participants",
+    "geographic_coverage": "US"
+  },
+  "agent_endpoint": {
+    "mcp_server_url": "https://mcp.getnorma.app",
+    "mcp_transport": ["stdio", "http-sse"],
+    "authentication": {
+      "type": "bearer_token",
+      "token_endpoint": "https://api.getnorma.app/auth/token",
+      "scopes": ["campaigns:read", "campaigns:write", "reporting:read", "inventory:read"]
+    }
+  },
+  "protocols_supported": ["adcp@1.0", "mcp@1.0", "openrtb@2.6"],
+  "inventory": {
+    "ad_format": "push_notification",
+    "creative_spec": {
+      "headline_max_chars": 60,
+      "body_max_chars": 120,
+      "icon_required": true,
+      "icon_size_px": 192,
+      "action_url_required": true,
+      "deep_link_supported": true
+    },
+    "moment_types": [
+      {
+        "key": "prediction_resolved",
+        "display_name": "Prediction Resolved",
+        "description": "Fires when a user's prediction market position (Kalshi, Polymarket) resolves",
+        "floor_cpm_usd": 0.60,
+        "typical_ctr_range": [0.11, 0.17]
+      },
+      {
+        "key": "overtime",
+        "display_name": "Overtime",
+        "description": "Fires at the start of overtime in any live game",
+        "floor_cpm_usd": 0.40,
+        "typical_ctr_range": [0.12, 0.18]
+      },
+      {
+        "key": "bet_resolved",
+        "display_name": "Bet Resolved",
+        "description": "Fires when a user's active wager is settled (win, loss, or push)",
+        "floor_cpm_usd": 0.50,
+        "typical_ctr_range": [0.09, 0.15]
+      },
+      {
+        "key": "close_game",
+        "display_name": "Close Game",
+        "description": "Fires when a game enters a 1-possession margin in the final minutes",
+        "floor_cpm_usd": 0.35,
+        "typical_ctr_range": [0.07, 0.13]
+      },
+      {
+        "key": "spread_alert",
+        "display_name": "Spread Alert",
+        "description": "Fires when the score crosses a user's spread line",
+        "floor_cpm_usd": 0.30,
+        "typical_ctr_range": [0.06, 0.10]
+      },
+      {
+        "key": "moneyline_alert",
+        "display_name": "Moneyline Alert",
+        "description": "Fires when momentum shifts put a moneyline bet at risk or locks it in",
+        "floor_cpm_usd": 0.30,
+        "typical_ctr_range": [0.05, 0.09]
+      },
+      {
+        "key": "total_alert",
+        "display_name": "Total Alert",
+        "description": "Fires when scoring pace puts an over/under bet at a decision point",
+        "floor_cpm_usd": 0.25,
+        "typical_ctr_range": [0.04, 0.08]
+      },
+      {
+        "key": "prop_alert",
+        "display_name": "Prop Alert",
+        "description": "Fires when a tracked player prop (points, rebounds, assists) approaches its line",
+        "floor_cpm_usd": 0.25,
+        "typical_ctr_range": [0.04, 0.08]
+      },
+      {
+        "key": "position_alert",
+        "display_name": "Position Alert",
+        "description": "Fires when a user's prediction market position changes significantly in value",
+        "floor_cpm_usd": 0.20,
+        "typical_ctr_range": [0.03, 0.07]
+      },
+      {
+        "key": "foul_trouble",
+        "display_name": "Foul Trouble",
+        "description": "Fires when a key starter picks up their 4th foul and is at risk of fouling out",
+        "floor_cpm_usd": 0.15,
+        "typical_ctr_range": [0.02, 0.06]
+      },
+      {
+        "key": "follow_alert",
+        "display_name": "Follow Alert",
+        "description": "Fires for users following a team or player at notable in-game moments",
+        "floor_cpm_usd": 0.10,
+        "typical_ctr_range": [0.02, 0.04]
+      }
+    ],
+    "sports_available": ["ncaa_basketball", "nba", "nfl", "mlb"],
+    "auction_type": "second_price_vickrey",
+    "pricing_model": "cost_per_moment",
+    "targeting_available": ["sport", "moment_type", "game_id", "user_segment"]
+  },
+  "attribution": {
+    "postback_supported": true,
+    "postback_schema": "https://api.getnorma.app/schema/postback",
+    "click_tracking": true,
+    "conversion_window_days": [1, 7, 30]
+  },
+  "mcp_tools": [
+    "list_moment_types",
+    "get_inventory_forecast",
+    "create_campaign",
+    "get_campaign_performance",
+    "update_campaign"
+  ],
+  "documentation": "https://getnorma.app/developers",
+  "openapi_spec": "https://api.getnorma.app/openapi.json"
+}

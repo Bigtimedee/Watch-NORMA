@@ -49,6 +49,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="adagents" type="application/json" href="/adagents.json" />
+      </head>
       <body className="bg-slate-950 text-white antialiased">{children}</body>
     </html>
   );
