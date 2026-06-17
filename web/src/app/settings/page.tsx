@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [newClientName, setNewClientName] = useState("");
   const [newClientScopes, setNewClientScopes] = useState<string[]>(ALL_SCOPES);
   const [creatingClient, setCreatingClient] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [newClientSecret, setNewClientSecret] = useState<NewClientSecret | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -96,19 +97,34 @@ export default function SettingsPage() {
   async function handleCreateClient() {
     if (!newClientName.trim()) return;
     setCreatingClient(true);
+    setCreateError(null);
     setNewClientSecret(null);
-    const res = await fetch("/api/settings/oauth-clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newClientName, scopes: newClientScopes }),
-    });
-    const data = await res.json() as NewClientSecret & { warning?: string };
-    setCreatingClient(false);
-    if (res.ok) {
-      setNewClientSecret(data);
-      setNewClientName("");
-      setNewClientScopes(ALL_SCOPES);
-      await loadOAuthClients();
+    try {
+      const res = await fetch('/api/settings/oauth-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newClientName, scopes: newClientScopes }),
+      });
+      let data: (NewClientSecret & { warning?: string }) | { error: string };
+      try {
+        data = await res.json() as typeof data;
+      } catch {
+        setCreateError('Server returned an unexpected response. Try again.');
+        return;
+      }
+      if (res.ok) {
+        setNewClientSecret(data as NewClientSecret & { warning?: string });
+        setNewClientName('');
+        setNewClientScopes(ALL_SCOPES);
+        await loadOAuthClients();
+      } else {
+        const errData = data as { error: string };
+        setCreateError(errData.error ?? 'Failed to create client. Try again.');
+      }
+    } catch {
+      setCreateError('Network error. Try again.');
+    } finally {
+      setCreatingClient(false);
     }
   }
 
@@ -249,13 +265,16 @@ export default function SettingsPage() {
             >
               {creatingClient ? "Creating…" : "Create Client"}
             </button>
+            {createError && (
+              <p className="mt-2 text-sm text-red-400">{createError}</p>
+            )}
           </div>
         </div>
 
         <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <h3 className="text-sm font-semibold text-slate-400">Account</h3>
           <p className="mt-2 text-sm text-slate-300">
-            Contact support@norma-app.com to manage team members.
+            Contact <a href="mailto:support@getnorma.app" className="text-orange-400 hover:underline">support@getnorma.app</a> to manage team members.
           </p>
         </div>
       </main>
