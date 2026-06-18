@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { ADVERTISER_CATEGORIES } from "@/lib/types";
 
 export default function OnboardingPage() {
+  const searchParams = useSearchParams();
+  const isFastTrack = searchParams.get("track") === "sportsbook";
+
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(isFastTrack ? "sportsbook" : "");
   const [logoUrl, setLogoUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [billingModel, setBillingModel] = useState("cpm");
@@ -68,12 +72,17 @@ export default function OnboardingPage() {
       }
     }
 
-    router.push("/dashboard");
+    router.push(isFastTrack ? "/campaigns/new?track=sportsbook" : "/dashboard");
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-lg space-y-8 rounded-2xl border border-slate-800 bg-slate-900 p-8">
+        {isFastTrack && (
+          <div className="rounded-lg bg-orange-500/20 border border-orange-500/40 px-4 py-2.5 text-center text-sm font-medium text-orange-400">
+            ⚡ Sportsbook Fast Track — pre-configured for sportsbook campaigns
+          </div>
+        )}
         <div className="flex flex-col items-center">
           <Link href="/">
             <img src="/logo.png" alt="NORMA" className="h-14 w-auto" />

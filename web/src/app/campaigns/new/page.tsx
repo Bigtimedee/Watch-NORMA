@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { MOMENT_TYPES, USER_SEGMENTS } from "@/lib/types";
@@ -18,6 +19,9 @@ const STEPS: { key: Step; label: string }[] = [
 
 export default function NewCampaignPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFastTrack = searchParams.get("track") === "sportsbook";
+
   const [step, setStep] = useState<Step>("basics");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,18 +35,22 @@ export default function NewCampaignPage() {
   const [flightEnd, setFlightEnd] = useState("");
 
   // Targeting
-  const [momentTypes, setMomentTypes] = useState<string[]>([]);
+  const [momentTypes, setMomentTypes] = useState<string[]>(
+    isFastTrack
+      ? ["spread_alert", "moneyline_alert", "close_game", "bet_resolved", "overtime", "prop_alert"]
+      : []
+  );
   const [userSegments, setUserSegments] = useState<string[]>([]);
   const [minScore, setMinScore] = useState(40);
 
   // Bidding
-  const [bidCents, setBidCents] = useState(30);
+  const [bidCents, setBidCents] = useState(isFastTrack ? 35 : 30);
   const [autoBidEnabled, setAutoBidEnabled] = useState(false);
   const [targetCPA, setTargetCPA] = useState("");
 
   // Creative
   const [sponsorText, setSponsorText] = useState("");
-  const [ctaText, setCtaText] = useState("");
+  const [ctaText, setCtaText] = useState(isFastTrack ? "Bet Now" : "");
   const [ctaUrl, setCtaUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
 
@@ -162,6 +170,12 @@ export default function NewCampaignPage() {
       <Nav />
       <main className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="text-2xl font-bold text-white">Create Campaign</h1>
+
+        {isFastTrack && (
+          <div className="mt-3 rounded-lg bg-orange-500/20 border border-orange-500/40 px-4 py-2.5 text-sm font-medium text-orange-400">
+            ⚡ Sportsbook Fast Track — pre-configured for sportsbook campaigns
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="mt-6 flex gap-2">

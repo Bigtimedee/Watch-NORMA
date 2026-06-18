@@ -549,6 +549,13 @@ export default function HomePage() {
             >
               See Full Platform →
             </Link>
+            <Link
+              href="/demo"
+              className="rounded-xl px-8 py-3.5 text-base font-semibold"
+              style={{ border: "1px solid rgba(249,115,22,0.2)", color: "#f97316" }}
+            >
+              Request a Demo →
+            </Link>
           </div>
         </div>
       </section>
