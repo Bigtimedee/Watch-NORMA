@@ -8,29 +8,50 @@ import * as SecureStore from "expo-secure-store";
 import { useConnectKalshi } from "../hooks/useKalshi";
 
 const STEP_KEY = "wizard_kalshi_step";
-const TOTAL = 5;
+const TOTAL = 7;
+
+// Step index constants for clarity
+const STEP_WHY = 0;        // Why connect Kalshi? (new)
+const STEP_BROWSER = 1;    // Open Kalshi in browser
+const STEP_CREATE = 2;     // Create API Key
+const STEP_KEY_ID = 3;     // Copy Key ID
+const STEP_PEM = 4;        // Download .pem
+const STEP_CREDS = 5;      // Paste credentials + Test Connection
+const STEP_DONE = 6;       // What happens next (confirmation)
 
 const FAQS: { q: string; a: string }[][] = [
+  // Step 0: Why connect
+  [
+    { q: "Will NORMA be able to place trades for me?", a: "No. NORMA only reads your open positions — it can never place, modify, or cancel trades on your behalf." },
+    { q: "Do I need a Kalshi account?", a: "Yes — you need an active account at kalshi.com. Registration is free." },
+  ],
+  // Step 1: Open browser
   [
     { q: "What is a Kalshi API key?", a: "An API key lets NORMA securely read your open Kalshi positions without your password. NORMA can never place or cancel trades." },
     { q: "Do I need a Kalshi account?", a: "Yes — you need an active account at kalshi.com. Registration is free." },
   ],
+  // Step 2: Create API Key
   [
     { q: "I don't see a Create API Key button.", a: "Make sure you're on Settings → API Keys. Try scrolling down or refreshing the page in your browser." },
     { q: "Can I create more than one key?", a: "Yes. Create a dedicated key for NORMA and revoke it at any time from Kalshi's settings." },
   ],
+  // Step 3: Copy Key ID
   [
     { q: "What does the Key ID look like?", a: "A UUID — a long string in the format 12a3b4c5-d6e7-8f90-ab12-... Copy the entire value." },
     { q: "Can I come back and copy it later?", a: "Yes — the Key ID is always visible in Settings → API Keys. The Private Key file, however, can only be downloaded once." },
   ],
+  // Step 4: Download .pem
   [
     { q: "What is a .pem file?", a: "A plain-text file containing your RSA private key. You'll need to open it and paste the full contents — including the -----BEGIN PRIVATE KEY----- header and footer." },
     { q: "Where does Kalshi save it?", a: "Usually your browser's Downloads folder, or the iOS Files / Android Downloads app." },
   ],
+  // Step 5: Paste credentials
   [
     { q: "Is it safe to paste my private key here?", a: "Yes. It's sent over HTTPS, stored in a secure server-side vault, and used only to sign read-only API requests. NORMA never places trades." },
     { q: "I'm getting a Connection Failed error.", a: "Make sure you pasted the complete Key ID and the full .pem contents — including the -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines." },
   ],
+  // Step 6: Done — no help needed
+  [],
 ];
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -45,16 +66,18 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
   const [apiKeyId, setApiKeyId] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [testError, setTestError] = useState<string | null>(null);
   const connectKalshi = useConnectKalshi();
   const hasOpenedBrowser = useRef(false);
   const stepRef = useRef(0);
 
-  // Restore last step on mount
+  // Restore last step on mount (don't restore the "done" confirmation screen)
   useEffect(() => {
     SecureStore.getItemAsync(STEP_KEY).then((v) => {
       if (v !== null) {
         const n = parseInt(v, 10);
-        if (!isNaN(n) && n > 0 && n < TOTAL) {
+        if (!isNaN(n) && n > 0 && n < STEP_DONE) {
           setStep(n);
           stepRef.current = n;
         }
@@ -67,14 +90,19 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
     stepRef.current = step;
     SecureStore.setItemAsync(STEP_KEY, step.toString()).catch(() => {});
     setHelpOpen(false);
+    // Reset test status when leaving the credentials step
+    if (step !== STEP_CREDS) {
+      setTestStatus("idle");
+      setTestError(null);
+    }
   }, [step]);
 
   // Auto-advance from the browser step when the app regains foreground
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active" && hasOpenedBrowser.current && stepRef.current === 0) {
+      if (nextState === "active" && hasOpenedBrowser.current && stepRef.current === STEP_BROWSER) {
         hasOpenedBrowser.current = false;
-        setStep(1);
+        setStep(STEP_CREATE);
       }
     });
     return () => sub.remove();
@@ -85,38 +113,60 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
     hasOpenedBrowser.current = true;
   };
 
-  const handleConnect = async () => {
+  const handleTestConnection = async () => {
     if (!apiKeyId.trim() || !privateKey.trim()) {
       Alert.alert("Required", "Please enter both your Key ID and Private Key.");
       return;
     }
+    setTestStatus("testing");
+    setTestError(null);
     try {
       await connectKalshi.mutateAsync({
         apiKeyId: apiKeyId.trim(),
         privateKey: privateKey.trim(),
       });
+      setTestStatus("success");
       SecureStore.deleteItemAsync(STEP_KEY).catch(() => {});
-      onSuccess();
     } catch (err: any) {
-      Alert.alert("Connection Failed", err.message);
+      setTestStatus("error");
+      setTestError(err.message ?? "Connection failed. Check your Key ID and Private Key.");
     }
   };
 
   const back = () => (step === 0 ? onBack() : setStep((s) => s - 1));
   const next = () => setStep((s) => Math.min(s + 1, TOTAL - 1));
-  const isLast = step === TOTAL - 1;
 
   return (
     <View style={wz.container}>
-      <WizardProgress step={step} total={TOTAL} />
+      {/* Hide progress bar on the done screen */}
+      {step < STEP_DONE && <WizardProgress step={step} total={STEP_DONE} />}
 
       <ScrollView
         style={wz.scroll}
         contentContainerStyle={wz.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Step 0: Open browser ─────────────────────────────────────── */}
-        {step === 0 && (
+        {/* ── Step 0: Why connect Kalshi? ───────────────────────────────── */}
+        {step === STEP_WHY && (
+          <View>
+            <Text style={wz.stepTitle}>Know when your Kalshi positions are resolving.</Text>
+            <Text style={wz.stepIntro}>
+              NORMA will alert you when your Kalshi positions are resolving — no need to watch the game yourself.
+            </Text>
+            <View style={wz.bulletList}>
+              <BulletRow icon="alert-circle-outline" text="Know when your sports position is at risk" />
+              <BulletRow icon="timer-outline" text="Get alerted in the final 5 minutes of a resolving market" />
+              <BulletRow icon="stats-chart-outline" text="Track all your positions in one place" />
+            </View>
+            <Pressable style={wz.primaryCta} onPress={next} accessibilityLabel="Connect Kalshi">
+              <Text style={wz.primaryCtaText}>Connect Kalshi</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* ── Step 1: Open browser ─────────────────────────────────────── */}
+        {step === STEP_BROWSER && (
           <View>
             <Text style={wz.stepTitle}>Open your Kalshi account settings.</Text>
             <Pressable style={wz.browserBtn} onPress={openBrowser} accessibilityLabel="Open Kalshi">
@@ -132,8 +182,8 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
           </View>
         )}
 
-        {/* ── Step 1: Tap Create API Key ────────────────────────────────── */}
-        {step === 1 && (
+        {/* ── Step 2: Tap Create API Key ────────────────────────────────── */}
+        {step === STEP_CREATE && (
           <View>
             <Text style={wz.stepTitle}>Tap "Create API Key."</Text>
             <KalshiMockupApiKeys />
@@ -141,8 +191,8 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
           </View>
         )}
 
-        {/* ── Step 2: Copy Key ID ───────────────────────────────────────── */}
-        {step === 2 && (
+        {/* ── Step 3: Copy Key ID ───────────────────────────────────────── */}
+        {step === STEP_KEY_ID && (
           <View>
             <Text style={wz.stepTitle}>Copy your Key ID.</Text>
             <KalshiMockupKeyId />
@@ -152,8 +202,8 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
           </View>
         )}
 
-        {/* ── Step 3: Download .pem ─────────────────────────────────────── */}
-        {step === 3 && (
+        {/* ── Step 4: Download .pem ─────────────────────────────────────── */}
+        {step === STEP_PEM && (
           <View>
             <Text style={wz.stepTitle}>Download your Private Key file.</Text>
             <KalshiMockupDownloadPem />
@@ -163,10 +213,18 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
           </View>
         )}
 
-        {/* ── Step 4: Paste credentials ─────────────────────────────────── */}
-        {step === 4 && (
+        {/* ── Step 5: Paste credentials + Test Connection ───────────────── */}
+        {step === STEP_CREDS && (
           <View>
             <Text style={wz.stepTitle}>Paste your credentials into NORMA.</Text>
+
+            {/* Inline tutorial */}
+            <View style={wz.tutorial}>
+              <Ionicons name="information-circle-outline" size={16} color="#f97316" />
+              <Text style={wz.tutorialText}>
+                Log in to kalshi.com → Settings → API → Create Key. Copy the Key ID (not the private key).
+              </Text>
+            </View>
 
             <Text style={wz.fieldLabel}>Key ID — paste here</Text>
             <TextInput
@@ -174,7 +232,7 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
               placeholder="e.g. 12a3b4c5-d6e7-8f90-..."
               placeholderTextColor="#475569"
               value={apiKeyId}
-              onChangeText={setApiKeyId}
+              onChangeText={(v) => { setApiKeyId(v); setTestStatus("idle"); setTestError(null); }}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -185,7 +243,7 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
               placeholder={"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"}
               placeholderTextColor="#475569"
               value={privateKey}
-              onChangeText={setPrivateKey}
+              onChangeText={(v) => { setPrivateKey(v); setTestStatus("idle"); setTestError(null); }}
               multiline
               autoCapitalize="none"
               autoCorrect={false}
@@ -198,44 +256,105 @@ export function KalshiWizard({ onSuccess, onBack }: KalshiWizardProps) {
                 Your key is stored securely and only used server-side to read your positions. NORMA will never place trades on your behalf.
               </Text>
             </View>
+
+            {/* Inline test feedback */}
+            {testStatus === "error" && testError && (
+              <View style={wz.feedbackError}>
+                <Ionicons name="close-circle-outline" size={16} color="#f87171" />
+                <Text style={wz.feedbackErrorText}>{testError}</Text>
+              </View>
+            )}
+            {testStatus === "success" && (
+              <View style={wz.feedbackSuccess}>
+                <Ionicons name="checkmark-circle-outline" size={16} color="#22c55e" />
+                <Text style={wz.feedbackSuccessText}>Connection verified! Tap Next to continue.</Text>
+              </View>
+            )}
+
+            {/* Test Connection button */}
+            <Pressable
+              style={[
+                wz.testBtn,
+                testStatus === "testing" && wz.testBtnDisabled,
+                testStatus === "success" && wz.testBtnSuccess,
+              ]}
+              onPress={testStatus === "success" ? next : handleTestConnection}
+              disabled={testStatus === "testing"}
+              accessibilityLabel={testStatus === "success" ? "Next" : "Test Connection"}
+            >
+              {testStatus === "testing" ? (
+                <>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={wz.testBtnText}>Verifying…</Text>
+                </>
+              ) : testStatus === "success" ? (
+                <>
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                  <Text style={wz.testBtnText}>Next</Text>
+                </>
+              ) : (
+                <Text style={wz.testBtnText}>Test Connection</Text>
+              )}
+            </Pressable>
           </View>
         )}
 
-        <NeedHelp
-          faqs={FAQS[step] ?? []}
-          open={helpOpen}
-          onToggle={() => setHelpOpen((v) => !v)}
-        />
+        {/* ── Step 6: What happens next (confirmation) ─────────────────── */}
+        {step === STEP_DONE && (
+          <View style={wz.doneContainer}>
+            <View style={wz.doneIconWrap}>
+              <Ionicons name="checkmark-circle" size={56} color="#22c55e" />
+            </View>
+            <Text style={wz.doneTitle}>Kalshi connected.</Text>
+            <View style={wz.doneCard}>
+              <Text style={wz.doneCardHeading}>What happens next</Text>
+              <Text style={wz.doneCardBody}>
+                NORMA will check your Kalshi positions every 5 minutes. You'll receive a push notification when a sports position is entering its final resolution window.
+              </Text>
+            </View>
+            <Pressable style={wz.doneCta} onPress={onSuccess} accessibilityLabel="Done">
+              <Text style={wz.doneCtaText}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {step < STEP_DONE && (
+          <NeedHelp
+            faqs={FAQS[step] ?? []}
+            open={helpOpen}
+            onToggle={() => setHelpOpen((v) => !v)}
+          />
+        )}
       </ScrollView>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <View style={wz.footer}>
-        <Pressable style={wz.backBtn} onPress={back} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={16} color="#94a3b8" />
-          <Text style={wz.backText}>Back</Text>
-        </Pressable>
-
-        {!isLast && step > 0 && (
-          <Pressable style={wz.nextBtn} onPress={next} accessibilityLabel="Next step">
-            <Text style={wz.nextText}>Next</Text>
-            <Ionicons name="chevron-forward" size={16} color="#fff" />
+      {/* ── Footer (hidden on done screen) ──────────────────────────────── */}
+      {step < STEP_DONE && (
+        <View style={wz.footer}>
+          <Pressable style={wz.backBtn} onPress={back} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={16} color="#94a3b8" />
+            <Text style={wz.backText}>Back</Text>
           </Pressable>
-        )}
 
-        {isLast && (
-          <Pressable
-            style={[wz.nextBtn, connectKalshi.isPending && wz.nextBtnDisabled]}
-            onPress={handleConnect}
-            disabled={connectKalshi.isPending}
-            accessibilityLabel="Connect Kalshi"
-          >
-            {connectKalshi.isPending
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={wz.nextText}>Connect Kalshi</Text>
-            }
-          </Pressable>
-        )}
-      </View>
+          {/* Show Next on all steps except WHY (has its own CTA) and CREDS (has Test btn) */}
+          {step > STEP_WHY && step < STEP_CREDS && (
+            <Pressable style={wz.nextBtn} onPress={next} accessibilityLabel="Next step">
+              <Text style={wz.nextText}>Next</Text>
+              <Ionicons name="chevron-forward" size={16} color="#fff" />
+            </Pressable>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Bullet row helper ────────────────────────────────────────────────────────
+
+function BulletRow({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
+  return (
+    <View style={bl.row}>
+      <Ionicons name={icon} size={20} color="#f97316" style={bl.icon} />
+      <Text style={bl.text}>{text}</Text>
     </View>
   );
 }
@@ -261,6 +380,7 @@ function NeedHelp({
   open: boolean;
   onToggle: () => void;
 }) {
+  if (faqs.length === 0) return null;
   return (
     <View style={nh.container}>
       <Pressable style={nh.trigger} onPress={onToggle} accessibilityLabel="Need help?">
@@ -377,8 +497,14 @@ const wz = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 30,
-    marginBottom: 20,
+    marginBottom: 16,
     marginTop: 4,
+  },
+  stepIntro: {
+    color: "#94a3b8",
+    fontSize: 15,
+    lineHeight: 23,
+    marginBottom: 24,
   },
   stepHint: {
     color: "#94a3b8",
@@ -386,6 +512,23 @@ const wz = StyleSheet.create({
     lineHeight: 22,
     marginTop: 16,
   },
+  // "Why connect" bullet list
+  bulletList: {
+    marginBottom: 32,
+    gap: 12,
+  },
+  // "Why connect" primary CTA
+  primaryCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f97316",
+    borderRadius: 14,
+    paddingVertical: 16,
+    gap: 10,
+  },
+  primaryCtaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  // Browser step button
   browserBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -399,6 +542,17 @@ const wz = StyleSheet.create({
   browserBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
   manualNext: { alignSelf: "center", paddingVertical: 14 },
   manualNextText: { color: "#64748b", fontSize: 13 },
+  // Credentials step
+  tutorial: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "rgba(249, 115, 22, 0.08)",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+    gap: 10,
+  },
+  tutorialText: { color: "#fdba74", fontSize: 13, lineHeight: 20, flex: 1 },
   fieldLabel: {
     color: "#94a3b8",
     fontSize: 11,
@@ -428,6 +582,86 @@ const wz = StyleSheet.create({
     gap: 10,
   },
   securityText: { color: "#86efac", fontSize: 12, lineHeight: 18, flex: 1 },
+  // Inline feedback
+  feedbackError: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "rgba(248, 113, 113, 0.1)",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  feedbackErrorText: { color: "#f87171", fontSize: 13, lineHeight: 19, flex: 1 },
+  feedbackSuccess: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  feedbackSuccessText: { color: "#22c55e", fontSize: 13, lineHeight: 19, flex: 1 },
+  // Test Connection button
+  testBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1e293b",
+    borderWidth: 1.5,
+    borderColor: "#f97316",
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 20,
+    gap: 8,
+  },
+  testBtnDisabled: { opacity: 0.5 },
+  testBtnSuccess: { backgroundColor: "#166534", borderColor: "#22c55e" },
+  testBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  // Done screen
+  doneContainer: {
+    alignItems: "center",
+    paddingTop: 32,
+  },
+  doneIconWrap: {
+    marginBottom: 20,
+  },
+  doneTitle: {
+    color: "#f1f5f9",
+    fontSize: 26,
+    fontWeight: "800",
+    marginBottom: 28,
+  },
+  doneCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    marginBottom: 32,
+  },
+  doneCardHeading: {
+    color: "#f97316",
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  doneCardBody: {
+    color: "#cbd5e1",
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  doneCta: {
+    backgroundColor: "#f97316",
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    alignItems: "center",
+  },
+  doneCtaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  // Footer
   footer: {
     flexDirection: "row",
     alignItems: "center",
@@ -459,6 +693,21 @@ const wz = StyleSheet.create({
   },
   nextBtnDisabled: { opacity: 0.5 },
   nextText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+});
+
+const bl = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  icon: { marginTop: 1 },
+  text: {
+    color: "#cbd5e1",
+    fontSize: 15,
+    lineHeight: 22,
+    flex: 1,
+  },
 });
 
 const prog = StyleSheet.create({
