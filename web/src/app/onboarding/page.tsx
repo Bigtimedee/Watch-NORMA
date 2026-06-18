@@ -9,10 +9,14 @@ import { ADVERTISER_CATEGORIES } from "@/lib/types";
 
 function OnboardingPageInner() {
   const searchParams = useSearchParams();
-  const isFastTrack = searchParams.get("track") === "sportsbook";
+  const track = searchParams.get("track");
+  const isFastTrack = track === "sportsbook";
+  const isStreamingTrack = track === "streaming";
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(isFastTrack ? "sportsbook" : "");
+  const [category, setCategory] = useState(
+    isFastTrack ? "sportsbook" : isStreamingTrack ? "streaming" : ""
+  );
   const [logoUrl, setLogoUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [billingModel, setBillingModel] = useState("cpm");
@@ -72,7 +76,11 @@ function OnboardingPageInner() {
       }
     }
 
-    router.push(isFastTrack ? "/campaigns/new?track=sportsbook" : "/dashboard");
+    router.push(
+      isFastTrack ? "/campaigns/new?track=sportsbook" :
+      isStreamingTrack ? "/campaigns/new?track=streaming" :
+      "/dashboard"
+    );
   };
 
   return (
@@ -81,6 +89,11 @@ function OnboardingPageInner() {
         {isFastTrack && (
           <div className="rounded-lg bg-orange-500/20 border border-orange-500/40 px-4 py-2.5 text-center text-sm font-medium text-orange-400">
             ⚡ Sportsbook Fast Track — pre-configured for sportsbook campaigns
+          </div>
+        )}
+        {isStreamingTrack && (
+          <div className="rounded-lg bg-blue-500/20 border border-blue-500/40 px-4 py-2.5 text-center text-sm font-medium text-blue-400">
+            ⚡ Streaming Service Fast Track — pre-configured for streaming subscriber acquisition
           </div>
         )}
         <div className="flex flex-col items-center">

@@ -20,7 +20,9 @@ const STEPS: { key: Step; label: string }[] = [
 function NewCampaignPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isFastTrack = searchParams.get("track") === "sportsbook";
+  const track = searchParams.get("track");
+  const isFastTrack = track === "sportsbook";
+  const isStreamingTrack = track === "streaming";
 
   const [step, setStep] = useState<Step>("basics");
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,9 @@ function NewCampaignPageInner() {
 
   // Basics
   const [name, setName] = useState("");
-  const [demandType, setDemandType] = useState<"sportsbook" | "streaming" | "commerce" | "direct_deal">("sportsbook");
+  const [demandType, setDemandType] = useState<"sportsbook" | "streaming" | "commerce" | "direct_deal">(
+    isStreamingTrack ? "streaming" : "sportsbook"
+  );
   const [monthlyImpressionGuarantee, setMonthlyImpressionGuarantee] = useState("");
   const [budgetDollars, setBudgetDollars] = useState("");
   const [dailyBudgetDollars, setDailyBudgetDollars] = useState("");
@@ -39,19 +43,21 @@ function NewCampaignPageInner() {
   const [momentTypes, setMomentTypes] = useState<string[]>(
     isFastTrack
       ? ["spread_alert", "moneyline_alert", "close_game", "bet_resolved", "overtime", "prop_alert"]
+      : isStreamingTrack
+      ? ["close_game", "overtime", "game_resolved", "mlb_close_game", "mlb_walk_off"]
       : []
   );
   const [userSegments, setUserSegments] = useState<string[]>([]);
   const [minScore, setMinScore] = useState(40);
 
   // Bidding
-  const [bidCents, setBidCents] = useState(isFastTrack ? 35 : 30);
+  const [bidCents, setBidCents] = useState(isFastTrack ? 35 : isStreamingTrack ? 25 : 30);
   const [autoBidEnabled, setAutoBidEnabled] = useState(false);
   const [targetCPA, setTargetCPA] = useState("");
 
   // Creative
   const [sponsorText, setSponsorText] = useState("");
-  const [ctaText, setCtaText] = useState(isFastTrack ? "Bet Now" : "");
+  const [ctaText, setCtaText] = useState(isFastTrack ? "Bet Now" : isStreamingTrack ? "Watch Now" : "");
   const [ctaUrl, setCtaUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
 
@@ -181,6 +187,11 @@ function NewCampaignPageInner() {
             ⚡ Sportsbook Fast Track — pre-configured for sportsbook campaigns
           </div>
         )}
+        {isStreamingTrack && (
+          <div className="mt-3 rounded-lg bg-blue-500/20 border border-blue-500/40 px-4 py-2.5 text-sm font-medium text-blue-400">
+            ⚡ Streaming Service Fast Track — pre-configured for subscriber acquisition campaigns
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="mt-6 flex gap-2">
@@ -244,10 +255,10 @@ function NewCampaignPageInner() {
                 </p>
                 <div className="mt-2 grid grid-cols-3 gap-3">
                   {([
-                    { key: "sportsbook", label: "Sportsbook", cta: "Bet Now", desc: "Sportsbook offers — geo-restricted" },
-                    { key: "streaming", label: "Streaming", cta: "Watch Now", desc: "Streaming services (YouTube TV, Prime, Peacock)" },
-                    { key: "commerce", label: "Commerce", cta: "Shop Now", desc: "Merchandise, ticketing (Fanatics, etc.)" },
-                    { key: "direct_deal", label: "Direct Deal", cta: "Custom", desc: "Guaranteed impressions — bypasses auction" },
+                    { key: "sportsbook", label: "Sportsbook", cta: "Bet Now", desc: "Sportsbook offers — geo-restricted to legal betting states", note: null },
+                    { key: "streaming", label: "Streaming", cta: "Watch Now", desc: "Streaming services (YouTube TV, ESPN+, Peacock, Prime)", note: "Pending brand review before going live" },
+                    { key: "commerce", label: "Commerce", cta: "Shop Now", desc: "Merchandise, ticketing (Fanatics, etc.)", note: "Pending brand review before going live" },
+                    { key: "direct_deal", label: "Direct Deal", cta: "Custom", desc: "Guaranteed impressions — bypasses auction", note: null },
                   ] as const).map((opt) => (
                     <button key={opt.key} type="button" onClick={() => setDemandType(opt.key)}
                       className={`rounded-lg border p-3 text-left transition-colors ${
@@ -258,8 +269,8 @@ function NewCampaignPageInner() {
                       <p className="text-sm font-semibold text-white">{opt.label}</p>
                       <p className="mt-0.5 text-xs text-orange-400 font-medium">{opt.cta}</p>
                       <p className="mt-1 text-xs text-slate-400">{opt.desc}</p>
-                      {opt.key !== "sportsbook" && (
-                        <p className="mt-1 text-xs text-yellow-600">Scaffolded — no live deals</p>
+                      {opt.note && (
+                        <p className="mt-1 text-xs text-blue-400">{opt.note}</p>
                       )}
                     </button>
                   ))}
@@ -449,6 +460,15 @@ function NewCampaignPageInner() {
                 <div><dt className="text-slate-400">Sponsor Text</dt><dd className="text-white">{sponsorText}</dd></div>
                 <div><dt className="text-slate-400">Auto-Bid</dt><dd className="text-white">{autoBidEnabled ? `Target CPA $${targetCPA}` : "Manual"}</dd></div>
               </dl>
+
+              {(demandType === "streaming" || demandType === "commerce") && (
+                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 text-sm text-blue-300">
+                  <p className="font-medium">Brand review required</p>
+                  <p className="mt-1 text-xs text-blue-400">
+                    Streaming and commerce campaigns start in <strong>pending</strong> review. Your campaign will enter the auction after NORMA's brand safety team approves it — typically within 24 hours. You'll receive an email when it's approved.
+                  </p>
+                </div>
+              )}
 
               {error && <p className="text-sm text-red-400">{error}</p>}
 
