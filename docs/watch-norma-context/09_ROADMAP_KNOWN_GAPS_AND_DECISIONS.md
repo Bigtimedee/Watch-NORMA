@@ -40,7 +40,7 @@ Based on repository inspection and the outage report:
 ### Privacy and Compliance
 
 - **No explicit age verification.** Age gating is delegated to the App Store rating and the sportsbook/platform. The app itself does not verify age.
-- **Geofencing for gambling content is partial.** The geo-compliance foundation is in place: `profiles.timezone` is captured, the `sportsbook_restrictions` table encodes legal states for all major sportsbooks, and the auction engine blocks sportsbook ads for users with unknown or restricted-jurisdiction timezones. However, sportsbook CTAs in alert cards are still shown to all users regardless of jurisdiction — the auction geo-filter is the only enforcement point so far.
+- **Geofencing for gambling content.** The geo-compliance foundation is in place: `profiles.timezone` is captured, the `sportsbook_restrictions` table encodes legal states for all major sportsbooks, the auction engine blocks sportsbook ads for users with unknown or restricted-jurisdiction timezones, and `BetNowButton` uses `useSportsbookGeo` to disable the CTA for users in restricted/unknown jurisdictions. Both enforcement points (auction and CTA) use the same `inferStateFromTimezone` logic. True per-market geofencing (GPS-based) remains a known gap — see Product Decision #8.
 - **Kalshi credentials storage.** RSA private keys are stored in `connections.metadata` behind RLS but without column-level encryption (pgcrypto). The CLAUDE.md architecture plan calls for encryption when partner APIs are added.
 
 ### Testing
@@ -113,8 +113,7 @@ Based on repository inspection, the highest-impact immediate work:
 - Improve Polymarket position matching (beyond team name extraction)
 
 ### Ad Auction
-- Geo-compliance foundation in place: `sportsbook_restrictions` table seeded for 5 major books, auction engine blocks unknown/illegal-state users, `profiles.timezone` drives filtering
-- Enforce geo-check on `BetNowButton` CTA (in-app, not just auction)
+- ~~Geo-compliance: auction + BetNowButton CTA~~ — **Done**: both enforcement points use `inferStateFromTimezone`
 - Real-time auction dashboard for admins
 - Expand moment types for auction eligibility
 - Add video ad creative support
