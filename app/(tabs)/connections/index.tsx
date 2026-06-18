@@ -1,12 +1,21 @@
+import { useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useConnections } from "../../../hooks/useConnections";
+import { ImportRosterSheet } from "../../../components/ImportRosterSheet";
+import { useFollows } from "../../../hooks/useFollows";
 
 export default function ConnectionsScreen() {
   const router = useRouter();
   const { data: connections } = useConnections();
+  const { data: playerFollows } = useFollows("player");
+  const [showRosterSheet, setShowRosterSheet] = useState(false);
+
+  const fantasyFollowCount = (playerFollows ?? []).filter(
+    (f) => (f as any).source === "fantasy"
+  ).length;
 
   const streamingCount = (connections ?? []).filter(
     (c) => c.provider_type === "streaming" && c.connected
@@ -103,7 +112,39 @@ export default function ConnectionsScreen() {
             </View>
           </Pressable>
         ))}
+
+        {/* Fantasy Sports section */}
+        <View style={s.sectionGroupHeader}>
+          <Text style={s.sectionGroupTitle}>Fantasy Sports</Text>
+        </View>
+
+        <View style={s.sectionCard}>
+          <View style={s.sectionIcon}>
+            <Ionicons name="people-outline" size={24} color="#f97316" />
+          </View>
+          <View style={s.sectionText}>
+            <Text style={s.sectionTitle}>Fantasy Roster</Text>
+            <Text style={s.sectionSubtitle}>
+              Get alerts when your fantasy players hit key moments
+            </Text>
+            {fantasyFollowCount > 0 && (
+              <Text style={s.fantasyCount}>
+                {fantasyFollowCount} player{fantasyFollowCount !== 1 ? "s" : ""} followed
+              </Text>
+            )}
+          </View>
+          <Pressable
+            style={s.importBtn}
+            onPress={() => setShowRosterSheet(true)}
+          >
+            <Text style={s.importBtnText}>Import Roster</Text>
+          </Pressable>
+        </View>
       </ScrollView>
+
+      {showRosterSheet && (
+        <ImportRosterSheet onClose={() => setShowRosterSheet(false)} />
+      )}
     </SafeAreaView>
   );
 }
@@ -154,4 +195,32 @@ const s = StyleSheet.create({
     marginRight: 8,
   },
   badgeText: { color: "#fb923c", fontSize: 12, fontWeight: "700" },
+  sectionGroupHeader: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sectionGroupTitle: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  fantasyCount: {
+    color: "#22c55e",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  importBtn: {
+    backgroundColor: "#f97316",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  importBtnText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
 });

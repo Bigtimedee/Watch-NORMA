@@ -11,6 +11,8 @@ export interface FollowEntity {
   entity_id: string;
   game_id: string | null;
   team_id: string | null;
+  /** Origin of this follow. 'fantasy' = imported from a fantasy roster. */
+  source: string | null;
   created_at: string;
 }
 
@@ -74,9 +76,12 @@ export function useAddFollow() {
     mutationFn: async ({
       entityType,
       entityId,
+      source,
     }: {
       entityType: FollowEntityType;
       entityId: string;
+      /** Optional origin tag, e.g. 'fantasy' for roster imports */
+      source?: string;
     }) => {
       const {
         data: { user },
@@ -88,6 +93,7 @@ export function useAddFollow() {
         follow_type: entityType,
         entity_type: entityType,
         entity_id: entityId,
+        source: source ?? null,
       };
 
       // Populate legacy columns for backward compat
