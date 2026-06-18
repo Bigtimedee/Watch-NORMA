@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ clients: clients ?? [] });
   } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error('[oauth-clients GET]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -89,7 +90,8 @@ export async function POST(request: NextRequest) {
       warning: "Save this client_secret now — it will not be shown again.",
     }, { status: 201 });
   } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error('[oauth-clients POST]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
