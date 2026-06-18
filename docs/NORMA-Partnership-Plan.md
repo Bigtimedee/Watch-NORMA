@@ -4,9 +4,37 @@
 
 ---
 
+## Implementation Status — June 2026
+
+All tasks below have been implemented, committed, and pushed to production.
+
+| Task | Description | Status | Commit |
+|------|-------------|--------|--------|
+| SB-01 | Enable Programmatic Intent API | ✅ Complete | Activated, INTENT_API_ENABLED=true |
+| SB-02 | Deploy MCP server to Railway + DNS | ✅ Complete | mcp.getnorma.app live |
+| SB-03 | DraftKings ConversionIngestor adapter | ✅ Complete | See _shared/conversion-ingestor.ts |
+| SB-04 | Sportsbook advertiser onboarding package | ✅ Complete | /onboarding?track=sportsbook, pitch doc |
+| SB-05 | Direct deal proposal template + portal | ✅ Complete | Migration 085, /admin/campaigns/direct-deals |
+| SB-06 | Co-marketing landing pages for referrals | ✅ Complete | /partners/[partnerKey], migration 086 |
+| ST-01 | Activate streaming demand type | ✅ Complete | /onboarding?track=streaming, removed scaffold label |
+| ST-02 | Streaming affiliate tracking infrastructure | ✅ Complete | Migration 087, /admin/revenue/affiliates |
+| ST-03 | Streaming partner outreach materials | ✅ Complete | streaming-partner-outreach.md |
+| PM-01 | Kalshi connection experience upgrade | ✅ Complete | KalshiWizard why-connect + tutorial + test |
+| PM-02 | Polymarket position alert improvements | ✅ Complete | resolve_risk alert type in evaluate-alerts |
+| SM-01 | Press kit and editorial partnership package | ✅ Complete | press-kit.md, editorial-partnership-pitch.md |
+| SM-02 | Social content pipeline partner mentions | ✅ Complete | alert_called_it template, partner_mention column |
+| FF-01 | Fantasy roster import | ✅ Complete | ImportRosterSheet, migration 088 |
+| TP-01 | Apple App Store feature submission | ✅ Complete | apple-app-store-feature-checklist.md |
+| TP-02 | Anthropic case study | ✅ Complete | anthropic-case-study.md |
+| IR-01 | Health monitoring + status page | ✅ Complete | /status page, uptime-monitoring-setup.md |
+| IR-02 | Advertiser reporting API CSV export + webhook | ✅ Complete | Migration 089, GET /reporting-api/export |
+| IR-03 | Partner management dashboard | ✅ Complete | Migration 090, /admin/partners full CRM |
+
+---
+
 ## How to Use This Document
 
-Each section describes a specific partner category, the strategic rationale, and concrete implementation tasks. Tasks labeled with a **[CLI]** tag include a ready-made prompt you can give directly to Claude in your terminal to implement that work. Copy the prompt, paste it into the Claude CLI in your Watch-NORMA project, and Claude will execute.
+Each section describes a specific partner category, the strategic rationale, and concrete implementation tasks. Tasks labeled with a **[CLI]** tag have been implemented — the prompt text is preserved for reference.
 
 ---
 
@@ -641,18 +669,18 @@ Build a partner management dashboard in NORMA's admin portal. Specifically:
 
 **Goal:** First paying enterprise advertiser. MCP server live. Referral infrastructure ready for partner distribution.
 
-| Priority | Task | Target |
-|----------|------|--------|
-| 1 | Deploy MCP server to Railway + configure DNS (SB-02) | Week 1 |
-| 2 | Enable Programmatic Intent API (SB-01) | Week 1 |
-| 3 | Activate streaming demand type in advertiser portal (ST-01) | Week 1 |
-| 4 | Build sportsbook advertiser onboarding package (SB-04) | Week 1–2 |
-| 5 | Build co-marketing landing pages for sportsbook referrals (SB-06) | Week 2 |
-| 6 | First outreach to FanDuel media/partnerships team | Week 2 |
-| 7 | First outreach to Kalshi BD | Week 2 |
-| 8 | Submit press kit to Action Network, VSiN, The Athletic | Week 3 |
-| 9 | Apple App Store editorial submission (TP-01) | Week 3 |
-| 10 | Build direct deal proposal template (SB-05) | Week 3–4 |
+| Priority | Task | Target | Status |
+|----------|------|--------|--------|
+| 1 | Deploy MCP server to Railway + configure DNS (SB-02) | Week 1 | ✅ Done |
+| 2 | Enable Programmatic Intent API (SB-01) | Week 1 | ✅ Done |
+| 3 | Activate streaming demand type in advertiser portal (ST-01) | Week 1 | ✅ Done |
+| 4 | Build sportsbook advertiser onboarding package (SB-04) | Week 1–2 | ✅ Done |
+| 5 | Build co-marketing landing pages for sportsbook referrals (SB-06) | Week 2 | ✅ Done |
+| 6 | First outreach to FanDuel media/partnerships team | Week 2 | — Awaiting |
+| 7 | First outreach to Kalshi BD | Week 2 | — Awaiting |
+| 8 | Submit press kit to Action Network, VSiN, The Athletic | Week 3 | — Awaiting |
+| 9 | Apple App Store editorial submission (TP-01) | Week 3 | ✅ Done (prep complete) |
+| 10 | Build direct deal proposal template (SB-05) | Week 3–4 | ✅ Done |
 
 **Revenue target by Day 30:** First direct deal or self-serve sportsbook campaign live. $1K–$5K in advertiser spend.
 
@@ -660,18 +688,18 @@ Build a partner management dashboard in NORMA's admin portal. Specifically:
 
 **Goal:** Multiple active advertisers. Streaming affiliate commissions flowing. Fantasy import live.
 
-| Priority | Task | Target |
-|----------|------|--------|
-| 1 | Streaming affiliate tracking (ST-02) | Week 5 |
-| 2 | DraftKings ConversionIngestor adapter (SB-03) | Week 5–6 |
-| 3 | Fantasy roster import (FF-01) | Week 6 |
-| 4 | Kalshi connection experience upgrade (PM-01) | Week 6 |
-| 5 | First outreach to DraftKings media team | Week 5 |
-| 6 | First outreach to ESPN+ partnerships | Week 6 |
-| 7 | Automated health monitoring + status page (IR-01) | Week 7 |
-| 8 | Anthropic case study submission (TP-02) | Week 7–8 |
-| 9 | Partner management dashboard (IR-03) | Week 8 |
-| 10 | Social content pipeline: partner-amplifiable content (SM-02) | Week 7–8 |
+| Priority | Task | Target | Status |
+|----------|------|--------|--------|
+| 1 | Streaming affiliate tracking (ST-02) | Week 5 | ✅ Done |
+| 2 | DraftKings ConversionIngestor adapter (SB-03) | Week 5–6 | ✅ Done |
+| 3 | Fantasy roster import (FF-01) | Week 6 | ✅ Done |
+| 4 | Kalshi connection experience upgrade (PM-01) | Week 6 | ✅ Done |
+| 5 | First outreach to DraftKings media team | Week 5 | — Awaiting |
+| 6 | First outreach to ESPN+ partnerships | Week 6 | — Awaiting |
+| 7 | Automated health monitoring + status page (IR-01) | Week 7 | ✅ Done |
+| 8 | Anthropic case study submission (TP-02) | Week 7–8 | ✅ Done (prep complete) |
+| 9 | Partner management dashboard (IR-03) | Week 8 | ✅ Done |
+| 10 | Social content pipeline: partner-amplifiable content (SM-02) | Week 7–8 | ✅ Done |
 
 **Revenue target by Day 60:** 3–5 active advertisers. $5K–$10K in monthly run-rate spend. Streaming affiliate revenue beginning.
 
@@ -679,14 +707,14 @@ Build a partner management dashboard in NORMA's admin portal. Specifically:
 
 **Goal:** Enterprise advertiser deals. Verified conversion data from at least one sportsbook. Acquisition pitch materials ready.
 
-| Priority | Task | Target |
-|----------|------|--------|
-| 1 | Advertiser reporting API + data export (IR-02) | Week 9 |
-| 2 | First direct deal signed with a sportsbook | Week 9–10 |
-| 3 | S2S callback live with first sportsbook partner | Week 10–12 |
-| 4 | Press coverage in at least one major sports publication | Week 10–12 |
-| 5 | Polymarket position alert improvements (PM-02) | Week 10 |
-| 6 | App Store feature (if approved by Apple) | Week 12 |
+| Priority | Task | Target | Status |
+|----------|------|--------|--------|
+| 1 | Advertiser reporting API + data export (IR-02) | Week 9 | ✅ Done |
+| 2 | First direct deal signed with a sportsbook | Week 9–10 | — Awaiting |
+| 3 | S2S callback live with first sportsbook partner | Week 10–12 | — Awaiting |
+| 4 | Press coverage in at least one major sports publication | Week 10–12 | — Awaiting |
+| 5 | Polymarket position alert improvements (PM-02) | Week 10 | ✅ Done |
+| 6 | App Store feature (if approved by Apple) | Week 12 | — Awaiting Apple |
 
 **Revenue target by Day 90:** $10K+ MRR from advertising. At least one verified conversion partner. Partnership pipeline active with 5+ prospects.
 
