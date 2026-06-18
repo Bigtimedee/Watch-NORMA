@@ -4,11 +4,188 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// ---------------------------------------------------------------------------
+// Auth helper — shared by both GET (export) and POST (report) paths
+// ---------------------------------------------------------------------------
+async function resolveAdvertiser(req: Request, supabase: ReturnType<typeof createClient>) {
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  const { data: { user } } = await supabase.auth.getUser(token);
+  if (!user) return { user: null, advertiser: null };
+
+  const { data: advertiser } = await supabase
+    .from("advertisers")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  return { user, advertiser };
+}
+
+// ---------------------------------------------------------------------------
+// CSV export: GET /reporting-api/export?campaign_id=X&start=YYYY-MM-DD&end=YYYY-MM-DD&format=csv
+// ---------------------------------------------------------------------------
+async function handleCsvExport(req: Request, supabase: ReturnType<typeof createClient>): Promise<Response> {
+  const { user, advertiser } = await resolveAdvertiser(req, supabase);
+
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (!advertiser) {
+    return new Response(JSON.stringify({ error: "Advertiser not found" }), {
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const url = new URL(req.url);
+  const campaignId = url.searchParams.get("campaign_id");
+  const start = url.searchParams.get("start");
+  const end = url.searchParams.get("end");
+
+  if (!campaignId || !start || !end) {
+    return new Response(JSON.stringify({ error: "campaign_id, start, and end are required" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Verify this campaign belongs to the requesting advertiser
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("id, advertisers!inner(auth_user_id)")
+    .eq("id", campaignId)
+    .eq("advertisers.auth_user_id", user.id)
+    .single();
+
+  if (!campaign) {
+    return new Response(JSON.stringify({ error: "Campaign not found" }), {
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Pull daily impression data for the campaign in the requested date range.
+  // We aggregate at the date level (truncated from delivered_at) so each CSV
+  // row represents one calendar day.
+  const { data: rows, error } = await supabase
+    .from("impressions")
+    .select("id, clearing_price_cents, tapped_at, delivered_at")
+    .eq("campaign_id", campaignId)
+    .gte("delivered_at", `${start}T00:00:00Z`)
+    .lte("delivered_at", `${end}T23:59:59Z`)
+    .order("delivered_at");
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Pull attributed conversions for this campaign in the same window.
+  // We join via impressions so we only see conversions that belong to this
+  // campaign without exposing user_id.
+  const { data: conversionRows } = await supabase
+    .from("conversions")
+    .select("impression_id, converted_at, impressions!inner(campaign_id, delivered_at)")
+    .eq("impressions.campaign_id", campaignId)
+    .gte("impressions.delivered_at", `${start}T00:00:00Z`)
+    .lte("impressions.delivered_at", `${end}T23:59:59Z`);
+
+  // Aggregate by calendar date (UTC)
+  type DayStat = {
+    impressions: number;
+    clicks: number;
+    spend_cents: number;
+    attributed_conversions: number;
+  };
+  const byDate = new Map<string, DayStat>();
+
+  for (const row of rows ?? []) {
+    const r = row as { id: number; clearing_price_cents: number; tapped_at: string | null; delivered_at: string };
+    const day = r.delivered_at.slice(0, 10); // YYYY-MM-DD
+    const existing = byDate.get(day) ?? { impressions: 0, clicks: 0, spend_cents: 0, attributed_conversions: 0 };
+    existing.impressions += 1;
+    if (r.tapped_at) existing.clicks += 1;
+    existing.spend_cents += r.clearing_price_cents ?? 0;
+    byDate.set(day, existing);
+  }
+
+  for (const conv of conversionRows ?? []) {
+    const c = conv as { impression_id: number; converted_at: string; impressions: { campaign_id: number; delivered_at: string } };
+    const day = (c.impressions.delivered_at as string).slice(0, 10);
+    const existing = byDate.get(day);
+    if (existing) {
+      existing.attributed_conversions += 1;
+    }
+  }
+
+  // Build CSV (string concatenation — no library needed in Deno)
+  const csvHeader = "Date,Impressions,Clicks,CTR (%),Spend (cents),Attributed Conversions,CPA (cents)\r\n";
+
+  const csvLines: string[] = [csvHeader];
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+  for (const day of sortedDates) {
+    const s = byDate.get(day)!;
+    const ctr = s.impressions > 0 ? ((s.clicks / s.impressions) * 100).toFixed(2) : "0.00";
+    const cpa = s.attributed_conversions > 0
+      ? Math.round(s.spend_cents / s.attributed_conversions).toString()
+      : "";
+    csvLines.push(`${day},${s.impressions},${s.clicks},${ctr},${s.spend_cents},${s.attributed_conversions},${cpa}\r\n`);
+  }
+
+  const csv = csvLines.join("");
+  const filename = `norma-campaign-${campaignId}-${start}-${end}.csv`;
+
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/csv",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // ---------------------------------------------------------------------------
+  // Route: GET /reporting-api/export  (CSV download)
+  // ---------------------------------------------------------------------------
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    if (url.pathname.endsWith("/export")) {
+      try {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        return await handleCsvExport(req, supabase);
+      } catch (error) {
+        console.error("reporting-api export error:", error);
+        return new Response(JSON.stringify({ error: (error as Error).message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Route: POST /reporting-api  (JSON report)
+  // ---------------------------------------------------------------------------
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -17,24 +194,10 @@ Deno.serve(async (req) => {
 
     const { report_type, campaign_id, date_from, date_to } = await req.json();
 
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    const token = authHeader?.replace("Bearer ", "");
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
-
-    // Get advertiser
-    const { data: advertiser } = await supabase
-      .from("advertisers")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
-
-    if (!advertiser) {
-      return jsonResponse({ error: "Advertiser not found" }, 404);
-    }
+    // Auth check (uses shared helper)
+    const { user, advertiser } = await resolveAdvertiser(req, supabase);
+    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (!advertiser) return jsonResponse({ error: "Advertiser not found" }, 404);
 
     switch (report_type) {
       case "overview": {
@@ -244,6 +407,15 @@ Deno.serve(async (req) => {
           conversions_by_type: conversionsByType,
         });
       }
+
+      // TODO (IR-02): 80% budget webhook firing
+      // When daily spend reaches 80% of campaigns.daily_budget_cents, POST to
+      // campaigns.webhook_url with this payload:
+      //   { event: "budget_threshold", threshold_pct: 80,
+      //     campaign_id, spend_cents, budget_cents, timestamp }
+      // Firing logic should live in the billing engine (e.g. a pg_cron job or
+      // post-impression hook) — NOT here in the reporting function.
+      // Schema: migration 089_campaign_webhook.sql adds campaigns.webhook_url.
 
       case "supply_forecast": {
         // Available to all advertisers
