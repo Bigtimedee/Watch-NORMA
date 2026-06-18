@@ -10,6 +10,7 @@ const adminNavItems = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/advertisers", label: "Advertisers" },
   { href: "/admin/campaigns", label: "Campaigns" },
+  { href: "/admin/campaigns/direct-deals", label: "Direct Deals" },
   { href: "/admin/revenue", label: "Revenue" },
   { href: "/admin/revenue/yield", label: "Yield" },
   { href: "/admin/fraud", label: "Fraud" },

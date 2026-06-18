@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { ADVERTISER_CATEGORIES } from "@/lib/types";
 
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   const searchParams = useSearchParams();
   const isFastTrack = searchParams.get("track") === "sportsbook";
 
@@ -184,5 +184,13 @@ export default function OnboardingPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingPageInner />
+    </Suspense>
   );
 }

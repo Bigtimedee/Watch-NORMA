@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { Nav } from "@/components/nav";
@@ -17,7 +17,7 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "review", label: "Review" },
 ];
 
-export default function NewCampaignPage() {
+function NewCampaignPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isFastTrack = searchParams.get("track") === "sportsbook";
@@ -28,7 +28,8 @@ export default function NewCampaignPage() {
 
   // Basics
   const [name, setName] = useState("");
-  const [demandType, setDemandType] = useState<"sportsbook" | "streaming" | "commerce">("sportsbook");
+  const [demandType, setDemandType] = useState<"sportsbook" | "streaming" | "commerce" | "direct_deal">("sportsbook");
+  const [monthlyImpressionGuarantee, setMonthlyImpressionGuarantee] = useState("");
   const [budgetDollars, setBudgetDollars] = useState("");
   const [dailyBudgetDollars, setDailyBudgetDollars] = useState("");
   const [flightStart, setFlightStart] = useState("");
@@ -81,7 +82,11 @@ export default function NewCampaignPage() {
       .insert({
         advertiser_id: advertiser.id,
         name,
-        demand_type: demandType,
+        demand_type: demandType === "direct_deal" ? "sportsbook" : demandType,
+        priority_tier: demandType === "direct_deal" ? 1 : 0,
+        monthly_impression_guarantee: demandType === "direct_deal" && monthlyImpressionGuarantee
+          ? parseInt(monthlyImpressionGuarantee, 10)
+          : null,
         budget_cents: budgetCents,
         daily_budget_cents: dailyBudget,
         flight_start: flightStart || null,
@@ -242,6 +247,7 @@ export default function NewCampaignPage() {
                     { key: "sportsbook", label: "Sportsbook", cta: "Bet Now", desc: "Sportsbook offers — geo-restricted" },
                     { key: "streaming", label: "Streaming", cta: "Watch Now", desc: "Streaming services (YouTube TV, Prime, Peacock)" },
                     { key: "commerce", label: "Commerce", cta: "Shop Now", desc: "Merchandise, ticketing (Fanatics, etc.)" },
+                    { key: "direct_deal", label: "Direct Deal", cta: "Custom", desc: "Guaranteed impressions — bypasses auction" },
                   ] as const).map((opt) => (
                     <button key={opt.key} type="button" onClick={() => setDemandType(opt.key)}
                       className={`rounded-lg border p-3 text-left transition-colors ${
@@ -316,39 +322,71 @@ export default function NewCampaignPage() {
           {/* Step: Bidding */}
           {step === "bidding" && (
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300">
-                  Bid per impression (cents)
-                </label>
-                <input type="number" min="1" max="500" value={bidCents} onChange={(e) => setBidCents(parseInt(e.target.value) || 0)}
-                  className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none" />
-                <p className="mt-1 text-xs text-slate-400">
-                  ${(bidCents / 100).toFixed(2)} per impression. Max $5.00.
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-slate-700 p-4">
-                <label className="flex items-center gap-3">
-                  <input type="checkbox" checked={autoBidEnabled} onChange={(e) => setAutoBidEnabled(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-600 accent-orange-500" />
-                  <span className="text-sm font-medium text-white">Enable Auto-Bid</span>
-                </label>
-                {autoBidEnabled && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-slate-300">Target CPA ($)</label>
-                    <input type="number" min="0.01" step="0.01" value={targetCPA} onChange={(e) => setTargetCPA(e.target.value)}
-                      className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none"
-                      placeholder="1.00" />
+              {demandType === "direct_deal" ? (
+                <>
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+                    <p className="text-sm font-medium text-orange-400">Direct Deal — Guaranteed Delivery</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      This campaign bypasses the auction (priority_tier = 1). Set the guaranteed monthly impression volume instead of a per-impression bid.
+                    </p>
                   </div>
-                )}
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300">
+                      Monthly Impression Guarantee
+                    </label>
+                    <input
+                      type="number"
+                      min="1000"
+                      step="1000"
+                      value={monthlyImpressionGuarantee}
+                      onChange={(e) => setMonthlyImpressionGuarantee(e.target.value)}
+                      className="mt-1 w-48 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none"
+                      placeholder="50000"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      Impressions committed per 30-day period. NORMA credits any shortfall.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300">
+                      Bid per impression (cents)
+                    </label>
+                    <input type="number" min="1" max="500" value={bidCents} onChange={(e) => setBidCents(parseInt(e.target.value) || 0)}
+                      className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none" />
+                    <p className="mt-1 text-xs text-slate-400">
+                      ${(bidCents / 100).toFixed(2)} per impression. Max $5.00.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-700 p-4">
+                    <label className="flex items-center gap-3">
+                      <input type="checkbox" checked={autoBidEnabled} onChange={(e) => setAutoBidEnabled(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-600 accent-orange-500" />
+                      <span className="text-sm font-medium text-white">Enable Auto-Bid</span>
+                    </label>
+                    {autoBidEnabled && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-slate-300">Target CPA ($)</label>
+                        <input type="number" min="0.01" step="0.01" value={targetCPA} onChange={(e) => setTargetCPA(e.target.value)}
+                          className="mt-1 w-32 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-orange-500 focus:outline-none"
+                          placeholder="1.00" />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3">
                 <button onClick={() => setStep("targeting")} className="rounded-lg border border-slate-700 px-6 py-2.5 text-sm text-slate-300 hover:bg-slate-800">
                   Back
                 </button>
-                <button onClick={() => setStep("creatives")}
-                  className="rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white hover:bg-orange-600">
+                <button
+                  onClick={() => setStep("creatives")}
+                  disabled={demandType === "direct_deal" && !monthlyImpressionGuarantee}
+                  className="rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
                   Next: Creatives
                 </button>
               </div>
@@ -428,5 +466,13 @@ export default function NewCampaignPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function NewCampaignPage() {
+  return (
+    <Suspense>
+      <NewCampaignPageInner />
+    </Suspense>
   );
 }
