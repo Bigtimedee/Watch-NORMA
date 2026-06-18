@@ -1,5 +1,19 @@
 # Watch-NORMA Claude Code Instructions
 
+## Migration Numbering Rule — MANDATORY
+
+Before creating any new migration file, run:
+
+```bash
+ls supabase/migrations/ | sort | tail -5
+```
+
+Use the highest numeric prefix found + 1. Two agents running in parallel will
+both independently pick the same number if they do not check first — that
+causes a `duplicate key value violates unique constraint "schema_migrations_pkey"`
+CI failure that is painful to untangle. Timestamped migrations
+(`YYYYMMDDHHMMSS_name.sql`) are always safe for ad-hoc agent work.
+
 Before performing any work on Watch-NORMA, read:
 
 `/docs/watch-norma-context/README.md`
