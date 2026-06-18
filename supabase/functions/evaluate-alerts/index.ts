@@ -18,6 +18,7 @@ import {
   evaluatePosition,
   evaluateResolved,
   evaluatePredictionResolved,
+  evaluateResolveRisk,
 } from "./logic.ts";
 import type {
   GameState,
@@ -353,8 +354,15 @@ Deno.serve(async (req) => {
           const predResolved = evaluatePredictionResolved(gameState, position, summaryStats);
           if (predResolved) v1Candidates.push(predResolved);
         } else {
-          const posAlert = evaluatePosition(gameState, position, summaryStats);
-          if (posAlert) v1Candidates.push(posAlert);
+          // resolve_risk runs first: final-5-minutes position-at-risk check.
+          // If it fires, skip the generic position_alert to avoid double-alerting.
+          const riskAlert = evaluateResolveRisk(gameState, position);
+          if (riskAlert) {
+            v1Candidates.push(riskAlert);
+          } else {
+            const posAlert = evaluatePosition(gameState, position, summaryStats);
+            if (posAlert) v1Candidates.push(posAlert);
+          }
         }
       }
 
