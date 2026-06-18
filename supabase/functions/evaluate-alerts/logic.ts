@@ -386,6 +386,159 @@ export function evaluatePosition(
   };
 }
 
+// --- Resolve-Risk Alert ---
+// Fire when a Polymarket (or Kalshi) position is on the WRONG side of a game
+// that is entering its final 5 minutes, with the margin at or below 6 points.
+//
+// === Supported market title patterns ===
+//   HANDLED:
+//     "Will [Team] win?"               — moneyline "yes" = team wins
+//     "Will [Team] cover the spread?"  — spread "yes" = team covers
+//     "[Team A] vs [Team B] Winner"    — parsed as moneyline; "yes" assumed to mean
+//                                        the team the user bet on wins
+//     "[Team A] at [Team B]"           — matchup format; same moneyline treatment
+//
+//   NOT YET HANDLED (will receive generic position_alert instead):
+//     "Will [Player] score over X points?" — player-specific market
+//     "Over/Under X points"                — game total market
+//     "Will [Team] win by more than X?"    — custom margin market
+//     Any Kalshi event ticker without a recognizable team name pattern
+//
+// Detection logic:
+//   1. Parse the market_title to identify which team the "yes" side favors.
+//   2. Compare that team's current score to the opponent's score.
+//   3. If the position_side is "yes" but the favored team is LOSING (margin 1-6),
+//      OR position_side is "no" but the favored team is WINNING (margin 1-6),
+//      fire a resolve_risk alert.
+//
+// This function is called BEFORE evaluatePosition so the more specific
+// resolve_risk type replaces the generic position_alert in the final minutes.
+
+export function evaluateResolveRisk(
+  game: GameState,
+  position: UserPosition,
+): AlertCandidate | null {
+  // Only fire for in-progress games
+  if (game.status !== "inprogress") return null;
+
+  // Require clock data
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // College basketball: 2 halves of 20 minutes each.
+  // "Final 5 minutes" = 2nd half with <= 5 minutes left, OR any OT period.
+  const isFinalFive =
+    (game.period === 2 && clockMins <= 5) ||
+    game.period > 2;
+
+  if (!isFinalFive) return null;
+
+  const margin = Math.abs(game.home_score - game.away_score);
+
+  // Only alert when the game is close enough for the position to be at risk
+  // (margin 1-6: close but not a tie, not a comfortable lead)
+  if (margin === 0 || margin > 6) return null;
+
+  // Determine which team the "yes" side of this market favors.
+  // We pattern-match the market_title using the same logic as poll-markets.
+  const favoredTeamSide = inferFavoredTeamSide(position.market_title, game);
+  if (favoredTeamSide === null) return null; // Unrecognized pattern — skip
+
+  // Determine whether the position is currently at risk.
+  // "yes" position + favored team is losing   → at risk
+  // "no"  position + favored team is winning  → at risk
+  const isYes = position.position_side?.toLowerCase() === "yes";
+  const homeLeading = game.home_score > game.away_score;
+  const favoredTeamLeading = favoredTeamSide === "home" ? homeLeading : !homeLeading;
+
+  const positionAtRisk = isYes ? !favoredTeamLeading : favoredTeamLeading;
+  if (!positionAtRisk) return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const trailingTeam = homeLeading ? awayName : homeName;
+  const clockStr = game.clock ?? `${Math.round(clockMins)}:00`;
+  const periodLabel = game.period > 2 ? `OT${game.period > 3 ? game.period - 2 : ""}` : "2nd half";
+
+  // Identify the team the user is effectively rooting for, for copy clarity.
+  const userRootingFor = isYes
+    ? (favoredTeamSide === "home" ? homeName : awayName)
+    : (favoredTeamSide === "home" ? awayName : homeName);
+
+  return {
+    alertType: "resolve_risk",
+    title: `Position at Risk — ${userRootingFor} trails by ${margin}`,
+    body: `"${position.market_title}" — ${clockStr} left in ${periodLabel}`,
+    why: `Your ${position.platform} position on "${position.market_title}" is at risk — ${trailingTeam} trails by ${margin} with ${clockStr} left in the ${periodLabel}. Tune in now.`,
+  };
+}
+
+/**
+ * Infer which side of the game the "yes" outcome of a market favors.
+ * Returns "home" | "away" | null (null = pattern not recognized).
+ *
+ * Supported patterns (case-insensitive):
+ *   "Will [Team] win?"
+ *   "Will [Team] cover the spread?"
+ *   "[Team A] vs [Team B]" / "[Team A] at [Team B]" — "yes" assumed to favor home
+ *   "[Team A] vs [Team B] Winner" — "yes" assumed to favor home
+ */
+function inferFavoredTeamSide(
+  marketTitle: string,
+  game: GameState,
+): "home" | "away" | null {
+  if (!marketTitle) return null;
+
+  const titleLower = marketTitle.toLowerCase();
+  const homeName = (game.home_team?.name ?? "").toLowerCase();
+  const homeAbbrev = (game.home_team?.abbreviation ?? "").toLowerCase();
+  const awayName = (game.away_team?.name ?? "").toLowerCase();
+  const awayAbbrev = (game.away_team?.abbreviation ?? "").toLowerCase();
+
+  // "Will [Team] win?" or "Will [Team] cover the spread?" patterns
+  const willMatch = titleLower.match(/^will\s+(.+?)\s+(win|cover)/);
+  if (willMatch) {
+    const teamToken = willMatch[1].trim();
+    if (
+      (homeName && teamToken.includes(homeName)) ||
+      (homeAbbrev && teamToken.includes(homeAbbrev))
+    ) return "home";
+    if (
+      (awayName && teamToken.includes(awayName)) ||
+      (awayAbbrev && teamToken.includes(awayAbbrev))
+    ) return "away";
+    return null; // Team not matched — could be a player or other entity
+  }
+
+  // "[Team A] vs/at [Team B]" / "[Team A] vs/at [Team B] Winner" patterns.
+  // In Polymarket matchup markets the first team listed is typically the "yes" team.
+  const matchupMatch = titleLower.match(/^(.+?)\s+(?:vs?\.?|at)\s+(.+?)(?:\s+winner)?$/);
+  if (matchupMatch) {
+    const firstTeam = matchupMatch[1].trim();
+    if (
+      (homeName && firstTeam.includes(homeName)) ||
+      (homeAbbrev && firstTeam.includes(homeAbbrev))
+    ) return "home";
+    if (
+      (awayName && firstTeam.includes(awayName)) ||
+      (awayAbbrev && firstTeam.includes(awayAbbrev))
+    ) return "away";
+    // First token not matched — try second token as the favored team
+    const secondTeam = matchupMatch[2].replace(/\s+winner$/, "").trim();
+    if (
+      (homeName && secondTeam.includes(homeName)) ||
+      (homeAbbrev && secondTeam.includes(homeAbbrev))
+    ) return "home";
+    if (
+      (awayName && secondTeam.includes(awayName)) ||
+      (awayAbbrev && secondTeam.includes(awayAbbrev))
+    ) return "away";
+    return null;
+  }
+
+  return null;
+}
+
 // --- Prediction Resolved Alert ---
 // Fire when a game ends and a user's prediction position outcome is realized.
 // This is the highest-value post-outcome moment: the user knows the result,
