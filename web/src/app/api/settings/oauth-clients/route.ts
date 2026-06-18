@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSupabaseServer } from "@/lib/supabase-server";
 import { generateSecret, hashSecret } from "@/lib/oauth";
 
 const ALL_SCOPES = ["campaigns:read", "campaigns:write", "reporting:read", "inventory:read"];
 
-async function getAuthUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  return supabase.auth.getUser();
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const { data: { user } } = await getAuthUser();
+    const supabase = await createSupabaseServer();
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user ?? null;
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createSupabaseAdmin();
@@ -45,7 +36,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: { user } } = await getAuthUser();
+    const supabase = await createSupabaseServer();
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user ?? null;
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json() as { name?: string; scopes?: string[] };
