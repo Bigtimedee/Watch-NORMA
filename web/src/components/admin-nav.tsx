@@ -13,6 +13,7 @@ const adminNavItems = [
   { href: "/admin/campaigns/direct-deals", label: "Direct Deals" },
   { href: "/admin/revenue", label: "Revenue" },
   { href: "/admin/revenue/yield", label: "Yield" },
+  { href: "/admin/revenue/affiliates", label: "Affiliates" },
   { href: "/admin/fraud", label: "Fraud" },
   { href: "/admin/partners", label: "Partners" },
   { href: "/admin/auction-engine", label: "Auction Engine" },

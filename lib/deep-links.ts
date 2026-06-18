@@ -66,6 +66,42 @@ function logDeepLinkEvent(payload: DeepLinkEventPayload): void {
 }
 
 /**
+ * Append affiliate tracking parameter to a universal link.
+ * Amazon Associates uses `?tag=` while most other programs use `?ref=`.
+ */
+function appendAffiliateTag(url: string, providerKey: string, tag: string): string {
+  try {
+    const parsed = new URL(url);
+    const paramName = providerKey === "prime_video" ? "tag" : "ref";
+    parsed.searchParams.set(paramName, tag);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Fire-and-forget: log an affiliate tap event to streaming_affiliate_events.
+ */
+function logAffiliateEvent(providerKey: string, affiliateTag: string): void {
+  const { data: sessionData } = supabase.auth.getSession() as any;
+  const userId: string | null = sessionData?.session?.user?.id ?? null;
+
+  void (async () => {
+    try {
+      await supabase.from("streaming_affiliate_events").insert({
+        user_id: userId,
+        provider_key: providerKey,
+        event_type: "tap",
+        affiliate_tag: affiliateTag,
+      });
+    } catch {
+      // Non-fatal — affiliate logging must never surface to the user
+    }
+  })();
+}
+
+/**
  * Attempt to open a streaming app for a given provider.
  * Fallback chain:
  *   1. Native app (iOS scheme / Android deep link)
@@ -106,7 +142,17 @@ export async function openStreamingApp(
   const universalLink = provider.universal_link ?? null;
   if (universalLink) {
     try {
-      await Linking.openURL(universalLink);
+      // Append affiliate_tag to web fallback only — not to ios_scheme or android deep links
+      const affiliateTag = provider.affiliate_tag ?? null;
+      const taggedUrl = affiliateTag
+        ? appendAffiliateTag(universalLink, provider.key, affiliateTag)
+        : universalLink;
+
+      if (affiliateTag) {
+        logAffiliateEvent(provider.key, affiliateTag);
+      }
+
+      await Linking.openURL(taggedUrl);
       return { opened: true, fallback: true, method: "universal_link" };
     } catch {
       // Fall through to app store

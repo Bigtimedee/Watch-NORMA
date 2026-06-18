@@ -176,6 +176,7 @@ export interface StreamingProvider {
   fallback_store_url?: string | null;
   auth_mode?: string | null;
   category?: string | null;
+  affiliate_tag?: string | null;
 }
 
 export type ProviderCategory = "streaming" | "tv" | "sportsbook" | "prediction_market";
