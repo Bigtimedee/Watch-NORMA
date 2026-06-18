@@ -27,6 +27,28 @@ COMMENT ON TABLE public.api_keys IS
   'only SHA-256 hash stored. Revoke by setting is_active=false or revoked_at. '
   'Rate limit enforced per key at the intent-api edge function.';
 
+-- SEED: How to create an initial API key for a test partner
+--
+-- Step 1 — generate a raw key (run in your terminal):
+--   openssl rand -hex 32
+--   # Example output: a3f9c2e1b4d87654321098fedcba9876543210abcdef1234567890abcdef1234
+--
+-- Step 2 — compute the SHA-256 hash of that key:
+--   echo -n "a3f9c2e1b4d87654321098fedcba9876543210abcdef1234567890abcdef1234" | sha256sum
+--   # Example hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+--
+-- Step 3 — insert the key (replace values; never store the raw key):
+--   INSERT INTO public.api_keys (advertiser_id, key_hash, key_prefix, label, scopes)
+--   VALUES (
+--     1,                        -- replace with actual advertiser row id
+--     'e3b0c44298fc1c149afb...',  -- SHA-256 hash from Step 2
+--     'a3f9c2e1',               -- first 8 chars of raw key
+--     'Test partner key',
+--     ARRAY['inventory:read', 'bid:write']
+--   );
+--
+-- Step 4 — give the raw key (Step 1 output) to the partner. It is shown once; discard your copy.
+
 ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 
 -- Only service_role can write; authenticated users can read their own keys

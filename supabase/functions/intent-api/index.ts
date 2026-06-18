@@ -129,8 +129,6 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         api_version: "v1",
-        status: "scaffolded",
-        note: "Programmatic Intent API — scaffolded. Contact bd@norma-app.com to activate for production use.",
         inventory,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

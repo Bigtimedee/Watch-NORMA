@@ -296,15 +296,20 @@ Migration 078 adds `verification_source TEXT NOT NULL DEFAULT 'inferred'` to `co
 
 ## Programmatic Intent API (P2-09)
 
-**Status: Scaffolded. Gated by `INTENT_API_ENABLED` Supabase secret (default off).**
+**Status: Live. Activated June 2026 via `INTENT_API_ENABLED=true` Supabase secret.**
 
-Migration 079 creates the `api_keys` table: SHA-256 hash storage (raw key never stored), per-advertiser scoping, rate limit per key (default 50 req/min), revocation via `is_active=false`.
+To enable: `supabase secrets set INTENT_API_ENABLED=true --project-ref <project_ref>`
+To disable: `supabase secrets set INTENT_API_ENABLED=false --project-ref <project_ref>`
+
+Full API reference: `docs/partner-api/intent-api-reference.md`
+
+Migration 079 creates the `api_keys` table: SHA-256 hash storage (raw key never stored), per-advertiser scoping, rate limit per key (default 50 req/min), revocation via `is_active=false`. See migration file for key provisioning seed instructions.
 
 Edge function `intent-api` implements:
-- `GET /inventory` — returns next-7-day supply forecasts joined with floor prices. Aggregate-only, no user data.
+- `GET /inventory` — returns next-7-day supply forecasts joined with floor prices from the DB. Aggregate-only, no user data.
 - `POST /bid` — validates campaign ownership, floor price, and 500c cap; upserts into the existing `bids` table. Programmatic bids enter the unchanged second-price Vickrey auction identically to manual bids.
 
-Contact bd@norma-app.com to activate for production. Until then, every request returns 503.
+Rate limit: 50 req/min per key (in-memory; resets on cold start). Auth: Bearer token → SHA-256 hash lookup in `api_keys` table.
 
 ## Brand Safety & Editorial Separation (P2-10)
 
