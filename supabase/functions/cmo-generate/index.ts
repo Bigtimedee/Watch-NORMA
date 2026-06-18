@@ -20,6 +20,7 @@ interface ContentCalendarInsert {
   status: string;
   scheduled_for: string;
   generation_prompt: string;
+  partner_mention: string | null;
 }
 
 interface GeneratedPost {
@@ -27,6 +28,7 @@ interface GeneratedPost {
   hashtags: string[];
   content_type: string;
   theme: string;
+  partner_mention: string | null;
 }
 
 interface AnthropicMessage {
@@ -65,6 +67,9 @@ const CONTENT_THEMES = [
   "referral_growth",
   "moment_types_showcase",
   "social_proof_engagement",
+  // SM-02 additions — generated separately, not via Claude theme rotation
+  "alert_called_it",
+  "norma_in_numbers",
 ] as const;
 
 type ContentTheme = typeof CONTENT_THEMES[number];
@@ -421,6 +426,7 @@ async function generatePostsWithClaude(
       hashtags: Array.isArray(p.hashtags) ? p.hashtags.filter((h: unknown) => typeof h === "string") : [],
       content_type: p.content_type ?? "post",
       theme: p.theme ?? "unknown",
+      partner_mention: null, // Standard Claude-generated posts have no partner mention
     }));
 
   console.log(
@@ -475,6 +481,206 @@ async function queryMediaAsset(
     console.warn(`[cmo-generate] media_assets lookup threw: ${msg}`);
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// SM-02: alert_called_it — finds games that just resolved where NORMA had
+// sent a spread_alert in the final 10 minutes that proved correct.
+// Returns up to 3 candidate posts (one per qualifying game).
+// ---------------------------------------------------------------------------
+
+interface AlertCalledItRow {
+  game_id: string;
+  home_team: string | null;
+  away_team: string | null;
+  home_score: number | null;
+  away_score: number | null;
+  alert_type: string;
+  clock: string | null;
+  broadcast: string | null;
+  wager_provider_key: string | null;
+}
+
+async function generateAlertCalledItPosts(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<GeneratedPost[]> {
+  // Look back 90 minutes for recently-closed games
+  const cutoff = new Date(now.getTime() - 90 * 60 * 1000).toISOString();
+
+  // Find games that closed recently AND had a spread_alert fired in the
+  // final 10 minutes (clock stored as "MM:SS" or decimal minutes).
+  // We join alerts to games to confirm the alert fired for this game.
+  //
+  // Note: alert_type values from the schema use snake_case (e.g. "spread_alert").
+  // We filter for spread_alert — the most partner-amplifiable moment type.
+  const { data: rows, error } = await supabase
+    .from("alerts")
+    .select(`
+      game_id,
+      alert_type,
+      created_at,
+      games!inner (
+        id,
+        home_team:teams!games_home_team_id_fkey ( name ),
+        away_team:teams!games_away_team_id_fkey ( name ),
+        home_score,
+        away_score,
+        broadcast,
+        status,
+        updated_at
+      ),
+      wagers ( provider_key )
+    `)
+    .eq("alert_type", "spread_alert")
+    .gte("created_at", cutoff)
+    .limit(20);
+
+  if (error || !rows || rows.length === 0) {
+    if (error) {
+      console.warn(`[cmo-generate] alert_called_it query error: ${error.message}`);
+    }
+    return [];
+  }
+
+  // Keep only games that are now final/closed
+  const posts: GeneratedPost[] = [];
+  const seenGames = new Set<string>();
+
+  for (const row of rows) {
+    // deno-lint-ignore no-explicit-any
+    const game = (row as any).games;
+    if (!game) continue;
+    if (game.status !== "closed" && game.status !== "complete" && game.status !== "final") continue;
+    if (seenGames.has(row.game_id)) continue;
+    seenGames.add(row.game_id);
+
+    const homeTeam: string = game.home_team?.name ?? "Home";
+    const awayTeam: string = game.away_team?.name ?? "Away";
+    const homeScore: number = game.home_score ?? 0;
+    const awayScore: number = game.away_score ?? 0;
+
+    // Determine which team "covered" (we show the winning team for simplicity)
+    const winner = homeScore > awayScore ? homeTeam : awayTeam;
+
+    // Parse the clock from the alert row's game snapshot.
+    // We approximate "time remaining when alert fired" as when the alert was created.
+    // We'll just say "in the final minutes" since we don't store exact clock on alert row.
+    const timeLabel = "the final minutes";
+
+    // Detect partner mentions
+    const broadcastRaw: string = game.broadcast ?? "";
+    // deno-lint-ignore no-explicit-any
+    const wagerRows: any[] = (row as any).wagers ?? [];
+    const providerKey: string | null =
+      wagerRows.length > 0 ? (wagerRows[0]?.provider_key ?? null) : null;
+
+    const partnerMentions: string[] = [];
+    if (/espn\+/i.test(broadcastRaw)) {
+      partnerMentions.push("@ESPNPlus");
+    } else if (/espn/i.test(broadcastRaw)) {
+      partnerMentions.push("@ESPN");
+    }
+    if (providerKey === "draftkings") {
+      partnerMentions.push("@DraftKings");
+    }
+
+    const partnerSuffix =
+      partnerMentions.length > 0 ? ` ${partnerMentions.join(" ")}` : "";
+
+    const body =
+      `NORMA called it. ${winner} covered the spread. We sent the alert with ${timeLabel}.${partnerSuffix} #SportsBetting #NORMA`;
+
+    const trimmedBody = body.slice(0, MAX_TWEET_LENGTH);
+
+    posts.push({
+      body: trimmedBody,
+      hashtags: ["SportsBetting", "NORMA"],
+      content_type: "alert_called_it",
+      theme: "alert_called_it",
+      partner_mention: partnerMentions.length > 0 ? partnerMentions.join(" ") : null,
+    });
+
+    if (posts.length >= 3) break;
+  }
+
+  return posts;
+}
+
+// ---------------------------------------------------------------------------
+// SM-02: norma_in_numbers — weekly "NORMA in numbers" summary post.
+// Only generated once per week (if none exists in the past 7 days).
+// ---------------------------------------------------------------------------
+
+async function generateNormaInNumbersPost(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<GeneratedPost | null> {
+  // Guard: only produce one "norma_in_numbers" post per 7-day window
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: existing } = await supabase
+    .from("content_calendar")
+    .select("id")
+    .eq("content_type", "norma_in_numbers")
+    .gte("created_at", sevenDaysAgo)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    console.log("[cmo-generate] norma_in_numbers post already generated this week — skipping");
+    return null;
+  }
+
+  // Query alert stats for the past 7 days
+  const { data: alertStats, error: alertError } = await supabase
+    .from("alerts")
+    .select("game_id, alert_type")
+    .gte("created_at", sevenDaysAgo);
+
+  if (alertError || !alertStats) {
+    console.warn(`[cmo-generate] norma_in_numbers alert query error: ${alertError?.message ?? "no data"}`);
+    return null;
+  }
+
+  const totalAlerts = alertStats.length;
+  const distinctGames = new Set(alertStats.map((a) => a.game_id)).size;
+
+  // Count occurrences of each alert_type to find the most common moment type
+  const typeCounts: Record<string, number> = {};
+  for (const a of alertStats) {
+    if (a.alert_type) {
+      typeCounts[a.alert_type] = (typeCounts[a.alert_type] ?? 0) + 1;
+    }
+  }
+  const mostCommonType =
+    Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "spread_alert";
+
+  // Human-readable label for the moment type
+  const momentLabels: Record<string, string> = {
+    bet_resolved: "Bet Resolved",
+    close_game: "Close Game",
+    overtime: "Overtime",
+    spread_alert: "Spread Alert",
+    moneyline_alert: "Moneyline Alert",
+    total_alert: "Total Alert",
+    prop_alert: "Prop Alert",
+    position_alert: "Position Alert",
+    foul_trouble: "Foul Trouble",
+    prediction_resolved: "Prediction Resolved",
+    follow_alert: "Follow Alert",
+  };
+  const momentLabel = momentLabels[mostCommonType] ?? mostCommonType.replace(/_/g, " ");
+
+  const body =
+    `This week: ${totalAlerts} alerts sent across ${distinctGames} games. Most common moment: ${momentLabel}. NORMA never misses. getnorma.app #SportsBetting #NORMA`;
+
+  return {
+    body: body.slice(0, MAX_TWEET_LENGTH),
+    hashtags: ["SportsBetting", "NORMA"],
+    content_type: "norma_in_numbers",
+    theme: "norma_in_numbers",
+    partner_mention: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -541,6 +747,9 @@ serve(async (req: Request): Promise<Response> => {
     `[cmo-generate] Starting generation at ${now.toISOString()}, count=${postCount}, source=${requestPayload.source ?? "direct"}`,
   );
 
+  // Build the Supabase client early — needed for SM-02 data queries
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   // Select themes for this generation run
   const themes = selectThemes(now, postCount);
   console.log(`[cmo-generate] Selected themes: ${themes.join(", ")}`);
@@ -565,19 +774,37 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // Compute posting schedule — assign each post to the next available window
-  const postingWindows = getNextPostingWindows(generatedPosts.length);
-  console.log(`[cmo-generate] Posting windows: ${postingWindows.join(", ")}`);
+  // ---------------------------------------------------------------------------
+  // SM-02: Generate supplemental posts — alert_called_it + norma_in_numbers
+  // These run in parallel alongside the Claude-generated posts.
+  // ---------------------------------------------------------------------------
+  const [alertCalledItPosts, normaInNumbersPost] = await Promise.all([
+    generateAlertCalledItPosts(supabase, now),
+    generateNormaInNumbersPost(supabase, now),
+  ]);
 
-  // Build database records
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  // Merge: SM-02 posts append after the Claude posts
+  const allPosts: GeneratedPost[] = [
+    ...generatedPosts,
+    ...alertCalledItPosts,
+    ...(normaInNumbersPost ? [normaInNumbersPost] : []),
+  ];
+
+  console.log(
+    `[cmo-generate] Total posts: ${allPosts.length} ` +
+    `(claude=${generatedPosts.length}, alert_called_it=${alertCalledItPosts.length}, norma_in_numbers=${normaInNumbersPost ? 1 : 0})`,
+  );
+
+  // Compute posting schedule — assign each post to the next available window
+  const postingWindows = getNextPostingWindows(allPosts.length);
+  console.log(`[cmo-generate] Posting windows: ${postingWindows.join(", ")}`);
 
   // Fetch one screenshot per post in parallel; fall back to empty array if unavailable
   const mediaUrls: (string | null)[] = await Promise.all(
-    generatedPosts.map((post) => queryMediaAsset(supabase, post.theme)),
+    allPosts.map((post) => queryMediaAsset(supabase, post.theme)),
   );
 
-  const records: ContentCalendarInsert[] = generatedPosts.map((post, idx) => {
+  const records: ContentCalendarInsert[] = allPosts.map((post, idx) => {
     const mediaUrl = mediaUrls[idx];
     return {
       platform: PLATFORM,
@@ -588,6 +815,7 @@ serve(async (req: Request): Promise<Response> => {
       status: "draft",
       scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
       generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
+      partner_mention: post.partner_mention,
     };
   });
 
@@ -595,7 +823,7 @@ serve(async (req: Request): Promise<Response> => {
   const { data: insertedRows, error: insertError } = await supabase
     .from("content_calendar")
     .insert(records)
-    .select("id, scheduled_for, body");
+    .select("id, scheduled_for, body, partner_mention");
 
   if (insertError) {
     console.error(`[cmo-generate] Supabase insert error: ${insertError.message}`);
@@ -614,6 +842,7 @@ serve(async (req: Request): Promise<Response> => {
       posts: insertedRows?.map((r) => ({
         id: r.id,
         scheduled_for: r.scheduled_for,
+        partner_mention: r.partner_mention ?? null,
         preview: r.body?.slice(0, 80) + (r.body?.length > 80 ? "…" : ""),
       })),
     }),

@@ -27,6 +27,7 @@ interface ContentCalendarRow {
   platform_post_id: string | null;
   generation_prompt: string | null;
   human_notes: string | null;
+  partner_mention: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,6 +158,18 @@ function getStatusBadge(status: PostStatus): { label: string; className: string 
     },
   };
   return map[status] ?? { label: status, className: "bg-zinc-700 text-zinc-400" };
+}
+
+/**
+ * Returns true if a post body or partner_mention field contains a known
+ * partner handle (@ESPN, @ESPNPlus, @DraftKings).
+ */
+function isPartnerAmplifiable(post: ContentCalendarRow): boolean {
+  if (post.partner_mention && post.partner_mention.trim().length > 0) return true;
+  // Fallback: scan body text for partner handles in case partner_mention
+  // column is null on older rows
+  const body = post.body ?? "";
+  return /@ESPN/i.test(body) || /@DraftKings/i.test(body);
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +327,7 @@ function DraftPostCard({
   const { label: statusLabel, className: statusClass } = getStatusBadge(post.status);
   const charCount = tweetCharCount(post.body);
   const isPaused = post.status === "paused";
+  const partnerAmplifiable = isPartnerAmplifiable(post);
 
   return (
     <div
@@ -343,6 +357,20 @@ function DraftPostCard({
 
           {/* Content type */}
           <span className="text-xs text-slate-500 font-mono">{post.content_type}</span>
+
+          {/* Partner Amplifiable badge — only for posts with partner mentions */}
+          {partnerAmplifiable && (
+            <span
+              title={post.partner_mention ?? "Contains partner mention"}
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md
+                bg-violet-500/20 text-violet-300 border border-violet-500/30"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              Partner Amplifiable
+            </span>
+          )}
         </div>
 
         {/* Char count */}
@@ -492,6 +520,7 @@ function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
   const twitterUrl = post.platform_post_id
     ? `https://twitter.com/watchNORMA/status/${post.platform_post_id}`
     : null;
+  const partnerAmplifiable = isPartnerAmplifiable(post);
 
   return (
     <div className="flex gap-4 py-3.5 border-b border-slate-800 last:border-0 group">
@@ -509,7 +538,7 @@ function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
         <p className="text-sm text-slate-300 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
           {post.body}
         </p>
-        <div className="flex items-center gap-3 mt-1.5">
+        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
           <span className="text-xs text-slate-500">
             {formatPublishedTime(post.published_at)}
           </span>
@@ -530,6 +559,19 @@ function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
                 />
               </svg>
             </a>
+          )}
+          {/* Partner Amplifiable badge — shown on published posts too */}
+          {partnerAmplifiable && (
+            <span
+              title={post.partner_mention ?? "Contains partner mention"}
+              className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded
+                bg-violet-500/20 text-violet-300 border border-violet-500/30"
+            >
+              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              Partner Amplifiable
+            </span>
           )}
         </div>
       </div>
