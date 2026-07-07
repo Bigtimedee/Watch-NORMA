@@ -79,6 +79,11 @@ export async function POST(request: NextRequest, { params }: { params: Params })
   }));
   if (bids.length > 0) await supabase.from("bids").insert(bids);
 
+  // Fire prescreen asynchronously — does not block creative creation response
+  void supabase.functions.invoke("creative-prescreen", {
+    body: { creative_id: creative.id },
+  });
+
   logApiAction("add_creative", auth.ctx.advertiserId, id, Date.now() - t0);
 
   return NextResponse.json({

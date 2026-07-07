@@ -151,7 +151,14 @@ export default async function AdminCampaignsPage() {
           <tbody className="divide-y divide-slate-800">
             {sortedCampaigns.map((c: any) => (
               <tr key={c.id} className="hover:bg-slate-900/50">
-                <td className="px-6 py-4 font-medium text-white">{c.name}</td>
+                <td className="px-6 py-4 font-medium text-white">
+                  <a
+                    href={`/admin/campaigns/${c.id}`}
+                    className="hover:text-orange-400"
+                  >
+                    {c.name}
+                  </a>
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-300">
                   {advertiserMap[c.advertiser_id] || "Unknown"}
                 </td>
