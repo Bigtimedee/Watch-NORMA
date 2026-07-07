@@ -5,7 +5,7 @@ export default async function AdminGrowthPage() {
   await requireAdmin();
   const supabase = createSupabaseAdmin();
 
-  const [{ data: funnel }, { data: cohorts }] = await Promise.all([
+  const [{ data: funnel }, { data: cohorts }, { data: latestReports }] = await Promise.all([
     supabase
       .from("daily_activation_funnel")
       .select("*")
@@ -16,7 +16,35 @@ export default async function AdminGrowthPage() {
       .select("*")
       .order("cohort_week", { ascending: false })
       .limit(12),
+    supabase
+      .from("growth_reports")
+      .select("*")
+      .order("period_start", { ascending: false })
+      .limit(8),
   ]);
+
+  type GrowthReport = {
+    id: number;
+    period_start: string;
+    period_end: string;
+    report_json: {
+      new_signups: number;
+      avg_dau: number;
+      alerts_delivered: number;
+      watch_taps: number;
+      share_events_count: number;
+      referral_signups: number;
+      intent_moments_total: number;
+      fill_rate_pct: number | null;
+      avg_clearing_cents: number | null;
+      revenue_cents: number;
+      active_advertiser_count: number;
+    };
+    email_status: string;
+    created_at: string;
+  };
+
+  const reportRows = (latestReports ?? []) as GrowthReport[];
 
   const funnelRows = (funnel ?? []) as Array<{
     cohort_date: string;
@@ -49,6 +77,97 @@ export default async function AdminGrowthPage() {
       <p className="mt-1 text-sm text-slate-400">
         Activation funnel and retention cohorts — trailing 30 days
       </p>
+
+      {/* Weekly Growth Reports */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-white">Weekly Growth Reports</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Generated every Monday at 8 AM ET by the growth-weekly-report edge function.
+        </p>
+        {reportRows.length === 0 ? (
+          <div className="rounded-xl border border-slate-800 px-6 py-8 text-center text-slate-500">
+            No reports yet — the edge function generates the first report on the next Monday at 8 AM ET.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-900">
+                <tr>
+                  {[
+                    "Period",
+                    "Signups",
+                    "Avg DAU",
+                    "Alerts",
+                    "Watch Taps",
+                    "Shares",
+                    "Referrals",
+                    "Moments",
+                    "Fill %",
+                    "Avg CPM",
+                    "Revenue",
+                    "Advertisers",
+                    "Email",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {reportRows.map((r) => {
+                  const m = r.report_json;
+                  return (
+                    <tr
+                      key={r.id}
+                      className="border-t border-slate-800 hover:bg-slate-900/40"
+                    >
+                      <td className="px-4 py-3 font-mono text-slate-300">
+                        {r.period_start}<span className="text-slate-600"> → </span>{r.period_end}
+                      </td>
+                      <td className="px-4 py-3 text-white">{m.new_signups.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.avg_dau.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.alerts_delivered.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.watch_taps.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.share_events_count.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.referral_signups.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">{m.intent_moments_total.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {m.fill_rate_pct != null ? `${m.fill_rate_pct}%` : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {m.avg_clearing_cents != null
+                          ? `$${(m.avg_clearing_cents / 100).toFixed(2)}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-emerald-400">
+                        ${(m.revenue_cents / 100).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300">{m.active_advertiser_count}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            r.email_status === "sent"
+                              ? "bg-green-900/50 text-green-400"
+                              : r.email_status === "failed"
+                                ? "bg-red-900/50 text-red-400"
+                                : "bg-slate-800 text-slate-400"
+                          }`}
+                        >
+                          {r.email_status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Activation Funnel */}
       <section className="mt-8">

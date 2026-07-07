@@ -94,6 +94,8 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `resolve-wagers/logic_test.ts` — wager resolution logic
 - `cmo-generate/media-selection_test.ts` — media asset selection
 - `cmo-publish/media-upload_test.ts` — media upload logic
+- `creative-prescreen/rubric_test.ts` — 18 tests for buildPrescreenPrompt (rubric coverage, demand type rules, JSON format) and parsePrescreenResponse (valid/malformed/unknown verdict, non-string reasons)
+- `growth-weekly-report/logic_test.ts` — 18 tests for buildHtmlEmail (period dates, delta colors, retention block presence, moment breakdown, fill rate formatting, null handling, Watch NORMA branding)
 
 ### Recommended Additional Tests
 
@@ -203,6 +205,7 @@ Previously noted risks that have been resolved:
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
 - **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, `20260307000001_cmo_agent.sql`, and `20260706000003_report_log.sql`).
 - **`advertiser-weekly-report` function:** Requires `RESEND_API_KEY` secret (`supabase secrets set RESEND_API_KEY=re_...`). Runs Mondays 13:00 UTC. Sends HTML performance emails via Resend; logs outcome to `report_log` table.
+- **`growth-weekly-report` function:** Requires `RESEND_API_KEY` and optionally `GROWTH_REPORT_EMAIL` (defaults to `admin@getnorma.app`) and `PUBLIC_APP_URL` (defaults to `https://getnorma.app`). Runs Mondays 12:00 UTC (8 AM ET summer/DST). Compiles trailing-7-day vs prior-7-day internal growth report: signups, DAU, D1/D7 retention, alerts delivered, watch taps, share events, referral signups, rating prompt fires, intent moments by type, auction fill rate, avg clearing CPM, revenue, active advertiser count. Stores full JSON in `growth_reports` table (migration `20260706000007_growth_reports.sql`); results are displayed in the `/admin/growth` portal. Idempotent — skips if a row for the period already exists.
 
 ### Advertiser Portal (web/)
 
@@ -224,7 +227,7 @@ Previously noted risks that have been resolved:
 - `/admin/partners` — partner landing page conversion metrics
 - `/admin/auction-engine` — auction configuration
 - `/admin/auction-engine/live` — real-time auction monitor
-- `/admin/growth` — activation funnel (daily_activation_funnel view) + D1/D7/D30 retention cohort table (retention_cohorts view). Uses `createSupabaseAdmin()` (service role) for data queries.
+- `/admin/growth` — weekly growth reports table (latest 8 reports from `growth_reports`, showing signups, DAU, alerts, watch taps, shares, referrals, intent moments, fill rate, avg CPM, revenue, active advertisers, email status) + activation funnel (daily_activation_funnel view) + D1/D7/D30 retention cohort table (retention_cohorts view). Uses `createSupabaseAdmin()` (service role) for data queries.
 
 ### CI/CD (GitHub Actions)
 
@@ -329,6 +332,7 @@ The `verify-provider-links` Edge Function *proactively* fetches each streaming/T
 10. Check `monitor-health` cron logs — any Slack alerts fired or suppressed? (`ops_alert_state` table for history)
 11. Verify `purge-old-data` ran (9 AM UTC) — check `cron.job_run_details` for failures or abnormally large deletion counts
 12. (Mondays only) Verify `advertiser-weekly-report` ran at 13:00 UTC — check `report_log` for sent/failed rows; check `error_detail` on any failed rows
+13. (Mondays only) Verify `growth-weekly-report` ran at 12:00 UTC — check `growth_reports` for the latest row; verify `email_status = 'sent'`; check `email_error` if failed
 
 ### Incident Response for Bad Alerts
 
