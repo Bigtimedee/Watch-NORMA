@@ -989,6 +989,186 @@ export function evaluateMLBRunLine(
   };
 }
 
+// --- NFL / NCAAF Alert Evaluators ---
+// ESPN stores football clock as "MM:SS" — identical to basketball format.
+// parseClockMinutes() handles both without modification.
+// Football quarters: 1=Q1, 2=Q2, 3=Q3, 4=Q4, 5+=OT.
+//
+// These evaluators are wired in index.ts but gated behind ALERTABLE_SPORTS,
+// which does not include "nfl" or "ncaaf" yet. They will become active when
+// football alert rules ship to production (target: Sept 1).
+
+// Spread alert for football.
+// Fires in Q4 (or OT) when the margin is within ±4 of the spread line.
+export function evaluateFootballSpread(
+  game: GameState,
+  wager: UserWager,
+  summary: SummaryStats | null,
+): AlertCandidate | null {
+  if (wager.wager_type !== "spread" || wager.line == null || !wager.team_id) return null;
+  if (game.status !== "inprogress") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // Alert only in Q4 or OT — no alerts during Q1/Q2/Q3 (too early)
+  if (game.period < 4) return null;
+  // In Q4 only alert within the final 10 minutes
+  if (game.period === 4 && clockMins > 10) return null;
+
+  const isHomeTeamBet = wager.team_id === game.home_team_id;
+  const betTeamName = isHomeTeamBet
+    ? (game.home_team?.abbreviation ?? "Home")
+    : (game.away_team?.abbreviation ?? "Away");
+  const margin = game.home_score - game.away_score;
+  const currentMargin = isHomeTeamBet ? margin : -margin;
+  const spreadLine = wager.line;
+
+  if (Math.abs(currentMargin - spreadLine) > 4) return null;
+
+  const covering = currentMargin - spreadLine >= 0;
+  const absMargin = Math.abs(margin);
+  const periodLabel = game.period > 4 ? `OT${game.period > 5 ? game.period - 4 : ""}` : "4th";
+
+  let context = "";
+  if (summary) {
+    const betSide = isHomeTeamBet ? "home" : "away";
+    const biggestLead = summary[betSide].biggest_lead;
+    if (biggestLead > absMargin + 7) {
+      context = ` ${betTeamName} led by as many as ${biggestLead} earlier.`;
+    }
+  }
+
+  return {
+    alertType: "football_close_game",
+    title: `${betTeamName} ${spreadLine > 0 ? "+" : ""}${spreadLine}`,
+    body: `${covering ? "Covering" : "Not covering"} — margin is ${absMargin} with ${game.clock} left`,
+    why: `Your ${betTeamName} ${spreadLine > 0 ? "+" : ""}${spreadLine} spread is live — they ${currentMargin > 0 ? "lead" : "trail"} by ${absMargin} with ${game.clock} left in the ${periodLabel}.${context} Tune in now.`,
+  };
+}
+
+// Over/Under alert for football.
+// Uses pace analysis: projects final score from current pace.
+// Requires at least 30 minutes of game time (a full half) to be meaningful.
+export function evaluateFootballTotal(
+  game: GameState,
+  wager: UserWager,
+): AlertCandidate | null {
+  if (wager.wager_type !== "over_under" || wager.line == null) return null;
+  if (game.status !== "inprogress") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // Only alert in 2nd half (Q3/Q4) — need pace data from at least a half
+  if (game.period < 3) return null;
+
+  const total = game.home_score + game.away_score;
+  const line = wager.line;
+
+  // Minutes elapsed in a 60-minute game (4 quarters × 15 min each)
+  const minutesElapsed = (game.period - 1) * 15 + Math.max(0, 15 - clockMins);
+  if (minutesElapsed < 30) return null;
+
+  const pace = (total / minutesElapsed) * 60;
+  const description = wager.description.toLowerCase();
+  const isOver = description.includes("over");
+  const paceVsLine = pace - line;
+
+  // Football variance is high — require 10+ point divergence to avoid false alerts
+  if (Math.abs(paceVsLine) < 10) return null;
+
+  const tracking = isOver
+    ? (paceVsLine > 0 ? "on pace to hit" : "in danger")
+    : (paceVsLine > 0 ? "in danger" : "on pace to hit");
+
+  const betLabel = isOver ? `OVER ${line}` : `UNDER ${line}`;
+  const periodLabel = game.period === 4 ? "4th quarter" : game.period === 3 ? "3rd quarter" : "OT";
+
+  return {
+    alertType: "football_close_game",
+    title: betLabel,
+    body: `Total is ${total} — pace of ~${Math.round(pace)} per game`,
+    why: `Your ${betLabel} is ${tracking}. Combined score is ${total} with ${game.clock} left in the ${periodLabel}, on pace for ~${Math.round(pace)}. Tune in now.`,
+  };
+}
+
+// Moneyline alert for football.
+// Fires when the user's team is in a one-score game (margin ≤8) in Q4 with < 8 min left.
+export function evaluateFootballMoneyline(
+  game: GameState,
+  wager: UserWager,
+  summary: SummaryStats | null,
+): AlertCandidate | null {
+  if (wager.wager_type !== "moneyline" || !wager.team_id) return null;
+  if (game.status !== "inprogress") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // Alert only in Q4 or OT, and only in the final 8 minutes of Q4
+  if (game.period < 4) return null;
+  if (game.period === 4 && clockMins > 8) return null;
+
+  // One-score game: margin ≤ 8 (one TD + conversion)
+  const margin = Math.abs(game.home_score - game.away_score);
+  if (margin > 8) return null;
+
+  const isHomeTeamBet = wager.team_id === game.home_team_id;
+  const betTeamName = isHomeTeamBet
+    ? (game.home_team?.abbreviation ?? "Home")
+    : (game.away_team?.abbreviation ?? "Away");
+  const homeLeading = game.home_score > game.away_score;
+  const betTeamLeading = isHomeTeamBet ? homeLeading : !homeLeading;
+  const periodLabel = game.period > 4 ? "overtime" : "4th quarter";
+
+  let context = "";
+  if (summary) {
+    const betSide = isHomeTeamBet ? "home" : "away";
+    if (summary[betSide].biggest_lead > margin + 10) {
+      context = ` ${betTeamName} had led by ${summary[betSide].biggest_lead} earlier.`;
+    }
+  }
+
+  return {
+    alertType: "football_close_game",
+    title: `${betTeamName} ML`,
+    body: `${betTeamLeading ? "Leading" : "Trailing"} by ${margin} with ${game.clock} left`,
+    why: `Your ${betTeamName} moneyline is ${betTeamLeading ? "alive" : "at risk"} — ${margin}-point game in the ${periodLabel}.${context} Tune in now.`,
+  };
+}
+
+// Close-game alert for football follow users (no wager required).
+// Fires in Q4 or OT when the margin is one score or less with < 5 minutes left.
+// Used by the v2 scoring pipeline for users who follow a team but have no wager.
+export function evaluateFootballCloseGame(
+  game: GameState,
+): AlertCandidate | null {
+  if (game.status !== "inprogress") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // Q4 with < 5 min, or OT
+  if (game.period < 4) return null;
+  if (game.period === 4 && clockMins > 5) return null;
+
+  const margin = Math.abs(game.home_score - game.away_score);
+  if (margin > 8) return null;
+
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const leading = game.home_score > game.away_score ? homeName : awayName;
+  const periodLabel = game.period > 4 ? `OT${game.period > 5 ? game.period - 4 : ""}` : "4th";
+
+  return {
+    alertType: "football_close_game",
+    title: `${margin === 0 ? "Tied" : `${margin}-Point Game`} — ${periodLabel} Quarter`,
+    body: `${awayName} ${game.away_score}, ${homeName} ${game.home_score} — ${game.clock} left`,
+    why: `${margin === 0 ? "Tied game" : `${leading} leads by just ${margin}`} with ${game.clock} left in the ${periodLabel}. One score away. Tune in now.`,
+  };
+}
+
 /**
  * NBA-specific close game alert: uses tighter margin threshold (6 pts vs 8 for NCAA)
  * and triggers only in the 4th quarter with under 3 minutes left.

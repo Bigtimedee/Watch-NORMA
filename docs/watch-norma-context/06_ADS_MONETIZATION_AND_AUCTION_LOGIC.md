@@ -14,7 +14,7 @@ All ad surfaces are implemented and integrated into the alert pipeline.
 
 **In-app alert card.** The `AlertCard` component renders the sponsor logo, sponsor text, and CTA button when present. Tapping the CTA opens the sportsbook or advertiser deep link.
 
-**Moment types that trigger auctions:** close_game, spread_alert, total_alert, moneyline_alert, player_prop, comeback, overtime, game_resolved, prediction_resolved, foul_trouble, mlb_close_game, mlb_walk_off, and others.
+**Moment types that trigger auctions:** close_game, spread_alert, total_alert, moneyline_alert, player_prop, comeback, overtime, game_resolved, prediction_resolved, foul_trouble, mlb_close_game, mlb_walk_off, football_close_game, football_two_minute, football_overtime, and others. Football types are in the DB but gated behind `ALERTABLE_SPORTS` until Sept 2026.
 
 ## Vickrey Auction Engine
 
@@ -69,6 +69,18 @@ Hardcoded defaults from `_shared/pricing-engine.ts` (used when DB query fails):
 | `moneyline_alert` | $0.30 |
 | `total_alert` | $0.25 |
 | Default (other types) | $0.10 |
+
+### Football Floor Prices (migration 20260706000004)
+
+Sport-specific floor prices for NFL and NCAAF moment types, using the `(moment_type, sport)` unique index from migration 076. These supplement (not replace) the global fallback rows. NFL commands a premium over NCAAF due to higher advertiser demand.
+
+| Moment Type | NFL Floor | NCAAF Floor | Notes |
+|-------------|-----------|-------------|-------|
+| `football_close_game` | $0.40 | $0.35 | Q4/OT one-score games; also covers spread/total/moneyline proximity alerts |
+| `football_two_minute` | $0.45 | $0.40 | Q4 two-minute drill; NFL also fires Q2 warning |
+| `football_overtime` | $0.50 | $0.45 | Period ≥ 5; highest-drama football moment |
+
+All football floor rows share `min_floor_cents = 5`, `max_floor_cents = 200`. These rows are **gated** — they are in the database but football is not in `ALERTABLE_SPORTS` until the Sept 1, 2026 NFL kickoff.
 
 ### Dynamic Premium Multipliers
 

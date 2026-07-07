@@ -17,6 +17,10 @@ import {
   evaluateMLBSpread,
   evaluateMLBTotal,
   evaluateMLBMoneyline,
+  evaluateFootballSpread,
+  evaluateFootballTotal,
+  evaluateFootballMoneyline,
+  evaluateFootballCloseGame,
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
@@ -319,6 +323,7 @@ Deno.serve(async (req) => {
         .map((p) => p.parsed_target ?? null)
         .filter(Boolean);
 
+      const gameSport: string | undefined = (game as any).sport ?? undefined;
       const signals = extractSignals(
         gameState,
         summaryStats,
@@ -328,18 +333,27 @@ Deno.serve(async (req) => {
         userPositions.length > 0,
         leadChangesRecent,
         positionTargets as any[],
+        gameSport,
       );
 
       // --- Stage 2: Must-Notify Check + Scoring ---
-      const mustNotify = checkMustNotify(gameState, summaryStats, userWagers);
+      const mustNotify = checkMustNotify(gameState, summaryStats, userWagers, gameSport, leadChangesRecent);
       const score = computeScore(signals);
 
       // For wager holders, also run v1 evaluators as a fallback
       const v1Candidates: AlertCandidate[] = [];
       if (userWagers.length > 0) {
-        const isMLB = (gameState as any).sport === "mlb";
+        const isMLB = gameSport === "mlb";
+        const isFootball = gameSport === "nfl" || gameSport === "ncaaf";
         for (const wager of userWagers) {
-          if (isMLB) {
+          if (isFootball) {
+            const fbSpread = evaluateFootballSpread(gameState, wager, summaryStats);
+            if (fbSpread) v1Candidates.push(fbSpread);
+            const fbTotal = evaluateFootballTotal(gameState, wager);
+            if (fbTotal) v1Candidates.push(fbTotal);
+            const fbMl = evaluateFootballMoneyline(gameState, wager, summaryStats);
+            if (fbMl) v1Candidates.push(fbMl);
+          } else if (isMLB) {
             const mlbSpread = evaluateMLBSpread(gameState, wager, summaryStats);
             if (mlbSpread) v1Candidates.push(mlbSpread);
             const mlbTotal = evaluateMLBTotal(gameState, wager);
@@ -359,6 +373,12 @@ Deno.serve(async (req) => {
           const resolved = evaluateResolved(gameState, wager);
           if (resolved) v1Candidates.push(resolved);
         }
+      }
+
+      // For follow-only users of football games, run the close-game evaluator
+      if (userWagers.length === 0 && (gameSport === "nfl" || gameSport === "ncaaf")) {
+        const fbClose = evaluateFootballCloseGame(gameState);
+        if (fbClose) v1Candidates.push(fbClose);
       }
 
       // For position holders, run position evaluator (now proximity-aware)

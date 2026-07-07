@@ -71,14 +71,17 @@ export function checkMustNotify(
   game: GameState,
   summary: SummaryStats | null,
   userWagers: UserWager[],
+  sport?: string,
+  leadChangesRecent: number = 0,
 ): MustNotifyResult | null {
   const clockMins = parseClockMinutes(game.clock);
   const margin = Math.abs(game.home_score - game.away_score);
   const homeName = game.home_team?.abbreviation ?? "Home";
   const awayName = game.away_team?.abbreviation ?? "Away";
   const scoreStr = `${awayName} ${game.away_score}, ${homeName} ${game.home_score}`;
+  const isFootball = sport === "nfl" || sport === "ncaaf";
 
-  // Game final (bet resolved) — always notify wager holders
+  // Game final (bet resolved) — always notify wager holders, all sports
   if (game.status === "closed" && userWagers.length > 0) {
     return {
       alertType: "bet_resolved",
@@ -87,16 +90,59 @@ export function checkMustNotify(
     };
   }
 
-  // Overtime starts
-  if (game.status === "inprogress" && game.period != null && game.period > 2 && clockMins != null && clockMins > 4) {
+  if (isFootball) {
+    // Football: OT is period 5+ (4 quarters + overtime period)
+    if (game.status === "inprogress" && game.period != null && game.period >= 5 && clockMins != null && clockMins > 9) {
+      return {
+        alertType: "football_overtime",
+        headline: "Overtime!",
+        bullets: [`${scoreStr} — headed to OT`],
+      };
+    }
+
+    // Football: one-score game (≤8 pts) under 2:00 in Q4
+    if (game.status === "inprogress" && game.period === 4 && clockMins != null && clockMins <= 2.0 && margin <= 8) {
+      return {
+        alertType: "football_two_minute",
+        headline: margin === 0 ? "Tied — Two Minutes Left" : `${margin}-Point Game — Two Minutes Left`,
+        bullets: [`${scoreStr} — ${game.clock} remaining in Q4`],
+      };
+    }
+
+    // NFL only: one-score game under 2:00 in Q2 (halftime-adjacent urgency)
+    if (sport === "nfl" && game.status === "inprogress" && game.period === 2 && clockMins != null && clockMins <= 2.0 && margin <= 8) {
+      return {
+        alertType: "football_two_minute",
+        headline: `${margin}-Point Game — 2:00 Warning (First Half)`,
+        bullets: [`${scoreStr} — ${game.clock} remaining in Q2`],
+      };
+    }
+
+    // Football: lead change in final 5 minutes (Q4 with < 5:00, or OT)
+    if (leadChangesRecent > 0 && game.status === "inprogress" && game.period != null && game.period >= 4 && clockMins != null && clockMins <= 5) {
+      return {
+        alertType: "football_close_game",
+        headline: "Lead Change — Final Minutes",
+        bullets: [`${scoreStr} — ${game.clock} remaining`, "The lead just changed — tune in now"],
+      };
+    }
+
+    return null;
+  }
+
+  // Basketball / default sports below
+
+  // Overtime starts (basketball: period > 2 means OT; NBA: period > 4 means OT)
+  const basketballOTPeriod = sport === "nba" ? 4 : 2;
+  if (game.status === "inprogress" && game.period != null && game.period > basketballOTPeriod && clockMins != null && clockMins > 4) {
     return {
       alertType: "overtime",
       headline: "Overtime!",
-      bullets: [`${scoreStr} — headed to OT${game.period > 3 ? game.period - 2 : ""}`],
+      bullets: [`${scoreStr} — headed to OT${game.period > basketballOTPeriod + 1 ? game.period - basketballOTPeriod : ""}`],
     };
   }
 
-  // 1-possession game under 2:00
+  // 1-possession game under 2:00 (basketball)
   if (game.status === "inprogress" && game.period != null && game.period >= 2 && clockMins != null && clockMins < 2 && margin <= 3) {
     return {
       alertType: "close_game",
@@ -141,11 +187,20 @@ export function extractSignals(
   hasPosition: boolean,
   leadChangesRecent: number = 0,
   parsedTargets: Array<WagerTarget | null> = [],
+  sport?: string,
 ): SignalVector {
   const clockMins = parseClockMinutes(game.clock);
   const margin = Math.abs(game.home_score - game.away_score);
-  const inSecondHalf = game.period != null && game.period >= 2;
-  const isOT = game.period != null && game.period > 2;
+  const isFootball = sport === "nfl" || sport === "ncaaf";
+
+  // Football: 4 quarters; "second half" = Q3 or Q4 (period >= 3); OT = period >= 5
+  // Basketball (ncaam/nba): 2 halves; "second half" = period 2; OT = period > 2 (or > 4 for NBA)
+  const inSecondHalf = isFootball
+    ? (game.period != null && game.period >= 3)
+    : (game.period != null && game.period >= 2);
+  const isOT = isFootball
+    ? (game.period != null && game.period >= 5)
+    : (game.period != null && game.period > 2);
 
   // Check if any wager line is being crossed
   let wagerLineCrossed = false;
@@ -207,13 +262,23 @@ export function extractSignals(
     }
   }
 
+  // Football: "close game" = one-score margin (≤8) in Q3/Q4; final minutes = Q4 only
+  // Basketball: "close game" = within 6 pts in 2nd half; final minutes = 2nd half only
+  const closeGameMargin = isFootball ? 8 : 6;
+  const isFinalMinutes = isFootball
+    ? (game.period === 4 && clockMins != null && clockMins <= 5)
+    : (inSecondHalf && clockMins != null && clockMins <= 5);
+  const isFinalTwo = isFootball
+    ? (game.period === 4 && clockMins != null && clockMins <= 2)
+    : (inSecondHalf && clockMins != null && clockMins <= 2);
+
   return {
     margin,
     clock_minutes: clockMins,
     period: game.period,
-    is_close_game: inSecondHalf && margin <= 6,
-    is_final_minutes: inSecondHalf && clockMins != null && clockMins <= 5,
-    is_final_two: inSecondHalf && clockMins != null && clockMins <= 2,
+    is_close_game: inSecondHalf && margin <= closeGameMargin,
+    is_final_minutes: isFinalMinutes,
+    is_final_two: isFinalTwo,
     is_overtime: isOT,
     is_closed: game.status === "closed",
 

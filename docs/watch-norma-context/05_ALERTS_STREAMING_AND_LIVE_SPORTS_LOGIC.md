@@ -37,11 +37,17 @@ The following alert types are implemented in `evaluate-alerts/logic.ts`:
 - `mlb_walk_off` — walk-off opportunity (home team trailing/tied in 9th+)
 - `mlb_run_line` — MLB run line wager proximity
 
+**Football (NFL + NCAAF) — implemented, gated behind `ALERTABLE_SPORTS` until Sept 2026 NFL kickoff:**
+- `football_close_game` — used for spread proximity (Q4/OT, within spread ±4), total pace divergence (Q3+, |pace vs line| ≥ 10 pts), moneyline (Q4 < 8 min, margin ≤ 8), and follow-user close game (Q4 < 5 min or OT, margin ≤ 8)
+- `football_two_minute` — must-notify for Q4 two-minute drill (one-score game); NFL also fires for Q2 two-minute warning; NCAAF only fires Q4
+- `football_overtime` — must-notify when period ≥ 5 in a football game (NFL and NCAAF)
+
 **Must-notify rules** (fire immediately regardless of score threshold):
 - Game final (bet resolved or prediction resolved)
-- Overtime starts
-- 1-possession game (margin ≤ 3) with under 2:00 remaining
-- Star player picks up 4th foul (starter with ≥ 12 ppg average)
+- Overtime starts (basketball: period > 2 for ncaam / period > 4 for NBA; football: period ≥ 5)
+- 1-possession game (margin ≤ 3) with under 2:00 remaining (basketball); football: Q4 two-minute warning with margin ≤ 8
+- Star player picks up 4th foul (starter with ≥ 12 ppg average, basketball only)
+- Football: lead change in final 5 min of Q4 in a one-score game → `football_close_game` must-notify
 
 ## Relevance Engine
 
@@ -58,9 +64,16 @@ Each candidate carries context: which follows, wagers, and positions connect the
 
 ### Stage 1: Signal Extraction
 
-For each (user, game) pair, `extractSignals()` builds a `SignalVector`:
+For each (user, game) pair, `extractSignals()` builds a `SignalVector`. The function accepts an optional `sport` parameter that controls sport-specific thresholds:
 
-- **Game state signals:** margin (absolute score difference), clock_minutes, period, is_close_game (margin ≤ 6 in 2nd half), is_final_minutes (under 2:00 in 2nd half), lead_changes_recent (from PBP events)
+| Signal | Basketball | Football (NFL/NCAAF) |
+|--------|------------|----------------------|
+| `is_close_game` | margin ≤ 6 in 2nd half (period ≥ 2) | margin ≤ 8 in Q3+ (period ≥ 3) |
+| `is_final_minutes` | period ≥ 2, clock ≤ 5 min | Q4 only (period = 4), clock ≤ 5 min |
+| `is_overtime` | ncaam: period > 2; NBA: period > 4 | period ≥ 5 |
+| `close_game_margin` | 6 | 8 |
+
+- **Game state signals:** margin (absolute score difference), clock_minutes, period, is_close_game (sport-aware), is_final_minutes (sport-aware), lead_changes_recent (from PBP events)
 - **Summary signals:** home_biggest_lead, away_biggest_lead, bench_points_delta, efg_delta (effective FG% difference), turnovers_delta, foul_trouble array
 - **Proximity signals:** For each wager/position, `computeProximity()` evaluates how close the user's bet is to resolving — returning a ProximityLevel (NONE, LOW, MEDIUM, HIGH, RESOLVED) with current_value, target_value, pct_complete, trend, and time_pressure
 - **User relevance signals:** follows_team, follows_player_on_court, has_wager, wager_is_covering, wager_type, has_position
@@ -155,7 +168,7 @@ Every alert stored in the database includes:
 | `body` | Notification body text |
 | `score` | Numeric relevance score |
 | `explanation` | JSONB: headline, bullets, stats_used, confidence, wager_impact |
-| `sport` | Sport key (ncaam, nba, mlb) |
+| `sport` | Sport key (ncaam, nba, mlb, nfl, ncaaf) |
 | `read` | Whether user has seen it |
 | `sponsor_logo_url` | Sponsor logo (if auction winner) |
 | `sponsor_text` | Sponsor copy (if auction winner) |

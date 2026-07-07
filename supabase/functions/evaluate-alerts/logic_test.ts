@@ -14,6 +14,10 @@ import {
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
+  evaluateFootballSpread,
+  evaluateFootballTotal,
+  evaluateFootballMoneyline,
+  evaluateFootballCloseGame,
 } from "./logic.ts";
 import {
   makeGameState,
@@ -482,4 +486,130 @@ Deno.test("evaluateMLBMoneyline: fires for tied game in inning 7+", () => {
   const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
   const result = evaluateMLBMoneyline(game, wager, null);
   assertNotEquals(result, null);
+});
+
+// ─── NFL / NCAAF evaluators ───
+
+// evaluateFootballSpread
+
+Deno.test("evaluateFootballSpread: fires in Q4 when within spread threshold", () => {
+  // Home team (duke) trails by 2; spread line = -1 (home favored by 1)
+  // currentMargin = home - away (from home perspective) = 14 - 16 = -2
+  // diff = currentMargin - spreadLine = -2 - (-1) = -1 → |1| ≤ 4 → fires
+  const game = makeGameState({ clock: "4:00", period: 4, home_score: 14, away_score: 16, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: -1, team_id: "team-duke" });
+  const result = evaluateFootballSpread(game, wager, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_close_game");
+});
+
+Deno.test("evaluateFootballSpread: no alert in Q2 (too early)", () => {
+  const game = makeGameState({ clock: "8:00", period: 2, home_score: 10, away_score: 12, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: 3, team_id: "team-duke" });
+  assertEquals(evaluateFootballSpread(game, wager, null), null);
+});
+
+Deno.test("evaluateFootballSpread: no alert when margin gap exceeds 4", () => {
+  // Home leads 28, spread on home is -3 → currentMargin=28 → 28-(-3)=31, way above 4
+  const game = makeGameState({ clock: "6:00", period: 4, home_score: 28, away_score: 7, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: -3, team_id: "team-duke" });
+  assertEquals(evaluateFootballSpread(game, wager, null), null);
+});
+
+Deno.test("evaluateFootballSpread: fires in OT (period 5)", () => {
+  const game = makeGameState({ clock: "8:00", period: 5, home_score: 21, away_score: 21, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: 2, team_id: "team-duke" }); // home +2, tied → diff = 0-2 = -2, within ±4
+  const result = evaluateFootballSpread(game, wager, null);
+  assertNotEquals(result, null);
+});
+
+Deno.test("evaluateFootballSpread: no alert in Q4 with more than 10 min left", () => {
+  const game = makeGameState({ clock: "13:00", period: 4, home_score: 17, away_score: 14, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: 3, team_id: "team-duke" });
+  assertEquals(evaluateFootballSpread(game, wager, null), null);
+});
+
+// evaluateFootballTotal
+
+Deno.test("evaluateFootballTotal: fires in Q4 when pace diverges by > 10 points", () => {
+  // Q4 with 5:00 left → minutesElapsed = 3*15 + (15-5) = 55 min
+  // total = 48, pace = (48/55)*60 ≈ 52.4, line = 41.5 → paceVsLine ≈ +10.9 > 10
+  const game = makeGameState({ clock: "5:00", period: 4, home_score: 28, away_score: 20, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 41.5, description: "OVER 41.5" });
+  const result = evaluateFootballTotal(game, wager);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_close_game");
+});
+
+Deno.test("evaluateFootballTotal: no alert in Q1 (too early)", () => {
+  const game = makeGameState({ clock: "10:00", period: 1, home_score: 7, away_score: 3, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 45, description: "OVER 45" });
+  assertEquals(evaluateFootballTotal(game, wager), null);
+});
+
+Deno.test("evaluateFootballTotal: no alert when pace is within 10 points of line", () => {
+  // Q3 with 8:00 left → minutesElapsed = 2*15 + 7 = 37 min
+  // total = 21, pace = (21/37)*60 ≈ 34, line = 41.5 → paceVsLine = -7.5 → |<10| → no alert
+  const game = makeGameState({ clock: "8:00", period: 3, home_score: 14, away_score: 7, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 41.5, description: "OVER 41.5" });
+  assertEquals(evaluateFootballTotal(game, wager), null);
+});
+
+// evaluateFootballMoneyline
+
+Deno.test("evaluateFootballMoneyline: fires in Q4 one-score game", () => {
+  // trailing by 4 (one-score) in Q4 with 6 min left
+  const game = makeGameState({ clock: "6:00", period: 4, home_score: 17, away_score: 21, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" }); // bet on home
+  const result = evaluateFootballMoneyline(game, wager, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_close_game");
+});
+
+Deno.test("evaluateFootballMoneyline: no alert for blowout (margin > 8)", () => {
+  const game = makeGameState({ clock: "5:00", period: 4, home_score: 35, away_score: 7, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  assertEquals(evaluateFootballMoneyline(game, wager, null), null);
+});
+
+Deno.test("evaluateFootballMoneyline: no alert in Q1", () => {
+  const game = makeGameState({ clock: "6:00", period: 1, home_score: 7, away_score: 10, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  assertEquals(evaluateFootballMoneyline(game, wager, null), null);
+});
+
+Deno.test("evaluateFootballMoneyline: no alert in Q4 with more than 8 min left", () => {
+  const game = makeGameState({ clock: "10:00", period: 4, home_score: 14, away_score: 17, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  assertEquals(evaluateFootballMoneyline(game, wager, null), null);
+});
+
+// evaluateFootballCloseGame (follow-user, no wager)
+
+Deno.test("evaluateFootballCloseGame: fires in Q4 one-score game with < 5 min", () => {
+  const game = makeGameState({ clock: "2:30", period: 4, home_score: 21, away_score: 24, status: "inprogress" });
+  const result = evaluateFootballCloseGame(game);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_close_game");
+});
+
+Deno.test("evaluateFootballCloseGame: no alert in Q3 (even if close)", () => {
+  const game = makeGameState({ clock: "3:00", period: 3, home_score: 14, away_score: 17, status: "inprogress" });
+  assertEquals(evaluateFootballCloseGame(game), null);
+});
+
+Deno.test("evaluateFootballCloseGame: no alert when margin > 8 (blowout)", () => {
+  const game = makeGameState({ clock: "2:00", period: 4, home_score: 35, away_score: 10, status: "inprogress" });
+  assertEquals(evaluateFootballCloseGame(game), null);
+});
+
+Deno.test("evaluateFootballCloseGame: fires in OT with close score", () => {
+  const game = makeGameState({ clock: "7:30", period: 5, home_score: 28, away_score: 28, status: "inprogress" });
+  const result = evaluateFootballCloseGame(game);
+  assertNotEquals(result, null);
+});
+
+Deno.test("evaluateFootballCloseGame: no alert for closed game", () => {
+  const game = makeGameState({ clock: "0:00", period: 4, home_score: 28, away_score: 24, status: "closed" });
+  assertEquals(evaluateFootballCloseGame(game), null);
 });
