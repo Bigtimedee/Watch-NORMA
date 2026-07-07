@@ -201,7 +201,8 @@ Previously noted risks that have been resolved:
 - **Migrations:** Applied via `supabase db push` (71 migration files: 001–069 + 4 timestamped; 031/032 unused).
 - **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (41 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
-- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, and `20260307000001_cmo_agent.sql`).
+- **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, `20260307000001_cmo_agent.sql`, and `20260706000003_report_log.sql`).
+- **`advertiser-weekly-report` function:** Requires `RESEND_API_KEY` secret (`supabase secrets set RESEND_API_KEY=re_...`). Runs Mondays 13:00 UTC. Sends HTML performance emails via Resend; logs outcome to `report_log` table.
 
 ### Advertiser Portal (web/)
 
@@ -272,6 +273,8 @@ All Edge Functions log structured JSON with consistent fields:
 | Fraud detected | `ad-fraud-check` | Campaign may need review |
 | Push delivery failed | `send-push` / `delivery_log` | Token may be stale |
 | Email wager parsed | `ingest-email-wagers` | Email pipeline working |
+| Weekly report sent | `advertiser-weekly-report` | Advertiser email delivery working |
+| Weekly report failed | `advertiser-weekly-report` | Check `report_log.error_detail`; likely `RESEND_API_KEY` missing or Resend quota |
 | Prediction settled | `resolve-predictions` | Market integration working |
 
 ### Health Check Endpoint
@@ -325,6 +328,7 @@ The `verify-provider-links` Edge Function *proactively* fetches each streaming/T
 9. Verify `morning-briefing` fired at 11 PM UTC (6 PM CT) — "Tonight's Games" push delivered?
 10. Check `monitor-health` cron logs — any Slack alerts fired or suppressed? (`ops_alert_state` table for history)
 11. Verify `purge-old-data` ran (9 AM UTC) — check `cron.job_run_details` for failures or abnormally large deletion counts
+12. (Mondays only) Verify `advertiser-weekly-report` ran at 13:00 UTC — check `report_log` for sent/failed rows; check `error_detail` on any failed rows
 
 ### Incident Response for Bad Alerts
 

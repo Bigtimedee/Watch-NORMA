@@ -383,6 +383,40 @@ Implements RFC 6749 Client Credentials. POST `client_id` + `client_secret` → R
 
 `web/public/aamp-seller-profile.json` and `web/public/sellers.json` are the seller-side registry documents. `web/public/.well-known/openapi.json` is the machine-readable API spec that agents crawl for introspection. The developers page meta tag `"adcp:endpoint": "https://mcp.getnorma.app"` is the machine-readable hook for agent discovery crawlers.
 
+## Automated Advertiser Performance Reports
+
+`advertiser-weekly-report` is a Deno Edge Function scheduled every Monday at 13:00 UTC (9 AM ET, summer/DST) via pg_cron (migration `20260706000003_report_log.sql`).
+
+### What it does
+
+For each advertiser with an active or recently completed campaign (within 30 days):
+
+1. Fetches impression rows for the current week (last completed Mon–Sun) and the prior week from the `impressions` table, joined through `bids → creatives` for variant labels.
+2. Fetches conversion rows for those impression IDs from the `conversions` table.
+3. Computes `WeeklyMetrics`: impressions, taps, CTR, spend, avg clearing price, CPA, conversions split by `verifiedConversions` (cta_tap + app_return) and `inferredConversions` (sportsbook_open + stream_open + commerce_open + wager_placed).
+4. Computes `MetricDeltas`: week-over-week changes in impressions, taps, spend, and CTR in percentage points.
+5. Generates one automatic insight per report (rule-based: clearing headroom, zero conversions, inferred-only tracking gap, or best moment CTR).
+6. Builds a clean HTML email with a metric grid, attribution disclaimer, insight box, moment-type breakdown table, creative-variant breakdown table, and a "Deposit / Raise Budget" CTA linking to `/billing`.
+7. Sends via Resend API (`RESEND_API_KEY` secret). Sender address is `reports@getnorma.app`.
+8. Logs to the `report_log` table (advertiser_id, period_start, period_end, email_to, impressions, spend_cents, conversions, status, error_detail).
+
+### Attribution labeling rule (non-negotiable)
+
+Every report email includes a permanent attribution note. Conversions labeled **verified** are app-confirmed (cta_tap, app_return). Conversions labeled **inferred** indicate an external app or site was opened — the downstream action was not confirmed. This labeling is enforced in `buildHtmlEmail()` and is never suppressed regardless of conversion count.
+
+### Source files
+
+| File | Purpose |
+|------|---------|
+| `supabase/functions/advertiser-weekly-report/logic.ts` | Pure functions: `computeWeeklyMetrics`, `computeDeltas`, `generateInsight`, `buildHtmlEmail` |
+| `supabase/functions/advertiser-weekly-report/index.ts` | Main handler: query loop, Resend API call, report_log write |
+| `supabase/functions/advertiser-weekly-report/logic_test.ts` | 18 Deno unit tests |
+| `supabase/migrations/20260706000003_report_log.sql` | `report_log` table + pg_cron schedule |
+
+### Environment variable
+
+`RESEND_API_KEY` — add via `supabase secrets set RESEND_API_KEY=re_...`. Required for email delivery. Without it, the function returns HTTP 500 with `RESEND_API_KEY not configured` and logs the error.
+
 ## Compliance and Risk
 
 - **Gambling-related ads are regulated.** Sportsbook ad geo-filtering is enforced at both the auction level and at the `BetNowButton` CTA level (see Geo-Compliance section above). Both enforcement points use the same `inferStateFromTimezone` logic.
