@@ -7,6 +7,10 @@ import {
   evaluateSpread,
   evaluateTotal,
   evaluateMoneyline,
+  evaluateMLBSpread,
+  evaluateMLBTotal,
+  evaluateMLBMoneyline,
+  parseMLBClock,
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
@@ -371,4 +375,111 @@ Deno.test("evaluateResolved: correctly reports O/U miss", () => {
   const result = evaluateResolved(game, wager);
   assertNotEquals(result, null);
   assertEquals(result!.body.includes("Over missed"), true);
+});
+
+// ─── parseMLBClock ───
+
+Deno.test("parseMLBClock: parses 'T7' as top of 7th", () => {
+  const result = parseMLBClock("T7");
+  assertEquals(result, { inning: 7, isTop: true });
+});
+
+Deno.test("parseMLBClock: parses 'B9' as bottom of 9th", () => {
+  const result = parseMLBClock("B9");
+  assertEquals(result, { inning: 9, isTop: false });
+});
+
+Deno.test("parseMLBClock: returns null for basketball clock format", () => {
+  assertEquals(parseMLBClock("4:30"), null);
+});
+
+Deno.test("parseMLBClock: returns null for null input", () => {
+  assertEquals(parseMLBClock(null), null);
+});
+
+// ─── evaluateMLBSpread ───
+
+Deno.test("evaluateMLBSpread: no alert before inning 7", () => {
+  const game = makeGameState({ clock: "T6", period: 6, home_score: 4, away_score: 3, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: -1.5, team_id: "team-duke" });
+  assertEquals(evaluateMLBSpread(game, wager, null), null);
+});
+
+Deno.test("evaluateMLBSpread: no alert when margin too far from run line", () => {
+  // Home leads 6-1 (margin 5), run line -1.5 → diff = 5 - (-1.5) = 6.5 > 1 → null
+  const game = makeGameState({ clock: "T8", period: 8, home_score: 6, away_score: 1, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: -1.5, team_id: "team-duke" });
+  assertEquals(evaluateMLBSpread(game, wager, null), null);
+});
+
+Deno.test("evaluateMLBSpread: fires in inning 7+ when within 1 run of line", () => {
+  // Home leads 4-3 (margin 1), run line -1.5 → diff = 1 - (-1.5) = 2.5 > 1 → null
+  // Home leads 3-2 (margin 1), run line -1.5 → same issue.
+  // Need: currentMargin - runLine within [-1,1].
+  // Home leads 3-2 (+1), run line +1.5 → diff = 1 - 1.5 = -0.5, abs=0.5 ≤ 1 → fires
+  const game = makeGameState({ clock: "T7", period: 7, home_score: 3, away_score: 2, status: "inprogress" });
+  const wager = makeWager({ wager_type: "spread", line: 1.5, team_id: "team-duke" });
+  const result = evaluateMLBSpread(game, wager, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "spread_alert");
+});
+
+Deno.test("evaluateMLBSpread: no alert for non-spread wager", () => {
+  const game = makeGameState({ clock: "T8", period: 8, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline" });
+  assertEquals(evaluateMLBSpread(game, wager, null), null);
+});
+
+// ─── evaluateMLBTotal ───
+
+Deno.test("evaluateMLBTotal: no alert before inning 6", () => {
+  const game = makeGameState({ clock: "T5", period: 5, home_score: 4, away_score: 3, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 8.5, description: "Over 8.5", team_id: null });
+  assertEquals(evaluateMLBTotal(game, wager), null);
+});
+
+Deno.test("evaluateMLBTotal: no alert when pace too close to line", () => {
+  // 5 runs through 5 innings played, pace = (5/5)*9 = 9.0, line 8.5, diff = 0.5 < 2 → null
+  const game = makeGameState({ clock: "B6", period: 6, home_score: 3, away_score: 2, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 8.5, description: "Over 8.5", team_id: null });
+  assertEquals(evaluateMLBTotal(game, wager), null);
+});
+
+Deno.test("evaluateMLBTotal: fires when pace diverges by ≥2 from line in inning 6+", () => {
+  // Bot 8 = 7 innings played, 12 runs → pace = (12/7)*9 ≈ 15.4, line 8.5, diff = 6.9 ≥ 2 → fires
+  const game = makeGameState({ clock: "B8", period: 8, home_score: 7, away_score: 5, status: "inprogress" });
+  const wager = makeWager({ wager_type: "over_under", line: 8.5, description: "Over 8.5", team_id: null });
+  const result = evaluateMLBTotal(game, wager);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "total_alert");
+  assertEquals(result!.title, "OVER 8.5");
+});
+
+// ─── evaluateMLBMoneyline ───
+
+Deno.test("evaluateMLBMoneyline: no alert before inning 7", () => {
+  const game = makeGameState({ clock: "T6", period: 6, home_score: 3, away_score: 2, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  assertEquals(evaluateMLBMoneyline(game, wager, null), null);
+});
+
+Deno.test("evaluateMLBMoneyline: no alert when margin > 2", () => {
+  const game = makeGameState({ clock: "T8", period: 8, home_score: 6, away_score: 1, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  assertEquals(evaluateMLBMoneyline(game, wager, null), null);
+});
+
+Deno.test("evaluateMLBMoneyline: fires in inning 7+ when within 2 runs", () => {
+  const game = makeGameState({ clock: "B9", period: 9, home_score: 4, away_score: 3, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  const result = evaluateMLBMoneyline(game, wager, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "moneyline_alert");
+});
+
+Deno.test("evaluateMLBMoneyline: fires for tied game in inning 7+", () => {
+  const game = makeGameState({ clock: "T9", period: 9, home_score: 3, away_score: 3, status: "inprogress" });
+  const wager = makeWager({ wager_type: "moneyline", team_id: "team-duke" });
+  const result = evaluateMLBMoneyline(game, wager, null);
+  assertNotEquals(result, null);
 });

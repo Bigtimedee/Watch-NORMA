@@ -115,6 +115,18 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const requestsRemaining = res.headers.get("x-requests-remaining");
+      const requestsUsed = res.headers.get("x-requests-used");
+      if (requestsRemaining !== null) {
+        console.log(JSON.stringify({
+          function: "poll-odds",
+          event: "quota",
+          sport: oddsApiKey,
+          requests_remaining: parseInt(requestsRemaining, 10),
+          requests_used: requestsUsed !== null ? parseInt(requestsUsed, 10) : null,
+        }));
+      }
+
       const events: OddsEvent[] = await res.json();
       let sportMatched = 0;
       let sportUpserted = 0;

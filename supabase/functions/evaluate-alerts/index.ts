@@ -14,6 +14,9 @@ import {
   evaluateSpread,
   evaluateTotal,
   evaluateMoneyline,
+  evaluateMLBSpread,
+  evaluateMLBTotal,
+  evaluateMLBMoneyline,
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
@@ -334,13 +337,23 @@ Deno.serve(async (req) => {
       // For wager holders, also run v1 evaluators as a fallback
       const v1Candidates: AlertCandidate[] = [];
       if (userWagers.length > 0) {
+        const isMLB = (gameState as any).sport === "mlb";
         for (const wager of userWagers) {
-          const spread = evaluateSpread(gameState, wager, summaryStats);
-          if (spread) v1Candidates.push(spread);
-          const total = evaluateTotal(gameState, wager);
-          if (total) v1Candidates.push(total);
-          const ml = evaluateMoneyline(gameState, wager, summaryStats);
-          if (ml) v1Candidates.push(ml);
+          if (isMLB) {
+            const mlbSpread = evaluateMLBSpread(gameState, wager, summaryStats);
+            if (mlbSpread) v1Candidates.push(mlbSpread);
+            const mlbTotal = evaluateMLBTotal(gameState, wager);
+            if (mlbTotal) v1Candidates.push(mlbTotal);
+            const mlbMl = evaluateMLBMoneyline(gameState, wager, summaryStats);
+            if (mlbMl) v1Candidates.push(mlbMl);
+          } else {
+            const spread = evaluateSpread(gameState, wager, summaryStats);
+            if (spread) v1Candidates.push(spread);
+            const total = evaluateTotal(gameState, wager);
+            if (total) v1Candidates.push(total);
+            const ml = evaluateMoneyline(gameState, wager, summaryStats);
+            if (ml) v1Candidates.push(ml);
+          }
           const prop = evaluateProp(gameState, wager, summaryStats);
           if (prop) v1Candidates.push(prop);
           const resolved = evaluateResolved(gameState, wager);

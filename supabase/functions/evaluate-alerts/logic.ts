@@ -25,6 +25,7 @@ export interface GameState {
   broadcast: string | null;
   home_team: { name: string; abbreviation: string } | null;
   away_team: { name: string; abbreviation: string } | null;
+  sport?: string | null;
 }
 
 export interface UserWager {
@@ -258,6 +259,109 @@ export function evaluateMoneyline(
     title: `${betTeamName} ML`,
     body: `${betTeamLeading ? "Leading" : "Trailing"} by ${margin} with ${game.clock} left`,
     why: `Your ${betTeamName} moneyline is ${betTeamLeading ? "alive but tight" : "at risk"} — ${margin}-point game in ${periodLabel}.${context} Tune in now.`,
+  };
+}
+
+// --- MLB Alerts ---
+// Basketball evaluators above require a MM:SS clock; MLB uses "T7"/"B9" (inning) format.
+// These three functions handle spread/total/moneyline for baseball games.
+
+export function parseMLBClock(clock: string | null): { inning: number; isTop: boolean } | null {
+  if (!clock) return null;
+  const m = clock.match(/^([TB])(\d+)$/);
+  if (!m) return null;
+  return { inning: parseInt(m[2], 10), isTop: m[1] === "T" };
+}
+
+export function evaluateMLBSpread(
+  game: GameState,
+  wager: UserWager,
+  _summary: SummaryStats | null,
+): AlertCandidate | null {
+  if (wager.wager_type !== "spread" || wager.line == null || !wager.team_id) return null;
+  if (game.status !== "inprogress") return null;
+  const mlb = parseMLBClock(game.clock);
+  if (!mlb || mlb.inning < 7) return null;
+
+  const isHomeTeamBet = wager.team_id === game.home_team_id;
+  const margin = game.home_score - game.away_score;
+  const currentMargin = isHomeTeamBet ? margin : -margin;
+  const runLine = wager.line;
+  if (Math.abs(currentMargin - runLine) > 1) return null;
+
+  const betTeamName = isHomeTeamBet
+    ? (game.home_team?.abbreviation ?? "Home")
+    : (game.away_team?.abbreviation ?? "Away");
+  const covering = currentMargin - runLine >= 0;
+  const halfLabel = `${mlb.isTop ? "top" : "bot"} ${mlb.inning}`;
+
+  return {
+    alertType: "spread_alert",
+    title: `${betTeamName} ${runLine > 0 ? "+" : ""}${runLine}`,
+    body: `${covering ? "Covering" : "Not covering"} — margin ${Math.abs(margin)} in ${halfLabel}`,
+    why: `Your ${betTeamName} run line (${runLine > 0 ? "+" : ""}${runLine}) is live. They ${currentMargin > 0 ? "lead" : "trail"} by ${Math.abs(margin)} in inning ${mlb.inning}. Tune in now.`,
+  };
+}
+
+export function evaluateMLBTotal(
+  game: GameState,
+  wager: UserWager,
+): AlertCandidate | null {
+  if (wager.wager_type !== "over_under" || wager.line == null) return null;
+  if (game.status !== "inprogress") return null;
+  const mlb = parseMLBClock(game.clock);
+  if (!mlb || mlb.inning < 6) return null;
+
+  const total = game.home_score + game.away_score;
+  const line = wager.line;
+  const inningsPlayed = mlb.inning - (mlb.isTop ? 1 : 0);
+  if (inningsPlayed < 1) return null;
+  const pace = (total / inningsPlayed) * 9;
+  const description = wager.description.toLowerCase();
+  const isOver = description.includes("over");
+  const paceVsLine = pace - line;
+  if (Math.abs(paceVsLine) < 2) return null;
+
+  const tracking = isOver
+    ? (paceVsLine > 0 ? "on pace to hit" : "in danger")
+    : (paceVsLine > 0 ? "in danger" : "on pace to hit");
+  const betLabel = isOver ? `OVER ${line}` : `UNDER ${line}`;
+  const halfLabel = `${mlb.isTop ? "top" : "bot"} ${mlb.inning}`;
+
+  return {
+    alertType: "total_alert",
+    title: betLabel,
+    body: `Total ${total} through ${inningsPlayed} innings — pace ~${Math.round(pace)} runs`,
+    why: `Your ${betLabel} is ${tracking}. Combined runs: ${total} through ${inningsPlayed} innings, on pace for ~${Math.round(pace)}. Now in ${halfLabel}.`,
+  };
+}
+
+export function evaluateMLBMoneyline(
+  game: GameState,
+  wager: UserWager,
+  _summary: SummaryStats | null,
+): AlertCandidate | null {
+  if (wager.wager_type !== "moneyline" || !wager.team_id) return null;
+  if (game.status !== "inprogress") return null;
+  const mlb = parseMLBClock(game.clock);
+  if (!mlb || mlb.inning < 7) return null;
+
+  const margin = Math.abs(game.home_score - game.away_score);
+  if (margin > 2) return null;
+
+  const isHomeTeamBet = wager.team_id === game.home_team_id;
+  const betTeamName = isHomeTeamBet
+    ? (game.home_team?.abbreviation ?? "Home")
+    : (game.away_team?.abbreviation ?? "Away");
+  const homeLeading = game.home_score > game.away_score;
+  const betTeamLeading = isHomeTeamBet ? homeLeading : !homeLeading;
+  const halfLabel = `${mlb.isTop ? "top" : "bot"} ${mlb.inning}`;
+
+  return {
+    alertType: "moneyline_alert",
+    title: `${betTeamName} ML`,
+    body: `${betTeamLeading ? "Leading" : "Trailing"} by ${margin} in ${halfLabel}`,
+    why: `Your ${betTeamName} moneyline is live — they ${betTeamLeading ? "lead" : "trail"} by ${margin} run${margin !== 1 ? "s" : ""} in inning ${mlb.inning}. Tune in now.`,
   };
 }
 

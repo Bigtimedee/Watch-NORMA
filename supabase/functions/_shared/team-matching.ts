@@ -77,7 +77,7 @@ const TEAM_ALIASES: Record<string, string[]> = {
   "Los Angeles Dodgers": ["LA Dodgers"],
   "New York Yankees": ["NY Yankees"],
   "New York Mets": ["NY Mets"],
-  "Oakland Athletics": ["A's", "Oakland A's", "Athletics"],
+  "Oakland Athletics": ["A's", "Oakland A's", "Athletics", "Sacramento Athletics"],
   "San Diego Padres": ["SD Padres"],
   "San Francisco Giants": ["SF Giants"],
   "St. Louis Cardinals": ["STL Cardinals", "St Louis Cardinals"],
