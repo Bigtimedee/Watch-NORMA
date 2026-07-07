@@ -184,7 +184,7 @@ export default function HomePage() {
                 >
                   <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-14 w-auto" />
                 </a>
-                <p style={{ fontSize: 13, color: "#334155" }}>iPhone · Free · No account required to start</p>
+                <p style={{ fontSize: 13, color: "#64748b" }}>iPhone · Free · No account required to start</p>
               </div>
 
               {/* Social proof */}
@@ -196,9 +196,9 @@ export default function HomePage() {
                   <span style={{ color: "#f97316" }}>★★★★★</span>
                   5.0 App Store
                 </span>
-                <span style={{ color: "#1e293b" }}>|</span>
+                <span style={{ color: "#64748b" }}>|</span>
                 <span style={{ color: "#94a3b8" }}>11 Alert Types</span>
-                <span style={{ color: "#1e293b" }}>|</span>
+                <span style={{ color: "#64748b" }}>|</span>
                 <span style={{ color: "#94a3b8" }}>3 Sports Covered</span>
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function HomePage() {
       <div className="stripe-dim" style={{ background: "#0f172a" }}>
         <div className="mx-auto max-w-7xl px-6 py-5">
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6">
-            <span style={{ fontSize: 11, color: "#1e293b", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Works with
             </span>
             {["DraftKings", "FanDuel", "BetMGM", "Caesars", "ESPN BET", "Kalshi"].map((name) => (
@@ -466,7 +466,7 @@ export default function HomePage() {
             >
               <img src="/app-store-badge.svg" alt="Download on the App Store" style={{ height: 52, width: "auto" }} />
             </a>
-            <p style={{ fontSize: 12, color: "#1e293b", marginTop: 10 }}>
+            <p style={{ fontSize: 12, color: "#64748b", marginTop: 10 }}>
               Free · No credit card · No account required to start
             </p>
           </div>
@@ -522,7 +522,7 @@ export default function HomePage() {
                 >
                   {stat.label}
                 </div>
-                <div style={{ fontSize: 12, color: "#334155", marginTop: 6 }}>{stat.note}</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{stat.note}</div>
               </div>
             ))}
           </div>
@@ -578,7 +578,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(44px, 6vw, 72px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 20 }}
           >
             BE FIRST TO KNOW<br />
-            <span style={{ color: "#1e293b" }}>WHEN NORMA</span><br />
+            <span style={{ color: "#64748b" }}>WHEN NORMA</span><br />
             COMES TO YOU.
           </h2>
           <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.7, marginBottom: 32 }}>
@@ -596,24 +596,24 @@ export default function HomePage() {
           <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
             <div>
               <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
-              <p style={{ fontSize: 12, color: "#1e293b", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Real-Time Sports Intent Advertising
               </p>
             </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#334155" }}>
-              <a href="#advertisers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertisers</a>
-              <Link href="/advertisers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertising</Link>
-              <Link href="/auth" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
-              <Link href="/developers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Developers</Link>
-              <a href="mailto:ads@norma-app.com" style={{ color: "#334155" }} className="hover:text-white transition-colors">Contact</a>
-              <a href="/privacy-policy" style={{ color: "#334155" }} className="hover:text-white transition-colors">Privacy</a>
-              <a href="/terms-of-service" style={{ color: "#334155" }} className="hover:text-white transition-colors">Terms</a>
-              <Link href="/status" style={{ color: "#334155" }} className="hover:text-white transition-colors">Status</Link>
+            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#64748b" }}>
+              <a href="#advertisers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertisers</a>
+              <Link href="/advertisers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertising</Link>
+              <Link href="/auth" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
+              <Link href="/developers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Developers</Link>
+              <a href="mailto:ads@norma-app.com" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
+              <a href="/privacy-policy" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Privacy</a>
+              <a href="/terms-of-service" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Terms</a>
+              <Link href="/status" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Status</Link>
             </div>
           </div>
           <div
             className="mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#1e293b" }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#64748b" }}
           >
             <p>&copy; {new Date().getFullYear()} NORMA. All rights reserved.</p>
             <p>Available on iPhone · Free to download</p>

@@ -162,7 +162,7 @@ export default function AdvertisersPage() {
               >
                 12-18% CTR.
                 <br />
-                <span style={{ color: "#1e293b" }}>NOT A TYPO.</span>
+                <span style={{ color: "#64748b" }}>NOT A TYPO.</span>
               </h1>
               <p
                 className="mt-8 leading-relaxed"
@@ -206,7 +206,7 @@ export default function AdvertisersPage() {
                   >
                     {s.label}
                   </div>
-                  <div style={{ fontSize: 11, color: "#1e293b", marginTop: 4 }}>{s.note}</div>
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{s.note}</div>
                 </div>
               ))}
             </div>
@@ -229,7 +229,7 @@ export default function AdvertisersPage() {
             style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             THIS ISN&apos;T DISPLAY<br />
-            <span style={{ color: "#1e293b" }}>ADVERTISING.</span>
+            <span style={{ color: "#64748b" }}>ADVERTISING.</span>
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -263,7 +263,7 @@ export default function AdvertisersPage() {
           </h2>
           <h2
             className="font-display mb-16"
-            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#1e293b", lineHeight: 0.95 }}
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#64748b", lineHeight: 0.95 }}
           >
             & FLOOR PRICES.
           </h2>
@@ -285,7 +285,7 @@ export default function AdvertisersPage() {
               {["Moment Type", "Description", "Floor", "CTR Range", ""].map((h) => (
                 <div
                   key={h}
-                  style={{ fontSize: 10, fontWeight: 700, color: "#1e293b", letterSpacing: "0.12em", textTransform: "uppercase" }}
+                  style={{ fontSize: 10, fontWeight: 700, color: "#64748b", letterSpacing: "0.12em", textTransform: "uppercase" }}
                 >
                   {h}
                 </div>
@@ -329,7 +329,7 @@ export default function AdvertisersPage() {
             ))}
           </div>
 
-          <p style={{ fontSize: 12, color: "#1e293b", marginTop: 12 }}>
+          <p style={{ fontSize: 12, color: "#64748b", marginTop: 12 }}>
             Floor prices reflect base rates. Dynamic premiums apply during tournament games, weekends, and simultaneous live events.
           </p>
         </div>
@@ -350,7 +350,7 @@ export default function AdvertisersPage() {
             style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#F5F3EE", lineHeight: 0.95 }}
           >
             HOW YOU WIN<br />
-            <span style={{ color: "#1e293b" }}>IMPRESSIONS.</span>
+            <span style={{ color: "#64748b" }}>IMPRESSIONS.</span>
           </h2>
 
           {/* Step diagram */}
@@ -436,7 +436,7 @@ export default function AdvertisersPage() {
           </h2>
           <h2
             className="font-display mb-16"
-            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#1e293b", lineHeight: 0.95 }}
+            style={{ fontSize: "clamp(44px, 6vw, 76px)", color: "#64748b", lineHeight: 0.95 }}
           >
             LET IT RUN.
           </h2>
@@ -473,7 +473,7 @@ export default function AdvertisersPage() {
             style={{ fontSize: "clamp(40px, 5vw, 64px)", color: "#F5F3EE", lineHeight: 0.95 }}
           >
             DEEP SPORTSBOOK<br />
-            <span style={{ color: "#1e293b" }}>INTEGRATIONS.</span>
+            <span style={{ color: "#64748b" }}>INTEGRATIONS.</span>
           </h2>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 mb-10">
@@ -525,7 +525,7 @@ export default function AdvertisersPage() {
             style={{ fontSize: "clamp(40px, 5vw, 64px)", color: "#F5F3EE", lineHeight: 0.95 }}
           >
             SELF-SERVE.<br />
-            <span style={{ color: "#1e293b" }}>NO SALES CALLS.</span>
+            <span style={{ color: "#64748b" }}>NO SALES CALLS.</span>
           </h2>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -598,20 +598,20 @@ export default function AdvertisersPage() {
               <Link href="/">
                 <img src="/logo.png" alt="NORMA" className="h-8 w-auto" />
               </Link>
-              <p style={{ fontSize: 12, color: "#1e293b", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Real-Time Sports Intent Advertising
               </p>
             </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#334155" }}>
-              <Link href="/" style={{ color: "#334155" }} className="hover:text-white transition-colors">Home</Link>
-              <Link href="/auth/login" style={{ color: "#334155" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
-              <Link href="/developers" style={{ color: "#334155" }} className="hover:text-white transition-colors">Developers API</Link>
-              <a href="mailto:ads@norma-app.com" style={{ color: "#334155" }} className="hover:text-white transition-colors">Contact</a>
+            <div className="flex flex-wrap gap-x-8 gap-y-3" style={{ fontSize: 13, color: "#64748b" }}>
+              <Link href="/" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Home</Link>
+              <Link href="/auth/login" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
+              <Link href="/developers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Developers API</Link>
+              <a href="mailto:ads@norma-app.com" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
             </div>
           </div>
           <div
             className="mt-10 pt-8"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#1e293b" }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 12, color: "#64748b" }}
           >
             <p>&copy; {new Date().getFullYear()} NORMA. All rights reserved.</p>
           </div>
