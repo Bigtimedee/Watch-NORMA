@@ -14,6 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 const SIGNUP_TRACK_KEY = "norma.pendingSignupTrack";
 import * as Linking from "expo-linking";
+import { getReferralCode } from "../../lib/referral-utils";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -22,13 +23,6 @@ import { useAuth } from "../../hooks/useAuth";
 
 const normaLogo = require("../../assets/norma-logo.png");
 const REFERRAL_CODE_KEY = "norma.referralCode";
-
-function getReferralCode(url: string): string | null {
-  const parsed = Linking.parse(url);
-  const ref = parsed.queryParams?.ref;
-  if (Array.isArray(ref)) return ref[0] ?? null;
-  return typeof ref === "string" && ref.length > 0 ? ref : null;
-}
 
 export default function SignUpScreen() {
   const router = useRouter();

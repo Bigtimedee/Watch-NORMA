@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { View, Text, Pressable, Image, StyleSheet } from "react-native";
+import { View, Text, Pressable, Image, StyleSheet, Share } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../lib/supabase";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Alert, GameStatus } from "../lib/types";
@@ -32,7 +34,9 @@ export function AlertCard({ alert }: AlertCardProps) {
   const router = useRouter();
   const markRead = useMarkAlertRead();
   const [localRating, setLocalRating] = useState<"up" | "down" | null>(null);
+  const [showReferralNudge, setShowReferralNudge] = useState(false);
   const submitFeedback = useSubmitAlertFeedback();
+  const REFERRAL_NUDGE_KEY = "norma.referralNudgeShown";
   const color = alertTypeColor(alert.alert_type);
   const icon = alertTypeIcon(alert.alert_type);
   const urgent = isUrgent(alert.alert_type);
@@ -78,8 +82,34 @@ export function AlertCard({ alert }: AlertCardProps) {
       trackEvent("alert_feedback", { rating: next, alert_type: alert.alert_type });
       if (next === "up") {
         maybeRequestReview("alert_thumbs_up");
+        AsyncStorage.getItem(REFERRAL_NUDGE_KEY).then((shown) => {
+          if (!shown) setShowReferralNudge(true);
+        });
       }
     }
+  };
+
+  const handleReferralShare = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase.functions.invoke("get-referral-code", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (data?.link) {
+          await Share.share({ message: `Join me on NORMA: ${data.link}`, url: data.link });
+        }
+      }
+    } finally {
+      await AsyncStorage.setItem(REFERRAL_NUDGE_KEY, "1");
+      setShowReferralNudge(false);
+    }
+  };
+
+  const dismissReferralNudge = async () => {
+    await AsyncStorage.setItem(REFERRAL_NUDGE_KEY, "1");
+    setShowReferralNudge(false);
   };
 
   return (
@@ -211,6 +241,21 @@ export function AlertCard({ alert }: AlertCardProps) {
               />
             </Pressable>
           </View>
+
+          {/* One-time referral nudge after thumbs-up */}
+          {showReferralNudge && (
+            <View style={s.referralNudge}>
+              <Text style={s.referralNudgeText}>Know someone sweating this game? Invite them</Text>
+              <View style={s.referralNudgeActions}>
+                <Pressable onPress={handleReferralShare} style={s.referralNudgeBtn} accessibilityLabel="Invite a friend">
+                  <Text style={s.referralNudgeBtnText}>Invite</Text>
+                </Pressable>
+                <Pressable onPress={dismissReferralNudge} accessibilityLabel="Dismiss referral prompt" style={s.feedbackBtn}>
+                  <Ionicons name="close-outline" size={16} color="#64748b" />
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -328,6 +373,21 @@ const s = StyleSheet.create({
   feedbackBtn: {
     padding: 4,
   },
+  referralNudge: {
+    marginTop: 8,
+    backgroundColor: "rgba(249, 115, 22, 0.06)",
+    borderRadius: 8,
+    padding: 10,
+  },
+  referralNudgeText: { color: "#94a3b8", fontSize: 12, marginBottom: 6 },
+  referralNudgeActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  referralNudgeBtn: {
+    backgroundColor: "#f97316",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  referralNudgeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
   sportBadge: {
     backgroundColor: "#1e40af",
     borderRadius: 4,

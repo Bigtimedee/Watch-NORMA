@@ -23,6 +23,8 @@ export default function ProfileScreen() {
     code: string;
     uses: number;
     link: string;
+    qualifying_referrals: number;
+    insider_status: boolean;
   } | null>(null);
 
   const adPersonalization =
@@ -188,12 +190,44 @@ export default function ProfileScreen() {
         )}
 
         <View style={s.section}>
-          <Text style={s.sectionLabel}>Invite Friends</Text>
+          <View style={s.sectionLabelRow}>
+            <Text style={s.sectionLabel}>Invite Friends</Text>
+            {referralData?.insider_status && (
+              <View style={s.insiderBadge}>
+                <Ionicons name="star" size={10} color="#f97316" />
+                <Text style={s.insiderBadgeText}>NORMA Insider</Text>
+              </View>
+            )}
+          </View>
           <View style={s.settingsCard}>
             <View style={[s.inviteContent, s.settingsRowBorder]}>
-              <Text style={s.inviteTitle}>
-                {referralData ? `${referralData.uses} friends joined` : "Loading invite link..."}
-              </Text>
+              {referralData ? (
+                <>
+                  <View style={s.referralProgressRow}>
+                    <Text style={s.inviteTitle}>
+                      {referralData.qualifying_referrals} of 3 friends activated
+                    </Text>
+                    {referralData.insider_status && (
+                      <Text style={s.insiderUnlocked}>Insider unlocked</Text>
+                    )}
+                  </View>
+                  <View style={s.progressBar}>
+                    <View
+                      style={[
+                        s.progressFill,
+                        { width: `${Math.min(100, (referralData.qualifying_referrals / 3) * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={s.inviteSubtext}>
+                    {referralData.insider_status
+                      ? "Early access to NFL alerts enabled"
+                      : `${3 - referralData.qualifying_referrals} more to unlock NFL early access`}
+                  </Text>
+                </>
+              ) : (
+                <Text style={s.inviteTitle}>Loading invite link...</Text>
+              )}
               <Text style={s.inviteLink} numberOfLines={1}>
                 {referralData?.link ?? "https://norma-app.com/join"}
               </Text>
@@ -385,9 +419,25 @@ const s = StyleSheet.create({
   settingsText: { color: "#ffffff", fontSize: 16, marginLeft: 12 },
   settingsValue: { color: "#94a3b8", fontSize: 14 },
   aboutLabel: { color: "#ffffff", fontSize: 16 },
+  sectionLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  insiderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
+  },
+  insiderBadgeText: { color: "#f97316", fontSize: 11, fontWeight: "700" },
   inviteContent: { padding: 16 },
-  inviteTitle: { color: "#ffffff", fontSize: 16, fontWeight: "600", marginBottom: 8 },
-  inviteLink: { color: "#94a3b8", fontSize: 14 },
+  inviteTitle: { color: "#ffffff", fontSize: 16, fontWeight: "600", marginBottom: 6 },
+  inviteLink: { color: "#94a3b8", fontSize: 14, marginTop: 8 },
+  referralProgressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  insiderUnlocked: { color: "#22c55e", fontSize: 12, fontWeight: "600" },
+  progressBar: { height: 4, backgroundColor: "#334155", borderRadius: 2, marginTop: 8, marginBottom: 4 },
+  progressFill: { height: 4, backgroundColor: "#f97316", borderRadius: 2 },
+  inviteSubtext: { color: "#64748b", fontSize: 12, marginBottom: 4 },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",

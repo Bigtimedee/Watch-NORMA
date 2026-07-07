@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Upsert referral code row for this user
     const { data, error } = await admin
       .from("referral_codes")
       .upsert({ user_id: user.id }, { onConflict: "user_id" })
@@ -57,11 +58,62 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Count qualifying referrals: users referred by this user who received their first alert
+    const { data: referredRows } = await admin
+      .from("referrals")
+      .select("referred_id")
+      .eq("referrer_id", user.id);
+
+    const referredIds = (referredRows ?? [])
+      .map((r: { referred_id: string }) => r.referred_id)
+      .filter(Boolean);
+
+    let qualifyingReferrals = 0;
+    if (referredIds.length > 0) {
+      const { count } = await admin
+        .from("app_events")
+        .select("user_id", { count: "exact", head: true })
+        .eq("event_name", "first_alert_received")
+        .in("user_id", referredIds);
+      qualifyingReferrals = count ?? 0;
+    }
+
+    // Auto-grant NORMA Insider at milestone 3
+    if (qualifyingReferrals >= 3) {
+      const { data: existingReward } = await admin
+        .from("referral_rewards")
+        .select("id")
+        .eq("referrer_user_id", user.id)
+        .eq("milestone", 3)
+        .maybeSingle();
+
+      if (!existingReward) {
+        await admin
+          .from("referral_rewards")
+          .insert({ referrer_user_id: user.id, milestone: 3 });
+        await admin
+          .from("profiles")
+          .update({ insider_status: true })
+          .eq("id", user.id);
+      }
+    }
+
+    // Read current insider status
+    const { data: profileRow } = await admin
+      .from("profiles")
+      .select("insider_status")
+      .eq("id", user.id)
+      .single();
+
+    const insiderStatus = profileRow?.insider_status ?? false;
+
     return new Response(
       JSON.stringify({
         code: data.code,
         uses: data.uses,
         link: `https://norma-app.com/join?ref=${data.code}`,
+        qualifying_referrals: qualifyingReferrals,
+        insider_status: insiderStatus,
       }),
       { status: 200, headers: jsonHeaders }
     );
