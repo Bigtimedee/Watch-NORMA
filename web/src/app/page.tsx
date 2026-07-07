@@ -250,7 +250,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             THREE STEPS.<br />
-            <span style={{ color: "#334155" }}>THEN GO LIVE YOUR LIFE.</span>
+            <span style={{ color: "#64748b" }}>THEN GO LIVE YOUR LIFE.</span>
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -352,7 +352,7 @@ export default function HomePage() {
           </h2>
           <h2
             className="font-display text-center"
-            style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#1e293b", lineHeight: 0.95, marginBottom: 56 }}
+            style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#64748b", lineHeight: 0.95, marginBottom: 56 }}
           >
             ZERO NOISE.
           </h2>
@@ -421,7 +421,7 @@ export default function HomePage() {
             style={{ fontSize: "clamp(48px, 6vw, 80px)", color: "#F5F3EE", lineHeight: 0.95, marginBottom: 64 }}
           >
             BUILT FOR HOW YOU<br />
-            <span style={{ color: "#1e293b" }}>ACTUALLY WATCH SPORTS.</span>
+            <span style={{ color: "#64748b" }}>ACTUALLY WATCH SPORTS.</span>
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -608,6 +608,7 @@ export default function HomePage() {
               <a href="mailto:ads@norma-app.com" style={{ color: "#334155" }} className="hover:text-white transition-colors">Contact</a>
               <a href="/privacy-policy" style={{ color: "#334155" }} className="hover:text-white transition-colors">Privacy</a>
               <a href="/terms-of-service" style={{ color: "#334155" }} className="hover:text-white transition-colors">Terms</a>
+              <Link href="/status" style={{ color: "#334155" }} className="hover:text-white transition-colors">Status</Link>
             </div>
           </div>
           <div
