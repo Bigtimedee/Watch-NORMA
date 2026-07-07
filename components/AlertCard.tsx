@@ -12,6 +12,7 @@ import {
   timeAgo,
 } from "../lib/alert-helpers";
 import { useMarkAlertRead } from "../hooks/useAlerts";
+import { trackEvent } from "../lib/analytics";
 import { getBestWatchProvider } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
@@ -60,6 +61,7 @@ export function AlertCard({ alert }: AlertCardProps) {
     if (!alert.read) {
       markRead.mutate(alert.id);
     }
+    trackEvent("watch_tap", { source: "alert_card", alert_type: alert.alert_type, provider: bestProvider.key });
     triggerStream(bestProvider);
   };
 
@@ -68,6 +70,7 @@ export function AlertCard({ alert }: AlertCardProps) {
     setLocalRating(next);
     if (next !== null) {
       submitFeedback.mutate({ alertId: alert.id, rating: next });
+      trackEvent("alert_feedback", { rating: next, alert_type: alert.alert_type });
     }
   };
 

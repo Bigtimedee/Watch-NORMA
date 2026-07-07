@@ -12,6 +12,7 @@ import {
   StyleSheet,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+const SIGNUP_TRACK_KEY = "norma.pendingSignupTrack";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -77,6 +78,7 @@ export default function SignUpScreen() {
       const data = await signUp(email, password, displayName || undefined, referralCode);
       await loadOwnReferralCode(data.session?.access_token);
       await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
+      await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "email");
       Alert.alert(
         "Check Your Email",
         "We sent you a confirmation link. Please check your email to continue."
@@ -89,6 +91,7 @@ export default function SignUpScreen() {
   const handleApple = async () => {
     try {
       await signInWithApple();
+      await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "apple");
     } catch (error: any) {
       Alert.alert("Apple Sign-In Error", error.message);
     }

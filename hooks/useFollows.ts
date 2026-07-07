@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { trackEvent } from "../lib/analytics";
 import { supabase } from "../lib/supabase";
 
 export type FollowEntityType = "team" | "player" | "game";
@@ -107,6 +108,7 @@ export function useAddFollow() {
       queryClient.invalidateQueries({ queryKey: ["follows"] });
       queryClient.invalidateQueries({ queryKey: ["follow", entityType, entityId] });
       queryClient.invalidateQueries({ queryKey: ["followed-games"] });
+      trackEvent("first_team_followed", { entity_type: entityType });
     },
   });
 }

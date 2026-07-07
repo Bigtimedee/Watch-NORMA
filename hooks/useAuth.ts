@@ -1,9 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { Alert, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../lib/supabase";
+import { trackEvent } from "../lib/analytics";
 import type { Profile } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
+
+const SIGNUP_TRACK_KEY = "norma.pendingSignupTrack";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -21,10 +25,18 @@ export function useAuth() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session) {
         fetchProfile(session.user.id);
+        if (event === "SIGNED_IN") {
+          AsyncStorage.getItem(SIGNUP_TRACK_KEY).then((method) => {
+            if (method) {
+              trackEvent("signup_completed", { method });
+              AsyncStorage.removeItem(SIGNUP_TRACK_KEY);
+            }
+          });
+        }
       } else {
         setProfile(null);
       }

@@ -14,6 +14,7 @@ import {
 } from "../hooks/useConnections";
 import { LIVE_STATUSES } from "../lib/constants";
 import { useTapToStream } from "../lib/tap-to-stream-context";
+import { trackEvent } from "../lib/analytics";
 import {
   PHASE_ANTICIPATION,
   PHASE_COMMITMENT,
@@ -53,6 +54,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         );
         return;
       }
+      trackEvent("watch_tap", { source: "game_detail", provider: bestProvider.key });
       triggerStream(bestProvider);
     } else if (game.broadcast) {
       const broadcastKeys = getBroadcastProviderKeys(game.broadcast);

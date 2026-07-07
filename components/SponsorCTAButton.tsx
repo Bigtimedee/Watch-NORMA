@@ -2,6 +2,7 @@ import { Pressable, Text, StyleSheet, Linking, Image, Alert, View } from "react-
 import { Ionicons } from "@expo/vector-icons";
 import { useSportsbookGeo } from "../hooks/useSportsbookGeo";
 import { supabase } from "../lib/supabase";
+import { trackEvent } from "../lib/analytics";
 
 interface SponsorCTAButtonProps {
   ctaUrl: string;
@@ -68,6 +69,8 @@ export function SponsorCTAButton({
     } catch {
       // Non-critical
     }
+
+    trackEvent("bet_now_tap", { provider: provider ?? "unknown", alert_id: alertId });
 
     try {
       await Linking.openURL(ctaUrl);

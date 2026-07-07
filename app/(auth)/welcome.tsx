@@ -1,11 +1,17 @@
+import { useEffect } from "react";
 import { View, Text, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { trackEvent } from "../../lib/analytics";
 
 const normaLogo = require("../../assets/norma-logo.png");
 
 export default function WelcomeScreen() {
   const router = useRouter();
+
+  useEffect(() => {
+    trackEvent("onboarding_welcome_viewed");
+  }, []);
 
   return (
     <SafeAreaView style={s.container}>

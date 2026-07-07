@@ -261,6 +261,7 @@ Deno.serve(async (req) => {
     let totalAlerts = 0;
     let suppressed = 0;
     const alertsToSendPush: number[] = [];
+    const alertedUserIds: string[] = [];
 
     // P2-01: Intent moment tracking — game-level, not per-user.
     // One entry per (moment_type, period, margin_bucket). Written after delivery.
@@ -640,6 +641,7 @@ Deno.serve(async (req) => {
       }
 
       totalAlerts++;
+      alertedUserIds.push(userId);
 
       // Send push (unless quiet hours)
       if (!suppressPush) {
@@ -655,6 +657,22 @@ Deno.serve(async (req) => {
         });
       } catch (e) {
         console.warn(`Failed to send push for alert ${alertId}:`, e);
+      }
+    }
+
+    // Record first_alert_received for activation-funnel instrumentation.
+    // Service role bypasses RLS. Fail-silent — never delays delivery.
+    if (alertedUserIds.length > 0) {
+      try {
+        await supabase.from("app_events").insert(
+          alertedUserIds.map((uid) => ({
+            user_id: uid,
+            event_name: "first_alert_received",
+            properties: { game_id: gameId },
+          }))
+        );
+      } catch {
+        // Non-critical analytics — do not surface
       }
     }
 

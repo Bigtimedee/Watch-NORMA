@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { trackEvent } from "../lib/analytics";
 import { supabase } from "../lib/supabase";
 import type { Connection, StreamingProvider, ProviderType } from "../lib/types";
 
@@ -90,8 +91,12 @@ export function useToggleConnection() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, { provider, currentConnection }) => {
       queryClient.invalidateQueries({ queryKey: ["connections"] });
+      // Only track when toggling ON (adding a connection, not removing)
+      if (!currentConnection || !currentConnection.connected) {
+        trackEvent("first_connection_added", { provider_key: provider.key, provider_type: provider.provider_type });
+      }
     },
   });
 }

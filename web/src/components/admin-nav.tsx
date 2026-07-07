@@ -18,6 +18,7 @@ const adminNavItems = [
   { href: "/admin/partners", label: "Partners" },
   { href: "/admin/auction-engine", label: "Auction Engine" },
   { href: "/admin/auction-engine/live", label: "Live Monitor" },
+  { href: "/admin/growth", label: "Growth" },
 ];
 
 export function AdminNav() {
