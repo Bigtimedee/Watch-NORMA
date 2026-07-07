@@ -118,7 +118,7 @@ Campaigns now have a `demand_type` column (migration 077): `sportsbook | streami
 | `streaming` | Watch Now | No — unrestricted | `stream_open` |
 | `commerce` | Shop Now | No — unrestricted | `commerce_open` |
 
-**Live vs. scaffolded:** Sportsbook campaigns are live. Streaming and commerce demand types are fully plumbed (eligible for auction, correct CTA rendered, attribution recorded with inferred labels) but have no live advertiser deals. The campaign creation UI labels streaming/commerce as "Scaffolded — no live deals."
+**Live vs. open for first deals (July 2026):** Sportsbook campaigns are live. Streaming and commerce demand types are fully plumbed and open for first advertiser deals (July 2026 audit confirmed end-to-end functionality: campaign creation, brand safety gate, auction eligibility, CTA rendering, geo-filter exemption, and post_outcome moment firing all work correctly). New streaming and commerce campaigns start in `brand_safety_status = 'pending'` review before entering the auction. The campaign creation UI shows a "New" category badge and a "Pending brand review before going live" message for streaming and commerce — not a "scaffolded" or disabled state. See `docs/sales/streaming-commerce-readiness.md` for the full audit report.
 
 **What changes:** Campaign creation flow asks buyers to select a demand type; the CTA placeholder updates accordingly. Auction clearing logic is unchanged — only eligibility and rendering are category-aware.
 
