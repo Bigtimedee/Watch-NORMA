@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { View, Text, Pressable, Image, StyleSheet, Share } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, Pressable, Image, StyleSheet, Share, Modal } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { captureRef } from "react-native-view-shot";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,9 +23,11 @@ import {
   useStreamingProviders,
 } from "../hooks/useConnections";
 import { useTapToStream } from "../lib/tap-to-stream-context";
-import { LIVE_STATUSES } from "../lib/constants";
+import { LIVE_STATUSES, NORMA_APP_STORE_URL } from "../lib/constants";
 import { SponsorCTAButton } from "./SponsorCTAButton";
 import { useSubmitAlertFeedback } from "../hooks/useAlertFeedback";
+import { MomentShareCard } from "./MomentShareCard";
+import { formatAlertShareCard } from "../lib/formatShareCard";
 
 interface AlertCardProps {
   alert: Alert;
@@ -35,6 +38,9 @@ export function AlertCard({ alert }: AlertCardProps) {
   const markRead = useMarkAlertRead();
   const [localRating, setLocalRating] = useState<"up" | "down" | null>(null);
   const [showReferralNudge, setShowReferralNudge] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [includeWagerLine, setIncludeWagerLine] = useState(false);
+  const shareCardRef = useRef<View>(null);
   const submitFeedback = useSubmitAlertFeedback();
   const REFERRAL_NUDGE_KEY = "norma.referralNudgeShown";
   const color = alertTypeColor(alert.alert_type);
@@ -110,6 +116,27 @@ export function AlertCard({ alert }: AlertCardProps) {
   const dismissReferralNudge = async () => {
     await AsyncStorage.setItem(REFERRAL_NUDGE_KEY, "1");
     setShowReferralNudge(false);
+  };
+
+  const handleShareCapture = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      const uri = await captureRef(shareCardRef, { format: "jpg", quality: 0.92 });
+      setShowShareSheet(false);
+      await Share.share({ url: uri, message: `Live game alert via Watch NORMA · ${NORMA_APP_STORE_URL}` });
+      trackEvent("share_moment", { source: "alert", alert_type: alert.alert_type });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.from("share_events").insert({
+          user_id: session.user.id,
+          source: "alert",
+          alert_type: alert.alert_type,
+          game_id: alert.game_id,
+        });
+      }
+    } catch {
+      // Non-critical — share failure should not surface to user
+    }
   };
 
   return (
@@ -211,6 +238,15 @@ export function AlertCard({ alert }: AlertCardProps) {
                 alertId={alert.id}
               />
             )}
+
+            {/* Share this moment — subordinate to Watch */}
+            <Pressable
+              onPress={() => setShowShareSheet(true)}
+              style={s.shareBtn}
+              accessibilityLabel="Share this moment"
+            >
+              <Ionicons name="share-social-outline" size={16} color="#64748b" />
+            </Pressable>
           </View>
 
           {/* Feedback — visually subordinate; data feeds future scoring tuning */}
@@ -258,6 +294,46 @@ export function AlertCard({ alert }: AlertCardProps) {
           )}
         </View>
       </View>
+      {/* Share sheet modal */}
+      <Modal
+        visible={showShareSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowShareSheet(false)}
+      >
+        <Pressable style={s.modalOverlay} onPress={() => setShowShareSheet(false)}>
+          <Pressable style={s.shareSheet} onPress={() => {}}>
+            <Text style={s.shareSheetTitle}>Share This Moment</Text>
+
+            {/* Off-screen card preview (captured by captureRef) */}
+            <View style={s.shareCardPreview}>
+              <MomentShareCard
+                ref={shareCardRef}
+                data={formatAlertShareCard(alert, includeWagerLine)}
+              />
+            </View>
+
+            {/* "Include my pick" toggle — only shown when wager context exists */}
+            {alert.explanation?.wager_impact && (
+              <Pressable
+                style={s.toggleRow}
+                onPress={() => setIncludeWagerLine((v) => !v)}
+                accessibilityLabel={includeWagerLine ? "Remove wager line from card" : "Include my pick on card"}
+              >
+                <View style={[s.toggleCheckbox, includeWagerLine && s.toggleChecked]}>
+                  {includeWagerLine && <Ionicons name="checkmark" size={12} color="#fff" />}
+                </View>
+                <Text style={s.toggleLabel}>Include my pick</Text>
+              </Pressable>
+            )}
+
+            <Pressable style={s.shareActionBtn} onPress={handleShareCapture} accessibilityLabel="Share">
+              <Ionicons name="share-social" size={16} color="#fff" />
+              <Text style={s.shareActionText}>Share</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Pressable>
   );
 }
@@ -388,6 +464,70 @@ const s = StyleSheet.create({
     paddingVertical: 4,
   },
   referralNudgeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  shareBtn: {
+    padding: 6,
+    marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  shareSheet: {
+    backgroundColor: "#1e293b",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  shareSheetTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  shareCardPreview: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 10,
+  },
+  toggleCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#475569",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleChecked: {
+    backgroundColor: "#f97316",
+    borderColor: "#f97316",
+  },
+  toggleLabel: {
+    color: "#cbd5e1",
+    fontSize: 14,
+  },
+  shareActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f97316",
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  shareActionText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
   sportBadge: {
     backgroundColor: "#1e40af",
     borderRadius: 4,

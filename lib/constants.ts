@@ -111,3 +111,7 @@ export const KALSHI_API_BASE = "https://trading-api.kalshi.com" as const;
 
 // Polymarket CLOB API
 export const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com" as const;
+
+// App Store (update with the numeric ID once the listing is live)
+export const NORMA_APP_STORE_URL =
+  "https://apps.apple.com/app/watch-norma" as const;

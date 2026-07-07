@@ -1,7 +1,14 @@
-import { View, Text, StyleSheet } from "react-native";
+import { useRef, useState } from "react";
+import { View, Text, Pressable, StyleSheet, Share, Modal } from "react-native";
+import { captureRef } from "react-native-view-shot";
+import { Ionicons } from "@expo/vector-icons";
 import type { Game } from "../lib/types";
 import { formatClock } from "../lib/alert-helpers";
-import { LIVE_STATUSES } from "../lib/constants";
+import { LIVE_STATUSES, NORMA_APP_STORE_URL } from "../lib/constants";
+import { supabase } from "../lib/supabase";
+import { trackEvent } from "../lib/analytics";
+import { MomentShareCard } from "./MomentShareCard";
+import { formatGameShareCard } from "../lib/formatShareCard";
 
 interface ScoreHeaderProps {
   game: Game;
@@ -10,20 +17,51 @@ interface ScoreHeaderProps {
 export function ScoreHeader({ game }: ScoreHeaderProps) {
   const isLive = LIVE_STATUSES.includes(game.status as any);
   const isFinal = game.status === "closed";
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const shareCardRef = useRef<View>(null);
+
+  const handleShareCapture = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      const uri = await captureRef(shareCardRef, { format: "jpg", quality: 0.92 });
+      setShowShareSheet(false);
+      await Share.share({ url: uri, message: `Live game via Watch NORMA · ${NORMA_APP_STORE_URL}` });
+      trackEvent("share_moment", { source: "game" });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.from("share_events").insert({
+          user_id: session.user.id,
+          source: "game",
+          game_id: game.id,
+        });
+      }
+    } catch {
+      // Non-critical
+    }
+  };
 
   return (
     <View style={s.container}>
-      {/* Status badge */}
+      {/* Status badge + share button */}
       <View style={s.statusContainer}>
         {game.tournament_round && (
           <Text style={s.tournamentText}>{game.tournament_round}</Text>
         )}
-        <View style={[s.statusBadge, isLive ? s.statusLive : s.statusDefault]}>
-          <Text
-            style={[s.statusText, isLive ? s.statusTextLive : s.statusTextDefault]}
+        <View style={s.statusRow}>
+          <View style={[s.statusBadge, isLive ? s.statusLive : s.statusDefault]}>
+            <Text
+              style={[s.statusText, isLive ? s.statusTextLive : s.statusTextDefault]}
+            >
+              {isLive ? `LIVE \u00B7 ${formatClock(game)}` : formatClock(game)}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setShowShareSheet(true)}
+            style={s.shareBtn}
+            accessibilityLabel="Share this game"
           >
-            {isLive ? `LIVE \u00B7 ${formatClock(game)}` : formatClock(game)}
-          </Text>
+            <Ionicons name="share-social-outline" size={18} color="#64748b" />
+          </Pressable>
         </View>
       </View>
 
@@ -92,6 +130,27 @@ export function ScoreHeader({ game }: ScoreHeaderProps) {
           <Text style={s.broadcastText}>{game.broadcast}</Text>
         )}
       </View>
+
+      {/* Share sheet modal */}
+      <Modal
+        visible={showShareSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowShareSheet(false)}
+      >
+        <Pressable style={s.modalOverlay} onPress={() => setShowShareSheet(false)}>
+          <Pressable style={s.shareSheet} onPress={() => {}}>
+            <Text style={s.shareSheetTitle}>Share This Game</Text>
+            <View style={s.shareCardPreview}>
+              <MomentShareCard ref={shareCardRef} data={formatGameShareCard(game)} />
+            </View>
+            <Pressable style={s.shareActionBtn} onPress={handleShareCapture} accessibilityLabel="Share">
+              <Ionicons name="share-social" size={16} color="#fff" />
+              <Text style={s.shareActionText}>Share</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -105,6 +164,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   statusContainer: { alignItems: "center", marginBottom: 16 },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   tournamentText: { color: "#fb923c", fontSize: 12, fontWeight: "700", marginBottom: 4 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 9999 },
   statusLive: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
@@ -135,4 +195,42 @@ const s = StyleSheet.create({
   infoRow: { alignItems: "center", marginTop: 16 },
   venueText: { color: "#94a3b8", fontSize: 12 },
   broadcastText: { color: "#64748b", fontSize: 12, marginTop: 4 },
+  shareBtn: { padding: 6 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  shareSheet: {
+    backgroundColor: "#1e293b",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  shareSheetTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  shareCardPreview: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  shareActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f97316",
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  shareActionText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });
