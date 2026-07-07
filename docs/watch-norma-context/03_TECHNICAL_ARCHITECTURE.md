@@ -316,6 +316,34 @@ All client queries go through the Supabase JS client which auto-generates REST c
 | `renew-gmail-watch` | Weekly | Renew Gmail Pub/Sub watch |
 | `deep-link-health-check` | Periodic | Monitor provider links |
 
+## Activation Analytics
+
+**Migration:** `20260706000001_app_events.sql`
+
+**`app_events` table** — first-party event stream for the activation funnel. Columns: `id`, `user_id` (FK auth.users), `event_name TEXT`, `properties JSONB`, `created_at TIMESTAMPTZ`. RLS: users insert own events; admin role reads all; service role bypasses RLS.
+
+**`lib/analytics.ts`** — `trackEvent(name, props?)` helper for the mobile app. Fire-and-forget; fails silently; requires authenticated session.
+
+**Tracked events (mobile):**
+- `onboarding_welcome_viewed` — welcome screen mount (fails silently if unauthenticated)
+- `signup_completed` — fired in `useAuth` SIGNED_IN handler via AsyncStorage flag set in sign-up.tsx
+- `first_connection_added` — `useConnections.useToggleConnection` onSuccess (connect only, not disconnect)
+- `first_team_followed` — `useFollows.useAddFollow` onSuccess
+- `watch_tap` — `AlertCard.handleWatch` + `WatchNowButton.handlePress`; props include `source` and `provider`
+- `alert_feedback` — `AlertCard.handleFeedback`; props include `rating` (up/down) and `alert_type`
+- `bet_now_tap` — `SponsorCTAButton.handlePress`; props include `provider` and `alert_id`
+- `share_moment` — added by Prompt 3
+- `referral_share` — added by Prompt 2
+
+**Tracked events (server-side, service role):**
+- `first_alert_received` — `evaluate-alerts/index.ts` bulk-inserts after push dispatch, one row per user per invocation
+
+**SQL views** (readable by service role and admin JWT):
+- `daily_activation_funnel` — per signup cohort-day counts for each funnel step
+- `retention_cohorts` — D1/D7/D30 retention by signup week (±tolerance window)
+
+**Admin page:** `/admin/growth` — funnel table + retention cohort table, queries via `createSupabaseAdmin()` (service role).
+
 ## Background Jobs and Scheduling
 
 All scheduled jobs use pg_cron (configured in migrations 004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, and the timestamped `20260307000001_cmo_agent.sql`). The `game-watcher-orchestrator` acts as a secondary scheduler, dispatching sub-functions (`poll-pbp`, `poll-summary`, `evaluate-alerts`, `resolve-predictions`) based on the `watcher_state` table rather than fixed cron schedules. This allows per-game polling intervals, backoff on errors, and concurrency limits.

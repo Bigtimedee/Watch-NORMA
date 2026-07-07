@@ -210,6 +210,21 @@ Previously noted risks that have been resolved:
 - **Deployment:** Presumably Vercel (`.next` build output present, Next.js standard)
 - **Environment:** Requires Supabase URL, anon key, and service role key for SSR
 
+**Admin pages** (require `app_metadata.role = 'admin'` on the Supabase user):
+- `/admin/dashboard` — platform KPIs (users, revenue, spend, campaigns)
+- `/admin/users` — mobile user list
+- `/admin/advertisers` — advertiser management
+- `/admin/campaigns` — campaign review and approval
+- `/admin/campaigns/direct-deals` — guaranteed inventory deals
+- `/admin/revenue` — transaction history and revenue breakdown
+- `/admin/revenue/yield` — auction yield analytics
+- `/admin/revenue/affiliates` — streaming affiliate click/commission tracking
+- `/admin/fraud` — ad fraud event resolution
+- `/admin/partners` — partner landing page conversion metrics
+- `/admin/auction-engine` — auction configuration
+- `/admin/auction-engine/live` — real-time auction monitor
+- `/admin/growth` — activation funnel (daily_activation_funnel view) + D1/D7/D30 retention cohort table (retention_cohorts view). Uses `createSupabaseAdmin()` (service role) for data queries.
+
 ### CI/CD (GitHub Actions)
 
 `.github/workflows/ci.yml` runs on push to main and pull requests:
