@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
+import { maybeRequestReview } from "../lib/review-prompt";
 import * as Haptics from "expo-haptics";
 import {
   useSharedValue,
@@ -58,6 +59,8 @@ export function useTapToStreamEngine() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active" && phase.value >= PHASE_COLLAPSE) {
+        // User returned after a successful deep-link stream — delight trigger
+        maybeRequestReview("watch_return");
         resetToIdle();
       }
     });

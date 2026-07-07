@@ -13,6 +13,7 @@ import {
 } from "../lib/alert-helpers";
 import { useMarkAlertRead } from "../hooks/useAlerts";
 import { trackEvent } from "../lib/analytics";
+import { maybeRequestReview } from "../lib/review-prompt";
 import { getBestWatchProvider } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
@@ -51,6 +52,10 @@ export function AlertCard({ alert }: AlertCardProps) {
     if (!alert.read) {
       markRead.mutate(alert.id);
     }
+    // Delight trigger: resolved bet with wager impact — peak positive closure moment
+    if (alert.alert_type === "bet_resolved" && alert.explanation?.wager_impact) {
+      maybeRequestReview("bet_resolved");
+    }
     if (alert.game_id) {
       router.push(`/games/${alert.game_id}`);
     }
@@ -71,6 +76,9 @@ export function AlertCard({ alert }: AlertCardProps) {
     if (next !== null) {
       submitFeedback.mutate({ alertId: alert.id, rating: next });
       trackEvent("alert_feedback", { rating: next, alert_type: alert.alert_type });
+      if (next === "up") {
+        maybeRequestReview("alert_thumbs_up");
+      }
     }
   };
 

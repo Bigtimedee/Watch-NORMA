@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { supabase } from "../lib/supabase";
+import { recordAppOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
 import { TransitionOverlay } from "../components/TransitionOverlay";
 import type { StreamingProvider } from "../lib/types";
@@ -37,6 +38,7 @@ function AuthGate() {
   const router = useRouter();
 
   useEffect(() => {
+    recordAppOpen();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
