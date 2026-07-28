@@ -314,7 +314,15 @@ Migration 078 adds `verification_source TEXT NOT NULL DEFAULT 'inferred'` to `co
 
 ## Programmatic Intent API (P2-09)
 
-**Status: Live. Activated June 2026 via `INTENT_API_ENABLED=true` Supabase secret.**
+**Status: Deployed but NOT reachable by its intended clients. Do not describe it to partners as available.**
+
+Verified against the live project (July 2026):
+- The function is deployed and `ACTIVE`, at version 1, dated 2026-06-18. It has never been redeployed.
+- **`verify_jwt` is `true` on the function.** Supabase therefore rejects any request whose `Authorization` header is not a valid Supabase JWT, *before the function body runs*. The documented auth for this API is a raw API key in that same header. The two are mutually exclusive, so an external partner call cannot reach the gate, let alone the routes. This must be set to `false` (as it is on `poll-boxscore` and `publish-social-posts`) for the API to function.
+- `api_keys` contains zero rows. No key has ever been issued or used, so no partner has ever called it successfully.
+- The value of the `INTENT_API_ENABLED` secret was not verifiable from the repository or the database. It is moot while `verify_jwt` blocks the request.
+
+The previous claim in this document that the API went live in June 2026 reflected the deployment date, not reachability.
 
 To enable: `supabase secrets set INTENT_API_ENABLED=true --project-ref <project_ref>`
 To disable: `supabase secrets set INTENT_API_ENABLED=false --project-ref <project_ref>`
