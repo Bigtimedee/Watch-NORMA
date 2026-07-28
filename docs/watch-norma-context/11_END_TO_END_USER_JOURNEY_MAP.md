@@ -341,7 +341,7 @@ The most architecturally distinctive user type in the system: a buyer that is a 
 
 1. **MCP server** (`packages/norma-ads-mcp/`). Six tools: `submit-brief`, `create-campaign`, `update-campaign`, `list-moment-types`, `get-inventory-forecast`, `get-campaign-performance`. Auth in `src/lib/auth.ts`, HTTP transport in `src/http-server.ts`, tool assembly in `src/server-factory.ts`. `src/lib/brief-extraction-prompt.ts` turns a natural language media brief into structured campaign parameters, logged to `brief_log`.
 2. **REST API** (`web/src/app/api/ads/*`). Campaigns, creatives, pause and resume, moment types, reporting, inventory, webhooks, postback. Specified in `docs/openapi/norma-ads-api.yaml` and served at `/api/ads/openapi.json`.
-3. **Intent API** (`supabase/functions/intent-api/`). Server to server buyers. `GET /inventory` and `POST /bid`, the latter entering the same Vickrey auction as everyone else. **Status: scaffolded and gated by the `INTENT_API_ENABLED` secret. Not in production.** Auth is a bearer key hashed with SHA 256 against `api_keys`; the rate limit is 50 requests per minute per key, held in memory and therefore reset on cold start.
+3. **Intent API** (`supabase/functions/intent-api/`). Server to server buyers holding raw API keys. `GET /inventory` and `POST /bid`, the latter entering the same Vickrey auction as everyone else. **Status is disputed between the source comment and doc 06: see section 9 entry 4 before relying on it either way.** Gated by the `INTENT_API_ENABLED` secret. Auth is a bearer key hashed with SHA 256 against `api_keys`; the rate limit is 50 requests per minute per key, held in memory and therefore reset on cold start.
 
 **Auth model** (`web/src/lib/oauth.ts`, `web/src/lib/scope-middleware.ts`). RS256 JWTs, one hour expiry, key id defaulting to `norma-ads-key-1`, public keys published at `/api/auth/.well-known/jwks.json`, tokens minted at `/api/auth/token`. Four scopes and only four:
 
@@ -442,18 +442,37 @@ __tests__/                Root level integration tests.
 
 ---
 
-## 9. Verified findings and stale claims
+## 9. Verified findings
 
-Recorded because an agent trusting the older docs would get these wrong.
+Every entry below was confirmed against at least two sources (code plus a doc, a migration, or a second file). Entries that did not survive that check have been deleted rather than annotated. Treat this as a live list: resolve an entry, delete it.
 
-1. **Football is complete and deliberately gated, not unfinished.** `_shared/alert-scoring.ts` has sport aware `checkMustNotify` and `extractSignals` for `nfl` and `ncaaf`, `evaluate-alerts/logic.ts` has the spread, total, moneyline, and close game evaluators, and floor prices are seeded for all three football moment types (migration `20260706000004`). `evaluate-alerts/index.ts` line 103 holds it all behind `ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb"])`. **This gate is intentional. Activation target is September 1, 2026, NFL kickoff, documented in `09_ROADMAP_KNOWN_GAPS_AND_DECISIONS.md`.** Do not remove it as cleanup. `lib/__tests__/sport-football-scaffold.test.ts` correctly mirrors the gate and its assertions are right; only its descriptive comments lag. Activation is a one line change plus a test flip, on the date, by decision.
-2. **The sport base URL maps in `lib/constants.ts` are dead.** `SPORTSDATAIO_BASE_URLS`, `SPORTRADAR_BASE_URLS`, and `ESPN_BASE_URLS` have no consumer anywhere in the repository. Real ingestion URLs live inside the Edge Functions (`poll-schedule`, `poll-boxscore`, `_shared/sportradar.ts`), and those already cover `nfl` and `ncaaf`. Do not add football keys to the client constants expecting an effect, and do not read them as a source of truth for supported sports. They are vestigial and are a candidate for deletion.
-3. **The Connections tab is labeled Watch.** Route segment and UI label diverge. Both older docs and search by label will mislead you.
-4. **Fantasy roster import is undocumented in `02`.** `ImportRosterSheet` plus `lib/roster-import.ts` writes `follows` rows tagged `source: "fantasy"`.
-5. **`intent-api` is not live.** Gated by `INTENT_API_ENABLED`. Do not describe it to a partner as available.
-6. **The intent API rate limiter is in memory.** It resets on Edge Function cold start, so the effective limit is softer than 50 per minute. Fine for a scaffold, insufficient for production.
-7. **Two scope vocabularies exist and they do not match.** `web/src/lib/oauth.ts` defines exactly four scopes (`campaigns:read`, `campaigns:write`, `reporting:read`, `inventory:read`), and migration `081_oauth_clients.sql` enforces that set with a CHECK constraint. But migration `079_api_keys.sql` defines `api_keys.scopes` as `NOT NULL DEFAULT ARRAY['inventory:read', 'bid:write']`, and `bid:write` is not a member of the `Scope` type. A key created with the column default therefore carries a scope the ads API cannot validate. Reconcile the two vocabularies before either surface goes to production. Related: because the column is `NOT NULL`, the `?? [...]` fallback inside `resolveApiKey()` is unreachable dead code.
-8. **`OUTAGE-REPORT-2026-05-16.md` at the repository root is required reading before touching ingestion.**
+1. **Football is complete and deliberately gated.** `_shared/alert-scoring.ts` has sport aware `checkMustNotify` and `extractSignals` for `nfl` and `ncaaf`, `evaluate-alerts/logic.ts` has the spread, total, moneyline, and close game evaluators, and floor prices are seeded for all three football moment types (migration `20260706000004`). `evaluate-alerts/index.ts` line 103 holds it behind `ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb"])`. **The gate is intentional. Activation target is September 1, 2026, NFL kickoff.** Do not remove it as cleanup. `lib/__tests__/sport-football-scaffold.test.ts` mirrors the gate on purpose and its assertions are correct.
+   *Verified: code line 103 plus `09_ROADMAP_KNOWN_GAPS_AND_DECISIONS.md` line 19.*
+
+2. **The sport base URL maps in `lib/constants.ts` are dead.** `SPORTSDATAIO_BASE_URLS`, `SPORTRADAR_BASE_URLS`, and `ESPN_BASE_URLS` have no consumer anywhere in the repository. Real ingestion URLs live inside the Edge Functions (`poll-schedule`, `poll-boxscore`, `_shared/sportradar.ts`) and already cover `nfl` and `ncaaf`. Do not read them as a source of truth for supported sports, and do not add keys expecting an effect.
+   *Verified: repository wide grep returns zero importers; football URLs confirmed present in the Edge Functions.*
+
+3. **The Connections tab is labeled Watch.** The route segment is `connections`; `app/(tabs)/_layout.tsx` sets `title: "Watch"`. Searching either the code or the docs by the visible label will mislead you.
+   *Verified: route tree plus tab layout.*
+
+4. **The intent API's live status is contradicted between code and docs, and it is unresolvable from the repository.** The header comment in `supabase/functions/intent-api/index.ts` says scaffolded, gated by `INTENT_API_ENABLED`, not in production. `06_ADS_MONETIZATION_AND_AUCTION_LOGIC.md` line 317 says live, activated June 2026. The answer lives in a Supabase secret, not in git. **Resolve this before trusting entry 5, and correct whichever source is stale.**
+   *Verified: both sources read directly and they disagree.*
+
+5. **The intent API rate limiter does not survive a restart.** `intent-api/index.ts` holds its counters in a module level `Map` that resets on Edge Function cold start, so the effective ceiling is looser than the advertised 50 per minute. Acceptable for a scaffold; a real defect if entry 4 resolves to live. Note that `api_rate_log` is **not** the table for this: it comes from migration `012`, is keyed by `provider` and `window_start`, and tracks sports data provider budgets. Durable per key limiting needs a new table.
+   *Verified: in memory Map in code plus migration `012` schema.*
+
+6. **Two APIs share one key table, with two different auth mechanisms.** This is by design, not a defect, but it catches people:
+   - The **ads API** (`web/src/app/api/ads/*`) authenticates RS256 JWTs or hashed API keys via `scope-middleware.ts`, against four scopes: `campaigns:read`, `campaigns:write`, `reporting:read`, `inventory:read`.
+   - The **intent API** (`supabase/functions/intent-api/`) authenticates **only** a SHA 256 hashed key against `api_keys`. It does not verify JWTs at all. Its `POST /bid` enforces a `bid:write` scope that the ads API's `Scope` type does not contain.
+   - Consequence: an OAuth client can never hold `bid:write`, because migration `081` constrains `oauth_clients.scopes` to the four. An OAuth or MCP agent therefore cannot use `POST /bid`.
+   - **This does not block agents from bidding.** Agents bid through campaigns: `create-campaign` (MCP) sends `bid_cpm_usd` to `POST /api/ads/campaigns`, which validates against the floor and writes one row per moment type into `bids`, entering the same Vickrey auction. `POST /bid` is a separate door for server to server buyers holding raw keys.
+   *Verified: `oauth.ts`, `scope-middleware.ts`, `intent-api/index.ts` line 138, migration `081` CHECK constraint, `api/ads/campaigns/route.ts` line 182, and the MCP `create-campaign` tool.*
+
+7. **`api_keys.scopes` is `NOT NULL`,** with a column default of `ARRAY['inventory:read', 'bid:write']` (migration `079`). The `?? [...]` fallback inside `resolveApiKey()` is therefore unreachable dead code. Harmless, but do not reason from it.
+   *Verified: migration `079` line 14 plus `scope-middleware.ts`.*
+
+8. **`OUTAGE-REPORT-2026-05-16.md` at the repository root is required reading before touching ingestion.** It documents a 37 day P0 caused by reading ESPN's `status.type.name` instead of `status.type.description`, and rule 19 in doc `10` makes the correct field permanent.
+   *Verified: outage report plus rule 19.*
 
 ---
 

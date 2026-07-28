@@ -86,6 +86,7 @@
         "npm:react-native-reanimated@~4.1.1",
         "npm:react-native-safe-area-context@^5.6.2",
         "npm:react-native-screens@4.16",
+        "npm:react-native-view-shot@^5.1.1",
         "npm:react-native-worklets@0.5.1",
         "npm:react-native@0.81.5",
         "npm:react@19.1.0",
