@@ -8,9 +8,11 @@ The onboarding flow starts at `/(auth)/welcome` and guides the user through acco
 
 **Step 2: Account creation.** The user can sign up with email/password (providing name, email, password) or Apple Sign-In on iOS. Email sign-up requires email verification. After successful auth, the user is redirected to the authenticated tab navigator.
 
-**Step 3: Connect services.** From the Connections tab, the user can connect streaming services (ESPN+, YouTube TV, Peacock, etc.), TV providers, sportsbooks (DraftKings, FanDuel, BetMGM), and prediction markets (Kalshi, Polymarket). Connecting a streaming service or sportsbook means the user indicates "I use this" — there is no OAuth flow for streaming or sportsbooks. Kalshi requires API key + private key (.pem) via a multi-step wizard. Polymarket requires a wallet address.
+**Step 3: Connect services.** From the Connections tab (route segment `connections`, but labelled **Watch** in the tab bar), the user can connect streaming services (ESPN+, YouTube TV, Peacock, etc.), TV providers, sportsbooks (DraftKings, FanDuel, BetMGM), and prediction markets (Kalshi, Polymarket). Connecting a streaming service or sportsbook means the user indicates "I use this" — there is no OAuth flow for streaming or sportsbooks. Kalshi requires API key + private key (.pem) via a multi-step wizard. Polymarket requires a wallet address.
 
 **Step 4: Set preferences.** From the Profile tab, the user opens the Preferences sheet to select favorite teams, set quiet hours (start/end times), configure per-game and per-hour alert limits, and choose notification channels (push and/or in-app).
+
+**Step 4b: Import a fantasy roster.** From the Connections (Watch) tab, `ImportRosterSheet` accepts a pasted multi-line blob of player names. `parseRosterInput()` and `buildRosterFollowRows()` in `lib/roster-import.ts` normalise each name and write `follows` rows with `follow_type: "player"` and `source: "fantasy"`. The connections screen surfaces a count of these fantasy-sourced follows separately from manual ones. This turns a fantasy lineup into alert eligibility in a single paste.
 
 **Step 5: Follow games and teams.** From the Games tab, the user can tap into any game detail and follow it (heart icon). Following a team or game ensures the user receives alerts for that entity.
 
