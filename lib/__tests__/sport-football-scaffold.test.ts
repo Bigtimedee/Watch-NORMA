@@ -4,11 +4,14 @@
  * Verifies that:
  * 1. NFL and NCAAF are recognized sport keys (not silently dropped)
  * 2. ESPN endpoint resolution for football returns the correct URL base
- * 3. Alert evaluation for football returns a no-op (skip) result,
- *    preventing half-built football alerts from being sent
+ * 3. Alert evaluation for football returns a no-op (skip) result while the
+ *    ALERTABLE_SPORTS gate is closed
  *
- * These are data-layer tests only. Football alert rules are not implemented
- * and must remain no-op until a dedicated follow-up prompt (see doc 09 roadmap).
+ * These are data-layer tests only. Football alert rules ARE implemented
+ * (evaluate-alerts/logic.ts + _shared/alert-scoring.ts) but are held behind
+ * the ALERTABLE_SPORTS gate until the Sept 1 2026 activation target.
+ * The isAlertable assertions below mirror that gate deliberately: they should
+ * be flipped on the activation date, not treated as a stale no-op.
  */
 
 // ─── ESPN base URL resolution ─────────────────────────────────────────────────
