@@ -6,7 +6,7 @@ Watch-NORMA is a mobile app for sports fans who have too many games, too many su
 
 The app is live in the Apple App Store as an iOS app built with React Native / Expo. The backend runs on Supabase (Postgres + Deno Edge Functions). Revenue comes from a proprietary second-price Vickrey auction ad engine that attaches contextual sponsor ads to high-value alert moments. An advertiser portal (Next.js) lets advertisers manage campaigns, creatives, bids, and budgets.
 
-Watch-NORMA currently supports NCAA basketball (NCAAM), NBA, and MLB. It ingests data from ESPN (primary scores), SportsDataIO (schedules), Sportradar (play-by-play, summaries), The Odds API (sportsbook odds from DraftKings, FanDuel, BetMGM, ESPNBet), Kalshi (prediction markets), and Polymarket (on-chain positions).
+Watch-NORMA sends alerts for NCAA basketball (NCAAM), NBA, and MLB. NFL and NCAAF are fully ingested and their alert rules are implemented, but alerting for football is gated behind `ALERTABLE_SPORTS` in `evaluate-alerts` until its September 1, 2026 activation target. Distinguish *ingested* from *alertable* when reasoning about sport coverage. It ingests data from ESPN (primary scores), SportsDataIO (schedules), Sportradar (play-by-play, summaries), The Odds API (sportsbook odds from DraftKings, FanDuel, BetMGM, ESPNBet), Kalshi (prediction markets), and Polymarket (on-chain positions).
 
 ## Product Thesis
 
