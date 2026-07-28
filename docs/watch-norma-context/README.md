@@ -24,6 +24,7 @@ Watch-NORMA is a complex system spanning live sports data ingestion, real-time a
 8. **[08_TESTING_DEPLOYMENT_AND_OPERATIONS.md](08_TESTING_DEPLOYMENT_AND_OPERATIONS.md)** — Local dev, CI/CD, testing strategy, deployment, observability
 9. **[09_ROADMAP_KNOWN_GAPS_AND_DECISIONS.md](09_ROADMAP_KNOWN_GAPS_AND_DECISIONS.md)** — Bugs, gaps, open decisions, priorities, long-term vision
 10. **[10_NON_NEGOTIABLE_RULES_FOR_FUTURE_WORK.md](10_NON_NEGOTIABLE_RULES_FOR_FUTURE_WORK.md)** — Hard rules, closing checklist for every session
+11. **[11_END_TO_END_USER_JOURNEY_MAP.md](11_END_TO_END_USER_JOURNEY_MAP.md)** — Every user type mapped end to end, each step tied to the file that owns it. Self contained: start here if you are reading only one file.
 
 ## Mandatory Rule for Future Work
 
