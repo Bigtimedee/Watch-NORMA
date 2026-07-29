@@ -3,6 +3,19 @@
 > **Read this before you trust `supabase_migrations.schema_migrations`, before you assume a function in `supabase/functions/` is deployed, and before you wire anything to a cron job.**
 >
 > On 2026-07-29 the production project (`shijrazlzawjpobrpmnt`) was found to be running a schema roughly three months behind the repository, with eight Edge Functions never deployed and four cron jobs that had never once succeeded. This file records what was true, what was changed, and what is still open.
+>
+> **CURRENT STATUS, end of reconciliation:**
+>
+> | Area | State |
+> |---|---|
+> | Migrations | All 34 pending applied. Schema matches repo. |
+> | Edge Functions | All 8 previously undeployed are live and verified byte for byte. |
+> | Cron jobs | 29 total. 0 broken, 0 carrying plaintext credentials. 27 read auth from Vault, 2 need none. |
+> | Legacy service role key | Still valid. Retired only once legacy keys are disabled, which requires the app OTA cutover first. |
+> | CI auto-deploy of functions | **Still not merged.** Blocked on a GitHub token with `workflow` permission. This is the one thing that lets the drift recur. |
+> | Alert engine | Untouched by this work. Still zero alerts since 2026-03-29, zero ever for NBA or MLB. Separate investigation. |
+>
+> Sections 1 to 3 are the historical record of what was found. Sections 5 to 7 are what was done and verified.
 
 ---
 
@@ -46,9 +59,9 @@ All 29 non-cron migrations, verified. Applied SQL was hardened to be re-runnable
 
 ---
 
-## 3. Still open
+## 3. What was open at the start of this work (all resolved, see sections 5 to 7)
 
-### 3.1 Eight Edge Functions exist in the repo and have never been deployed
+### 3.1 Eight Edge Functions exist in the repo and have never been deployed [RESOLVED, see section 5]
 
 `advertiser-weekly-report`, `creative-prescreen`, `get-referral-code`, `growth-weekly-report`, `monitor-health`, `morning-briefing`, `purge-old-data`, `verify-provider-links`.
 
@@ -56,11 +69,11 @@ Three matter beyond their own features: `purge-old-data` is the data retention c
 
 Conversely, three functions are **deployed with no source in the repo**: `alert-engine`, `norma-agent-evaluate`, `refresh-social-tokens`. Nobody should assume the repo is a complete picture of what runs.
 
-### 3.2 Five cron migrations are deliberately not applied
+### 3.2 Five cron migrations are deliberately not applied [RESOLVED, see section 5]
 
 `064`, `067`, `068`, `069`, `20260706000007`. Each schedules a job targeting one of the undeployed functions above. Applying them first would only create more failing jobs.
 
-### 3.3 Four live cron jobs have never succeeded
+### 3.3 Four live cron jobs have never succeeded [RESOLVED, see sections 5 and 6; the true count was 5 broken plus 16 carrying plaintext keys]
 
 `cmo-publish-content` (336 failures in seven days), `cmo-generate-content` (28), `generate-social-content` (7), `poll-schedule-lookahead` (7). All fail identically: `unrecognized configuration parameter "app.settings.supabase_url"`.
 
@@ -180,4 +193,25 @@ All 16 rewritten in `20260729000002_remove_plaintext_keys_from_all_cron_jobs.sql
 
 **A migration authorship correction, not just a fix.** `063_social_cron_schedule.sql` and its predecessors were already applied to production before this session (confirmed against the untracked-but-applied ledger check in section 1), so per the non negotiable rule against editing shipped migrations, none of them were touched. The fix for the five originally-broken jobs went into a new file, `20260729000001_fix_broken_social_and_lookahead_cron.sql`, rather than an edit to `063`. Anyone reading `063` in isolation will see stale, already-superseded scheduling logic; `20260729000001` and `20260729000002` are the current state.
 
-**One gap this does not close:** 17 migration files still contain the `app.settings.*` reference in their original, already-applied text (`016`, `018`, `022`, `027`, `029`, `034`, `035`, `040`, `044`, `045`, `046`, `047`, `048`, `056`, `057`, `063`, `20260307000001`). None of them reflect current runtime behavior for the jobs checked in this session, since all were superseded by hand patches or by the migrations above. But this was verified for the specific jobs named here, not for every job those 17 files might touch. Treat any of them as unreliable documentation of current cron state; verify against `cron.job` directly before trusting one.
+**One gap this does not close:** 17 migration files still contain the `app.settings.*` reference in their original, already-applied text (`016`, `018`, `022`, `027`, `029`, `034`, `035`, `040`, `044`, `045`, `046`, `047`, `048`, `056`, `057`, `063`, `20260307000001`).
+
+## 7. Audit of the 17 stale migration files (2026-07-29, completed)
+
+Those 17 files were audited in full rather than left as an open warning. **Result: zero operational risk. They are stale text only.**
+
+Method: every `cron.schedule(...)` call across all 17 files was extracted, yielding 20 distinct job names. Each was then checked against live `cron.job` state rather than against file text.
+
+| Finding | Count |
+|---|---|
+| Jobs referenced by the 17 files | 20 |
+| Live jobs with a broken `app.settings.*` reference | **0** |
+| Live jobs with a literal JWT | **0** |
+| Live jobs reading auth from Vault | 19 |
+| Jobs needing no auth (direct SQL, no HTTP call) | 1 (`auto-complete-campaigns`) |
+| Referenced jobs that no longer exist | 1 (`purge-old-impressions`, deliberately replaced by `purge-old-data` in `068`) |
+
+Every one of those 20 jobs is therefore either fixed or intentionally retired. Nothing in the 17 files describes current runtime behavior.
+
+**Why the files were not edited.** All 17 were applied to production before this session. The non negotiable rule against editing shipped migrations applies, so they are left byte for byte as they were. Their scheduling logic has been superseded at runtime by `20260729000001` and `20260729000002`. **Anyone reading those 17 files should treat them as a historical record, not as documentation of what runs today.** `cron.job` is the source of truth for cron state; this table is the summary of it.
+
+**Post rewrite verification.** `20260729000002` rewrote 16 live jobs, including `game-watcher-orchestrator` and `poll-boxscore`, which run every minute and carry the live game ingestion pipeline. Checked 25 minutes after the change: `game-watcher-orchestrator` 25 runs succeeded / 0 failed, `poll-boxscore` 25/0, `poll-markets` 5/0, `ad-budget-pacer` 5/0, `monitor-health` 5/0, `deep-link-health-check` 1/0, `refresh-ad-metrics` 1/0. No regression.
