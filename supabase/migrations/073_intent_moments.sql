@@ -31,28 +31,38 @@ CREATE TABLE IF NOT EXISTS public.intent_moments (
 );
 
 -- Supply forecasting: look up historical moments by sport + type over time
-CREATE INDEX idx_intent_moments_sport_type_time
+CREATE INDEX IF NOT EXISTS idx_intent_moments_sport_type_time
   ON public.intent_moments(sport, moment_type, fired_at DESC);
 
 -- Live dashboard (P2-02): rolling time-window queries
-CREATE INDEX idx_intent_moments_fired_at
+CREATE INDEX IF NOT EXISTS idx_intent_moments_fired_at
   ON public.intent_moments(fired_at DESC);
 
 -- Per-game lookups
-CREATE INDEX idx_intent_moments_game
+CREATE INDEX IF NOT EXISTS idx_intent_moments_game
   ON public.intent_moments(game_id, fired_at DESC);
 
 -- Auction yield analysis: fill rate by outcome
-CREATE INDEX idx_intent_moments_auction_outcome
+CREATE INDEX IF NOT EXISTS idx_intent_moments_auction_outcome
   ON public.intent_moments(auction_outcome, fired_at DESC);
 
 -- RLS: service_role writes (evaluate-alerts); authenticated reads (aggregate, no PII)
 ALTER TABLE public.intent_moments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated users can read intent moments"
-  ON public.intent_moments FOR SELECT
-  TO authenticated
-  USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='intent_moments'
+      AND policyname='Authenticated users can read intent moments'
+  ) THEN
+    CREATE POLICY "Authenticated users can read intent moments"
+      ON public.intent_moments FOR SELECT
+      TO authenticated
+      USING (true);
+  END IF;
+END;
+$$;
 
 COMMENT ON TABLE public.intent_moments IS
   'One row per qualifying game moment. The tradeable unit of NORMA''s intent marketplace. '

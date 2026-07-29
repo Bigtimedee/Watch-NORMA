@@ -18,5 +18,14 @@ UPDATE games SET status = 'inprogress' WHERE status = 'status_in_progress'
 UPDATE games SET status = 'scheduled' WHERE status IN ('status_scheduled', 'delayed');
 
 -- Add the constraint
-ALTER TABLE games ADD CONSTRAINT games_status_valid
-  CHECK (status IN ('scheduled', 'inprogress', 'halftime', 'closed', 'cancelled', 'postponed'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='games_status_valid' AND conrelid='public.games'::regclass
+  ) THEN
+    ALTER TABLE games ADD CONSTRAINT games_status_valid
+      CHECK (status IN ('scheduled', 'inprogress', 'halftime', 'closed', 'cancelled', 'postponed'));
+  END IF;
+END;
+$$;

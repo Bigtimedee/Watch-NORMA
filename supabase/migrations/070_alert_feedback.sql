@@ -16,8 +16,18 @@ CREATE TABLE IF NOT EXISTS public.alert_feedback (
 ALTER TABLE public.alert_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Users can read, insert, and update only their own rows.
-CREATE POLICY "Users manage own alert feedback" ON public.alert_feedback
-  FOR ALL USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='alert_feedback'
+      AND policyname='Users manage own alert feedback'
+  ) THEN
+    CREATE POLICY "Users manage own alert feedback" ON public.alert_feedback
+      FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END;
+$$;
 
 -- alert_id lookup (for future aggregate queries: "how was this alert rated?")
 CREATE INDEX IF NOT EXISTS idx_alert_feedback_alert

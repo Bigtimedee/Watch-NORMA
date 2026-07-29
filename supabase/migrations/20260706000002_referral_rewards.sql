@@ -10,8 +10,18 @@ CREATE TABLE IF NOT EXISTS public.referral_rewards (
 
 ALTER TABLE public.referral_rewards ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users read own rewards" ON public.referral_rewards
-  FOR SELECT USING (auth.uid() = referrer_user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='referral_rewards'
+      AND policyname='Users read own rewards'
+  ) THEN
+    CREATE POLICY "Users read own rewards" ON public.referral_rewards
+      FOR SELECT USING (auth.uid() = referrer_user_id);
+  END IF;
+END;
+$$;
 
 -- Add insider_status to profiles for NORMA Insider badge display
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS insider_status BOOLEAN DEFAULT false;

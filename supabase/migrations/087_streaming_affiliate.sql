@@ -44,10 +44,20 @@ CREATE INDEX IF NOT EXISTS idx_streaming_affiliate_events_user
 
 ALTER TABLE public.streaming_affiliate_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users read own affiliate events"
-  ON public.streaming_affiliate_events
-  FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='streaming_affiliate_events'
+      AND policyname='Users read own affiliate events'
+  ) THEN
+    CREATE POLICY "Users read own affiliate events"
+      ON public.streaming_affiliate_events
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END;
+$$;
 
 COMMENT ON TABLE public.streaming_affiliate_events IS
   'Tracks streaming deep link taps and subscription confirmations for affiliate commission attribution. '

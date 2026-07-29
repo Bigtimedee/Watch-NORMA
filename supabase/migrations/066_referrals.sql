@@ -16,10 +16,20 @@ CREATE TABLE IF NOT EXISTS public.referral_codes (
 ALTER TABLE public.referral_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can select own referral code"
-  ON public.referral_codes
-  FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='referral_codes'
+      AND policyname='Users can select own referral code'
+  ) THEN
+    CREATE POLICY "Users can select own referral code"
+      ON public.referral_codes
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_referral_signup()
 RETURNS TRIGGER

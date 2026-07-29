@@ -2,7 +2,7 @@
 -- Privacy: user_id is required; no PII may be stored in properties.
 -- Service role bypasses RLS for server-side inserts (evaluate-alerts).
 
-CREATE TABLE app_events (
+CREATE TABLE IF NOT EXISTS app_events (
   id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   event_name  TEXT        NOT NULL,
@@ -13,15 +13,35 @@ CREATE TABLE app_events (
 ALTER TABLE app_events ENABLE ROW LEVEL SECURITY;
 
 -- Mobile app users insert their own events (anon key / user JWT)
-CREATE POLICY "Users insert own events" ON app_events
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='app_events'
+      AND policyname='Users insert own events'
+  ) THEN
+    CREATE POLICY "Users insert own events" ON app_events
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+END;
+$$;
 
 -- Admin web portal (user JWT with app_metadata.role = admin) reads all
-CREATE POLICY "Admin reads all events" ON app_events
-  FOR SELECT USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='app_events'
+      AND policyname='Admin reads all events'
+  ) THEN
+    CREATE POLICY "Admin reads all events" ON app_events
+      FOR SELECT USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+  END IF;
+END;
+$$;
 
-CREATE INDEX idx_app_events_user     ON app_events(user_id, created_at DESC);
-CREATE INDEX idx_app_events_name_ts  ON app_events(event_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_events_user     ON app_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_events_name_ts  ON app_events(event_name, created_at DESC);
 
 -- ──────────────────────────────────────────────────────────────────────────
 -- daily_activation_funnel
