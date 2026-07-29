@@ -476,6 +476,11 @@ Every entry below was confirmed against at least two sources (code plus a doc, a
 
 ---
 
+9. **The repository is not what production runs.** As of 2026-07-29, 34 migrations were unapplied, eight Edge Functions had never been deployed, and four cron jobs had never succeeded. Twenty nine of those migrations have since been applied. See `12_PRODUCTION_RECONCILIATION_2026_07.md` before assuming any feature described in this document is actually live. The migration ledger itself is unreliable in both directions.
+   *Verified: schema state queried directly against the live project, function list from the Supabase API, and `cron.job_run_details`.*
+
+---
+
 ## 10. Update protocol
 
 This file describes behavior, and behavior changes. Keep it true.
