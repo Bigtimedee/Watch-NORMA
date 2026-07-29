@@ -86,6 +86,56 @@ The legacy service role JWT is stored in plaintext inside `cron.job` command tex
 
 ---
 
+## 3.5 Automated function deployment (added 2026-07-29)
+
+**Status: the `config.toml` half is committed. The CI job below is NOT yet in `.github/workflows/ci.yml`,** because GitHub refuses workflow file edits from a token without the `workflow` permission. Anyone with such a token should paste this job into `ci.yml` immediately above `ota-update:`.
+
+```yaml
+  deploy-functions:
+    name: Deploy Edge Functions
+    runs-on: ubuntu-latest
+    needs: [client, deno, migrations]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Warn if secrets are missing
+        if: env.SUPABASE_ACCESS_TOKEN == '' || env.SUPABASE_PROJECT_REF == ''
+        run: |
+          echo "::warning::SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF not set."
+          echo "::warning::Edge Functions were NOT deployed. Repo and production will drift."
+      - name: Deploy all Edge Functions
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+      - name: List deployed functions
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: supabase functions list --project-ref "$SUPABASE_PROJECT_REF"
+```
+
+Project ref for this project is `shijrazlzawjpobrpmnt`.
+
+Once added, that job deploys Edge Functions on every push to `main`. On every push to `main`, after the three test jobs pass, it runs `supabase functions deploy` against production. This closes half the drift described in section 1.
+
+**It requires two GitHub repository secrets.** Until both are set, the job logs a warning and deploys nothing, so drift continues silently:
+
+- `SUPABASE_ACCESS_TOKEN` — a Supabase personal access token
+- `SUPABASE_PROJECT_REF` — the project reference
+
+**`supabase/config.toml` now pins `verify_jwt` per function, and this is load bearing.** The CLI defaults it to `true`. Before this change, a blanket deploy would have turned verification ON for `poll-boxscore`, `generate-social-content`, and `publish-social-posts`, which currently run with it OFF, breaking boxscore polling. Any function that must accept a caller without a valid Supabase JWT has to be listed in `config.toml` explicitly. Verify against the live project before adding or removing an entry.
+
+`intent-api` is deliberately absent from that list. Adding it is what would make the API reachable, and that should not happen before durable rate limiting exists.
+
+## 3.6 Migrations are still NOT deployed automatically
+
+`supabase db push` was deliberately left out of CI. Adding it today would immediately apply the five parked cron migrations (`064`, `067`, `068`, `069`, `20260706000007`), and because no `app.*` settings exist on this database, that would schedule five more jobs that fail on every run, joining the four already failing.
+
+**Order of operations:** rewrite those five migrations to read the key from Vault, verify the jobs run, and only then add a `db push` step to CI. Until then, migrations remain a deliberate manual act.
+
 ## 4. What this does not fix
 
 The alert engine has produced 28 alerts in its lifetime, all `ncaam`, none since 2026-03-29, and none ever for `nba` or `mlb`. Nothing in this reconciliation addresses that. Note also that production holds zero team follows and zero player follows (all 41 follows are single game follows) and two wagers, so candidate generation may simply be starved rather than broken. Distinguishing the two requires watching `evaluate-alerts` during a live game.

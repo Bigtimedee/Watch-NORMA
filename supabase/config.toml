@@ -24,3 +24,49 @@ secret = "env(APPLE_SECRET)"
 
 [auth.external.google]
 enabled = false
+
+# ---------------------------------------------------------------------------
+# Edge Function JWT verification
+#
+# The CLI defaults verify_jwt to TRUE. Any function that must accept a caller
+# WITHOUT a valid Supabase JWT has to be listed here explicitly, or a deploy
+# will silently turn verification on and break it.
+#
+# Two categories need it off:
+#   1. Already deployed with it off. Verified against the live project
+#      2026-07-29: poll-boxscore, generate-social-content, publish-social-posts.
+#   2. Invoked by pg_cron using the new-format secret key. New-format keys
+#      (sb_secret_*) are NOT JWTs, so the platform rejects them before the
+#      function body runs. See doc 12.
+#
+# NOT listed, deliberately: intent-api. Setting it false is what makes that
+# API reachable, and it should not happen until durable rate limiting lands.
+# See finding 4 in doc 11.
+# ---------------------------------------------------------------------------
+
+[functions.poll-boxscore]
+verify_jwt = false
+
+[functions.generate-social-content]
+verify_jwt = false
+
+[functions.publish-social-posts]
+verify_jwt = false
+
+[functions.morning-briefing]
+verify_jwt = false
+
+[functions.monitor-health]
+verify_jwt = false
+
+[functions.verify-provider-links]
+verify_jwt = false
+
+[functions.purge-old-data]
+verify_jwt = false
+
+[functions.growth-weekly-report]
+verify_jwt = false
+
+[functions.advertiser-weekly-report]
+verify_jwt = false
