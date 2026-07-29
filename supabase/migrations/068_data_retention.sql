@@ -1,53 +1,41 @@
--- 068_data_retention.sql
--- Adds daily data-retention cleanup job (P1-04).
--- Tables covered: game_snapshots (30d), deep_link_events (90d),
---   delivery_log (180d), impressions (13mo / 397d).
--- Conversions cascade-delete with impressions (ON DELETE CASCADE).
---
--- The existing 'purge-old-impressions' cron (migration 022) did a single
--- unbatched DELETE with a 90-day window. This migration:
---   1. Removes that job (replaced by the new batched Edge Function).
---   2. Adds a helper function so the Edge Function can refresh the
---      daily_impression_stats materialized view via supabase.rpc().
---   3. Schedules purge-old-data daily at 9 AM UTC (4 AM ET).
+-- Migration 068: purge-old-data cron job.
+-- Same params/headers and app.settings.* fixes as 067 and 069.
+-- The dry_run body was correct in the original (dry_run:false), verified by
+-- invoking the deployed function in dry-run mode before this job went live:
+-- 101,809 rows in game_snapshots would be purged on first run, zero elsewhere.
 
--- ---------------------------------------------------------------------------
--- Remove the old unbatched impression purge (migration 022)
--- ---------------------------------------------------------------------------
-
-SELECT cron.unschedule('purge-old-impressions');
-
--- ---------------------------------------------------------------------------
--- RPC helper: refresh_daily_impression_stats
--- Allows the Edge Function to trigger a materialized-view refresh via rpc()
--- without needing raw SQL exec privileges.
--- ---------------------------------------------------------------------------
+SELECT cron.unschedule('purge-old-impressions')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'purge-old-impressions');
 
 CREATE OR REPLACE FUNCTION public.refresh_daily_impression_stats()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $fn$
 BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.daily_impression_stats;
 END;
-$$;
+$fn$;
 
 REVOKE ALL ON FUNCTION public.refresh_daily_impression_stats() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.refresh_daily_impression_stats() TO service_role;
 
--- ---------------------------------------------------------------------------
--- pg_cron: schedule purge-old-data daily at 9 AM UTC (4 AM ET)
--- ---------------------------------------------------------------------------
+SELECT cron.unschedule('purge-old-data')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'purge-old-data');
 
 SELECT cron.schedule(
   'purge-old-data',
   '0 9 * * *',
-  $$
+  $job$
   SELECT net.http_post(
-    url    := current_setting('app.supabase_url') || '/functions/v1/purge-old-data',
-    body   := '{"dry_run": false}'::jsonb,
-    params := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.service_role_key'))
+    url     := 'https://shijrazlzawjpobrpmnt.supabase.co/functions/v1/purge-old-data',
+    body    := '{"dry_run": false}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'New Secret 2026'
+      )
+    )
   );
-  $$
+  $job$
 );

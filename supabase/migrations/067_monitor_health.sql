@@ -1,11 +1,9 @@
--- 067_monitor_health.sql
--- Adds ops_alert_state dedup table and pg_cron job for monitor-health (P1-03).
--- ops_alert_state tracks when each alert fingerprint was last paged so that
--- monitor-health can suppress repeated identical alerts within a cooldown window.
-
--- ---------------------------------------------------------------------------
--- ops_alert_state: dedup table for health monitor alerts
--- ---------------------------------------------------------------------------
+-- Migration 067: monitor-health cron job and ops_alert_state table.
+-- Rewritten from the version applied to production 2026-07-29.
+-- Original referenced current_setting('app.supabase_url' / 'app.service_role_key'),
+-- neither of which exists on this database, and passed Authorization through
+-- params (pg_net's URL query string, not headers). Both fixed: URL is
+-- hardcoded, auth is read from Vault, and it goes through headers.
 
 CREATE TABLE IF NOT EXISTS public.ops_alert_state (
   fingerprint    TEXT        PRIMARY KEY,
@@ -15,32 +13,40 @@ CREATE TABLE IF NOT EXISTS public.ops_alert_state (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Only the service role may read or write this table.
 ALTER TABLE public.ops_alert_state ENABLE ROW LEVEL SECURITY;
 
--- No user-facing policies — the service role bypasses RLS by default.
--- Explicitly deny all authenticated/anon access.
-CREATE POLICY "ops_alert_state: service role only"
-  ON public.ops_alert_state
-  FOR ALL
-  USING (false);
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='ops_alert_state'
+      AND policyname='ops_alert_state: service role only'
+  ) THEN
+    CREATE POLICY "ops_alert_state: service role only"
+      ON public.ops_alert_state FOR ALL USING (false);
+  END IF;
+END;
+$do$;
 
--- Index for fast fingerprint + time range lookups
 CREATE INDEX IF NOT EXISTS idx_ops_alert_state_fingerprint_time
   ON public.ops_alert_state (fingerprint, last_paged_at DESC);
 
--- ---------------------------------------------------------------------------
--- pg_cron: schedule monitor-health every 5 minutes
--- ---------------------------------------------------------------------------
+SELECT cron.unschedule('monitor-health')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'monitor-health');
 
 SELECT cron.schedule(
   'monitor-health',
   '*/5 * * * *',
-  $$
+  $job$
   SELECT net.http_post(
-    url    := current_setting('app.supabase_url') || '/functions/v1/monitor-health',
-    body   := '{}'::jsonb,
-    params := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.service_role_key'))
+    url     := 'https://shijrazlzawjpobrpmnt.supabase.co/functions/v1/monitor-health',
+    body    := '{}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'New Secret 2026'
+      )
+    )
   );
-  $$
+  $job$
 );

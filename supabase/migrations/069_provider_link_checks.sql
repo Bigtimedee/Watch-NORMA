@@ -1,11 +1,7 @@
--- 069_provider_link_checks.sql
--- Adds provider_link_checks table and pg_cron job for verify-provider-links (P1-05).
--- Stores the result of each proactive universal-link health check so that
--- verify-provider-links can detect status changes and avoid repeated Slack noise.
-
--- ---------------------------------------------------------------------------
--- provider_link_checks: history of universal-link verification runs
--- ---------------------------------------------------------------------------
+-- Migration 069: provider_link_checks table, verify-provider-links cron,
+-- and morning-briefing cron (originally migration 064, folded in here
+-- since both were applied together and both had the same params/headers
+-- and app.settings.* bugs). Same fix pattern as 067.
 
 CREATE TABLE IF NOT EXISTS public.provider_link_checks (
   id                     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -18,30 +14,60 @@ CREATE TABLE IF NOT EXISTS public.provider_link_checks (
   checked_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Index for fast per-provider time-ordered lookups (used by change-detection query)
 CREATE INDEX IF NOT EXISTS idx_provider_link_checks_provider_time
   ON public.provider_link_checks (provider_key, checked_at DESC);
 
--- Service role only — no user-facing queries needed
 ALTER TABLE public.provider_link_checks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "provider_link_checks: service role only"
-  ON public.provider_link_checks
-  FOR ALL
-  USING (false);
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='provider_link_checks'
+      AND policyname='provider_link_checks: service role only'
+  ) THEN
+    CREATE POLICY "provider_link_checks: service role only"
+      ON public.provider_link_checks FOR ALL USING (false);
+  END IF;
+END;
+$do$;
 
--- ---------------------------------------------------------------------------
--- pg_cron: schedule verify-provider-links every 6 hours
--- ---------------------------------------------------------------------------
+SELECT cron.unschedule('verify-provider-links')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'verify-provider-links');
 
 SELECT cron.schedule(
   'verify-provider-links',
   '0 */6 * * *',
-  $$
+  $job$
   SELECT net.http_post(
-    url    := current_setting('app.supabase_url') || '/functions/v1/verify-provider-links',
-    body   := '{}'::jsonb,
-    params := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.service_role_key'))
+    url     := 'https://shijrazlzawjpobrpmnt.supabase.co/functions/v1/verify-provider-links',
+    body    := '{}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'New Secret 2026'
+      )
+    )
   );
-  $$
+  $job$
+);
+
+SELECT cron.unschedule('morning-briefing')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'morning-briefing');
+
+SELECT cron.schedule(
+  'morning-briefing',
+  '0 23 * * *',
+  $job$
+  SELECT net.http_post(
+    url     := 'https://shijrazlzawjpobrpmnt.supabase.co/functions/v1/morning-briefing',
+    body    := '{}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'New Secret 2026'
+      )
+    )
+  );
+  $job$
 );
