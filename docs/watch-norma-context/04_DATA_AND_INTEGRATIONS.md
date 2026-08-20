@@ -4,15 +4,16 @@
 
 Watch-NORMA ingests live sports data from multiple providers with a primary/fallback hierarchy to maximize reliability and minimize cost.
 
-### ESPN (Primary Scores Source)
+### ESPN (Primary Real-Time Source, All Sports)
 
-ESPN's public API is the primary source for live scores and game status. It is free, requires no API key, and provides accurate, low-latency score data.
+ESPN's public API is the canonical real-time source for live scores and game status across every sport NORMA supports. It is free, requires no API key, and provides accurate, low-latency data. NORMA does not use Sportradar for real-time scoring; Sportradar is reserved for supplementary play-by-play and summary statistics on the sports that carry an active Sportradar contract.
 
-- **Endpoints used:** Sport-specific scoreboard endpoints (ncaam, nba, mlb)
-- **Data extracted:** Team names, scores, game status (`status.type.description`), period, clock, venue, broadcast info
-- **Polling frequency:** Every 1 minute via `poll-boxscore`
-- **Critical rule:** Always use `status.type.description` (human-readable: "In Progress"), never `status.type.name` (machine code: "STATUS_IN_PROGRESS"). The May 2026 outage was caused by reading the wrong field — see `OUTAGE-REPORT-2026-05-16.md`.
+- **Endpoints used:** Sport-specific scoreboard endpoints — `.../basketball/mens-college-basketball`, `.../basketball/nba`, `.../baseball/mlb`, `.../football/college-football`, `.../football/nfl` (constants in `lib/constants.ts` → `ESPN_BASE_URLS`, mirrored in `poll-schedule/index.ts` and `poll-boxscore/index.ts` as `ESPN_BASES`).
+- **Data extracted:** Team names, scores, game status (`status.type.description`), period, clock, venue, broadcast info.
+- **Polling frequency:** Schedules every 30 minutes via `poll-schedule` (multi-sport ESPN loop, all sports except NCAAM basketball which also reads SportsDataIO); live scores every 1 minute via `poll-boxscore`.
+- **Critical rule (#19):** Always use `status.type.description` (human-readable: "In Progress"), never `status.type.name` (machine code: "STATUS_IN_PROGRESS"). The May 2026 outage was caused by reading the wrong field — see `OUTAGE-REPORT-2026-05-16.md`.
 - **Status mapping:** ESPN descriptions are normalized to canonical values: "scheduled", "inprogress", "halftime", "closed", "cancelled", "postponed" via `_shared/utils.ts`.
+- **Required User-Agent header (added 2026-08-19):** ESPN's public scoreboard edge returns HTTP 403 when the request UA is `Mozilla/*`, `Deno/*`, or a custom identifier like `Watch-NORMA/1.0`. It only accepts well-known HTTP-client-library UAs (`curl/*`, `python-requests/*`, `Go-http-client/*`, `okhttp/*`, `axios/*`). Both `poll-schedule` and `poll-boxscore` now send `User-Agent: curl/8.7.1 (Watch-NORMA/1.0 <function>)` on every ESPN fetch. Without this header the multi-sport ingestion silently ingests zero games (fetch returns 403, `!res.ok` branch continues to the next sport). This was the load-bearing bug behind the 2026-08-19 NCAAF/NFL activation appearing to fail after CI deploy.
 
 ### SportsDataIO (Schedules + Fallback Scores)
 
