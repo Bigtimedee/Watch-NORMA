@@ -126,6 +126,7 @@ export default function GamesScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.sportScroll}
         contentContainerStyle={s.sportRow}
       >
         {SPORT_PILLS.map((pill) => {
@@ -253,8 +254,26 @@ const s = StyleSheet.create({
     backgroundColor: "#f97316",
   },
   retryText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
-  sportRow: { flexDirection: "row", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  sportPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 9999 },
+  // A horizontal ScrollView in a column layout stretches to fill leftover space
+  // and is then squeezed when a sibling claims it. With the games list empty the
+  // pills rendered oversized; once the list filled (build 26) the row collapsed
+  // and clipped every label to an empty rectangle. flexGrow/flexShrink 0 pins the
+  // row to its content height, and the explicit pill height makes that height
+  // unambiguous — the same arrangement DatePicker already uses successfully.
+  sportScroll: { flexGrow: 0, flexShrink: 0 },
+  sportRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  sportPill: {
+    height: 32,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderRadius: 9999,
+  },
   sportPillActive: { backgroundColor: "#f97316" },
   sportPillInactive: { backgroundColor: "#1e293b" },
   sportPillText: { fontSize: 13, fontWeight: "600" },
