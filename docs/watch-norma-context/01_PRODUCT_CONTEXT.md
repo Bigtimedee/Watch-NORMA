@@ -6,7 +6,7 @@ Watch-NORMA is a mobile app for sports fans who have too many games, too many su
 
 The app is live in the Apple App Store as an iOS app built with React Native / Expo. The backend runs on Supabase (Postgres + Deno Edge Functions). Revenue comes from a proprietary second-price Vickrey auction ad engine that attaches contextual sponsor ads to high-value alert moments. An advertiser portal (Next.js) lets advertisers manage campaigns, creatives, bids, and budgets.
 
-Watch-NORMA sends alerts for NCAA basketball (NCAAM), NBA, and MLB. NFL and NCAAF are fully ingested and their alert rules are implemented, but alerting for football is gated behind `ALERTABLE_SPORTS` in `evaluate-alerts` until its September 1, 2026 activation target. Distinguish *ingested* from *alertable* when reasoning about sport coverage. It ingests data from ESPN (primary scores), SportsDataIO (schedules), Sportradar (play-by-play, summaries), The Odds API (sportsbook odds from DraftKings, FanDuel, BetMGM, ESPNBet), Kalshi (prediction markets), and Polymarket (on-chain positions).
+Watch-NORMA sends alerts for NCAA basketball (NCAAM), NBA, MLB, NCAAF, and NFL. Football (NCAAF + NFL) was activated 2026-08-19 ahead of the 2026 season by adding both sports to `ALERTABLE_SPORTS` in `evaluate-alerts`; the client sport pills expose both alongside basketball and baseball. It ingests data from ESPN (primary scores), SportsDataIO (schedules), Sportradar (play-by-play, summaries), The Odds API (sportsbook odds from DraftKings, FanDuel, BetMGM, ESPNBet), Kalshi (prediction markets), and Polymarket (on-chain positions).
 
 ## Product Thesis
 
@@ -60,7 +60,7 @@ Based on repository inspection, the following features are in the indicated stat
 **Implemented and live:**
 - iOS app in the Apple App Store (React Native / Expo)
 - User authentication (email/password + Apple Sign-In)
-- Game schedule ingestion (NCAA, NBA, MLB) from ESPN + SportsDataIO + Sportradar
+- Game schedule ingestion (NCAAM, NBA, MLB, NCAAF, NFL) from ESPN + SportsDataIO + Sportradar
 - Live score polling from ESPN (primary) with SportsDataIO fallback
 - Play-by-play and summary ingestion from Sportradar with SportsDataIO fallback
 - Game-watcher orchestrator with durable Postgres-backed state, backoff, and rate budgeting

@@ -7,6 +7,8 @@ export const SPORTSDATAIO_BASE_URLS = {
   ncaam: "https://api.sportsdata.io/v3/cbb",
   nba:   "https://api.sportsdata.io/v3/nba",
   mlb:   "https://api.sportsdata.io/v3/mlb",
+  ncaaf: "https://api.sportsdata.io/v3/cfb",
+  nfl:   "https://api.sportsdata.io/v3/nfl",
 } as const;
 export const SPORTSDATAIO_API_KEY =
   process.env.EXPO_PUBLIC_SPORTSDATAIO_API_KEY ?? "";
@@ -18,6 +20,8 @@ export const SPORTRADAR_BASE_URLS = {
   ncaam: "https://api.sportradar.com/ncaamb/production/v8/en",
   nba:   "https://api.sportradar.com/nba/production/v8/en",
   mlb:   "https://api.sportradar.com/mlb/production/v8/en",
+  ncaaf: "https://api.sportradar.com/ncaafb/production/v8/en",
+  nfl:   "https://api.sportradar.com/nfl/official/production/v7/en",
 } as const;
 
 // ESPN (supplementary, unofficial) — sport-specific base URLs
@@ -27,6 +31,8 @@ export const ESPN_BASE_URLS = {
   ncaam: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball",
   nba:   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
   mlb:   "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
+  ncaaf: "https://site.api.espn.com/apis/site/v2/sports/football/college-football",
+  nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 } as const;
 
 // Polling intervals (ms) — cost-aware

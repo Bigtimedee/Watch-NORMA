@@ -1,11 +1,11 @@
 // components/SportSelector.tsx
-// Segmented control for switching between NCAA, NBA, and MLB.
+// Segmented control for switching between NCAA, NBA, MLB, NCAAF, and NFL.
 // Reads and writes selectedSport via SportContext.
 
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useSport, type SportKey, SPORT_LABELS } from "../lib/sport-context";
 
-const SPORTS: SportKey[] = ["ncaam", "nba", "mlb"];
+const SPORTS: SportKey[] = ["ncaam", "nba", "mlb", "ncaaf", "nfl"];
 
 interface SportSelectorProps {
   style?: object;

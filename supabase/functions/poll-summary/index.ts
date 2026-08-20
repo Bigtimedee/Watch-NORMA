@@ -20,6 +20,8 @@ const SPORTSDATAIO_BASES: Record<string, string> = {
   ncaam: "https://api.sportsdata.io/v3/cbb",
   nba:   "https://api.sportsdata.io/v3/nba",
   mlb:   "https://api.sportsdata.io/v3/mlb",
+  ncaaf: "https://api.sportsdata.io/v3/cfb",
+  nfl:   "https://api.sportsdata.io/v3/nfl",
 };
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 

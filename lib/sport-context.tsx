@@ -5,18 +5,22 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type SportKey = "ncaam" | "nba" | "mlb";
+export type SportKey = "ncaam" | "nba" | "mlb" | "ncaaf" | "nfl";
 
 export const SPORT_LABELS: Record<SportKey, string> = {
   ncaam: "NCAA",
   nba:   "NBA",
   mlb:   "MLB",
+  ncaaf: "NCAAF",
+  nfl:   "NFL",
 };
 
 export const SPORT_DISPLAY_NAMES: Record<SportKey, string> = {
   ncaam: "NCAA Men's Basketball",
   nba:   "NBA Basketball",
   mlb:   "MLB Baseball",
+  ncaaf: "NCAA Football",
+  nfl:   "NFL Football",
 };
 
 const STORAGE_KEY = "norma:selectedSport";
@@ -42,7 +46,14 @@ export function SportProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (stored && (stored === "ncaam" || stored === "nba" || stored === "mlb")) {
+        if (
+          stored &&
+          (stored === "ncaam" ||
+            stored === "nba" ||
+            stored === "mlb" ||
+            stored === "ncaaf" ||
+            stored === "nfl")
+        ) {
           setSelectedSportState(stored as SportKey);
         }
       })

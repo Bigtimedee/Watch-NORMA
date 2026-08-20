@@ -21,7 +21,7 @@ The onboarding flow starts at `/(auth)/welcome` and guides the user through acco
 When a returning user opens the app, they land on the Games tab. The screen displays:
 
 - **Date picker** — horizontal scroll of dates (±5 days from today, Eastern timezone). Tap a date to see that day's games.
-- **Sport filter** — pills for All Sports, NCAA, NBA, MLB.
+- **Sport filter** — horizontally-scrollable pills for All Sports, NCAA, NBA, MLB, NCAAF, NFL.
 - **Tab switcher** — "All Games" (every game for the date/sport), "Live" (in-progress games only), "Following" (games the user follows).
 - **Game cards** — each card shows away/home teams, scores (if live/final), status badge (Scheduled, Live, Halftime, Final), broadcast info, and venue.
 - **Pull-to-refresh** — manual refresh of game data.

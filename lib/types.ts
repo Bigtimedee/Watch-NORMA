@@ -10,7 +10,7 @@ export type GameStatus =
   | "forfeit";
 
 /** Sport discriminator — matches the sport_key Postgres enum */
-export type SportKey = "ncaam" | "nba" | "mlb";
+export type SportKey = "ncaam" | "nba" | "mlb" | "ncaaf" | "nfl";
 
 export type FollowType = "game" | "team";
 

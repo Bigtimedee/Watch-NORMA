@@ -30,8 +30,16 @@ describe("SPORT_LABELS", () => {
     expect(SPORT_LABELS["mlb"]).toBe("MLB");
   });
 
-  it("covers all three sport keys", () => {
-    const sports: SportKey[] = ["ncaam", "nba", "mlb"];
+  it("ncaaf maps to 'NCAAF'", () => {
+    expect(SPORT_LABELS["ncaaf"]).toBe("NCAAF");
+  });
+
+  it("nfl maps to 'NFL'", () => {
+    expect(SPORT_LABELS["nfl"]).toBe("NFL");
+  });
+
+  it("covers all sport keys", () => {
+    const sports: SportKey[] = ["ncaam", "nba", "mlb", "ncaaf", "nfl"];
     sports.forEach((s) => {
       expect(SPORT_LABELS[s]).toBeDefined();
       expect(typeof SPORT_LABELS[s]).toBe("string");
@@ -83,6 +91,16 @@ describe("Game sport discriminator", () => {
   it("mlb game has sport = 'mlb'", () => {
     const game = makeGame("mlb");
     expect(game.sport).toBe("mlb");
+  });
+
+  it("ncaaf game has sport = 'ncaaf'", () => {
+    const game = makeGame("ncaaf");
+    expect(game.sport).toBe("ncaaf");
+  });
+
+  it("nfl game has sport = 'nfl'", () => {
+    const game = makeGame("nfl");
+    expect(game.sport).toBe("nfl");
   });
 
   it("mlb game carries espn_id for dedup", () => {

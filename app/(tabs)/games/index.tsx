@@ -5,6 +5,7 @@ import {
   Image,
   FlatList,
   Pressable,
+  ScrollView,
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
@@ -88,12 +89,16 @@ export default function GamesScreen() {
     { key: "ncaam",  label: "NCAA" },
     { key: "nba",    label: "NBA" },
     { key: "mlb",    label: "MLB" },
+    { key: "ncaaf",  label: "NCAAF" },
+    { key: "nfl",    label: "NFL" },
   ];
 
   const selectedSportLabel =
     selectedSport === "ncaam" ? "NCAA" :
     selectedSport === "nba"   ? "NBA" :
     selectedSport === "mlb"   ? "MLB" :
+    selectedSport === "ncaaf" ? "NCAAF" :
+    selectedSport === "nfl"   ? "NFL" :
     null;
 
   return (
@@ -117,7 +122,11 @@ export default function GamesScreen() {
       />
 
       {/* Sport selector */}
-      <View style={s.sportRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.sportRow}
+      >
         {SPORT_PILLS.map((pill) => {
           const isActive = pill.key === selectedSport;
           return (
@@ -135,7 +144,7 @@ export default function GamesScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Tabs */}
       <View style={s.tabs}>

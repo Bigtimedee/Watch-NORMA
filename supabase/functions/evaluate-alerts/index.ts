@@ -97,22 +97,23 @@ Deno.serve(async (req) => {
 
     const gameState = game as unknown as GameState;
 
-    // --- Football guard (P1-12: ingestion-only) ---
-    // NFL and NCAAF games are ingested but alert rules are not yet implemented.
-    // Returning early here prevents half-built alerts from firing for football.
-    // Follow-up: implement football alert rules, then remove this guard.
-    const ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb"]);
+    // --- Sport activation gate ---
+    // Football (NCAAF + NFL) activated 2026-08-19, ahead of the 2026 season.
+    // Football evaluators live in logic.ts (evaluateFootball*) and are wired
+    // below; alert-scoring's football must-notify rules cover overtime,
+    // two-minute drill, and close-game lead changes.
+    const ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb", "ncaaf", "nfl"]);
     if (!ALERTABLE_SPORTS.has((game as any).sport ?? "ncaam")) {
       console.log(JSON.stringify({
         function: "evaluate-alerts",
-        event: "skipped_football",
+        event: "skipped_unsupported_sport",
         game_id: gameId,
         sport: (game as any).sport,
-        reason: "football_alert_rules_not_yet_implemented",
+        reason: "sport_not_in_alertable_set",
         timestamp: new Date().toISOString(),
       }));
       return new Response(
-        JSON.stringify({ skipped: true, reason: "football_alert_rules_not_yet_implemented" }),
+        JSON.stringify({ skipped: true, reason: "sport_not_in_alertable_set" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
