@@ -40,7 +40,7 @@ NORMA is a React Native/Expo mobile app for NCAA basketball fans and bettors. It
 
 - **Mobile**: React Native 0.81 + Expo 54 + Expo Router 6 + TypeScript 5.9
 - **Backend**: Supabase (Postgres 15 + Edge Functions in Deno + Auth + Realtime)
-- **Data Sources**: ESPN (scores), SportsDataIO (schedule), Sportradar v8 (PBP/summary), The Odds API, Kalshi, Polymarket
+- **Data Sources**: ESPN (schedule + scores, primary), Sportradar v8 (PBP/summary), The Odds API, Kalshi, Polymarket. SportsDataIO is NOT a NORMA data source (owner decision, 2026-08-20) — dormant fallback paths remain in the poll-* functions pending removal; do not extend them or provision keys for them.
 - **Push**: Expo Push API
 - **CI**: GitHub Actions (TypeScript checks, Jest, Deno type checks)
 
@@ -83,7 +83,7 @@ npm test                 # Run Jest tests
 - Client uses RLS-scoped queries via user JWT
 - Polling state tracked in-memory per function invocation (see _shared/polling-state.ts)
 - Hash-based dedup for all snapshot inserts (payload_hash)
-- ESPN is the primary score source (free, accurate); SportsDataIO is fallback
+- ESPN is the primary source (free, accurate). SportsDataIO fallback code still exists in poll-* but is unused and slated for removal, not hardening (owner decision, 2026-08-20)
 - Sportradar is used only for PBP (full-coverage games) and summary stats
 
 ---

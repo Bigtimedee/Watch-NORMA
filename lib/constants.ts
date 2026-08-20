@@ -1,17 +1,9 @@
 // NORMA — App Constants
 
-// SportsDataIO API — sport-specific base URLs
-export const SPORTSDATAIO_BASE_URL =
-  "https://api.sportsdata.io/v3/cbb" as const; // NCAA legacy alias
-export const SPORTSDATAIO_BASE_URLS = {
-  ncaam: "https://api.sportsdata.io/v3/cbb",
-  nba:   "https://api.sportsdata.io/v3/nba",
-  mlb:   "https://api.sportsdata.io/v3/mlb",
-  ncaaf: "https://api.sportsdata.io/v3/cfb",
-  nfl:   "https://api.sportsdata.io/v3/nfl",
-} as const;
-export const SPORTSDATAIO_API_KEY =
-  process.env.EXPO_PUBLIC_SPORTSDATAIO_API_KEY ?? "";
+// SportsDataIO was removed as a NORMA data source (owner decision, 2026-08-20).
+// The constants that lived here were imported by nothing in the app; game data
+// comes from ESPN (primary), with Sportradar for PBP/summary. Do not reintroduce
+// an EXPO_PUBLIC_SPORTSDATAIO_API_KEY — no client feature reads it.
 
 // Sportradar API — sport-specific base URLs
 export const SPORTRADAR_BASE_URL =

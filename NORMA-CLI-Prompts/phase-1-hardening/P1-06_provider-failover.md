@@ -1,5 +1,9 @@
 # P1-06 — Automatic data-provider failover (ESPN → SportsDataIO)
 
+> **DEPRECATED 2026-08-20 — do not run this prompt.** Owner decision: NORMA uses
+> ESPN, not SportsDataIO. The SportsDataIO failover is cancelled; the dormant
+> SDIO code paths in the poll-* functions are slated for removal, not hardening.
+
 > Copy everything below the line into the Claude CLI as a single prompt.
 
 ---

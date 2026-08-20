@@ -26,14 +26,6 @@ const ESPN_BASES: Record<string, string> = {
   nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 };
 
-const SPORTSDATAIO_BASES: Record<string, string> = {
-  ncaam: "https://api.sportsdata.io/v3/cbb",
-  nba:   "https://api.sportsdata.io/v3/nba",
-  mlb:   "https://api.sportsdata.io/v3/mlb",
-  ncaaf: "https://api.sportsdata.io/v3/cfb",
-  nfl:   "https://api.sportsdata.io/v3/nfl",
-};
-
 // ─── Alert gate (mirrors evaluate-alerts/index.ts guard) ─────────────────────
 
 const ALERTABLE_SPORTS = new Set(["ncaam", "nba", "mlb"]);
@@ -66,16 +58,6 @@ describe("NFL + NCAAF ESPN endpoint registration", () => {
     expect(ESPN_BASES["ncaam"]).toContain("mens-college-basketball");
     expect(ESPN_BASES["nba"]).toContain("/nba");
     expect(ESPN_BASES["mlb"]).toContain("/mlb");
-  });
-});
-
-describe("NFL + NCAAF SportsDataIO endpoint registration", () => {
-  it("ncaaf maps to cfb (college football) SportsDataIO base", () => {
-    expect(SPORTSDATAIO_BASES["ncaaf"]).toContain("/cfb");
-  });
-
-  it("nfl maps to nfl SportsDataIO base", () => {
-    expect(SPORTSDATAIO_BASES["nfl"]).toContain("/nfl");
   });
 });
 
