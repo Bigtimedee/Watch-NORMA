@@ -43,6 +43,12 @@ NORMA is a React Native/Expo mobile app for NCAA basketball fans and bettors. It
 - **Data Sources**: ESPN (schedule + scores, primary), Sportradar v8 (PBP/summary), The Odds API, Kalshi, Polymarket. SportsDataIO is NOT a NORMA data source (owner decision, 2026-08-20) — dormant fallback paths remain in the poll-* functions pending removal; do not extend them or provision keys for them.
 - **Push**: Expo Push API
 - **CI**: GitHub Actions (TypeScript checks, Jest, Deno type checks)
+- **Native dependencies**: add ONLY via `npx expo install <pkg>` — never hand-pin a
+  version. Hand-pinned `expo-store-review@^57` and `react-native-view-shot@^5` (SDK 54
+  expects ~9.0.9 / 4.0.3) shipped in builds 23–24 and crashed the app at process start,
+  before any JS ran — a crash no env-var or JS fix could touch (2026-08-20). Verify
+  with `npx expo install --check` after adding any dependency; note it lists but does
+  NOT fail (exit 0) on mismatches, so it cannot gate CI — it must be read.
 
 ## Key Directories
 
