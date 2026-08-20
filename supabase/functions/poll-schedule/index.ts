@@ -561,8 +561,10 @@ Deno.serve(async (req) => {
       else console.error(`Failed to upsert game ${g.GameID}:`, error);
     }
 
-    // 9. Ingest NBA and MLB games from ESPN (always available, no SDIO key needed)
+    // 9. Ingest all non-NCAAM sports (NBA, MLB, NCAAF, NFL) from ESPN — always available, no SDIO key needed.
+    // ESPN is the canonical real-time source for scores and live game state across every sport.
     let multiSportCount = 0;
+    const multiSportDebug: Record<string, { events: number; upserted: number; errors: number }> = {};
     {
       const espnDateMulti = dateStr.replace(/-/g, "");
 
@@ -622,16 +624,19 @@ Deno.serve(async (req) => {
       for (const sport of ENABLED_SPORTS.filter((s) => s.key !== "ncaam")) {
         const sportKey = sport.key;
         const espnBase = ESPN_BASES[sportKey];
-        if (!espnBase) continue;
+        multiSportDebug[sportKey] = { events: 0, upserted: 0, errors: 0 };
+        if (!espnBase) { multiSportDebug[sportKey].errors++; continue; }
 
         try {
           const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`);
           if (!res.ok) {
             console.warn(`[MultiSport] ESPN ${sportKey} scoreboard returned ${res.status}`);
+            multiSportDebug[sportKey].errors++;
             continue;
           }
           const data = await res.json();
           const events: any[] = data.events ?? [];
+          multiSportDebug[sportKey].events = events.length;
           console.log(`[MultiSport] ESPN ${sportKey}: ${events.length} events`);
 
           for (const event of events) {
@@ -703,8 +708,13 @@ Deno.serve(async (req) => {
             const { error } = await supabase
               .from("games")
               .upsert(gameData, { onConflict: "id" });
-            if (!error) multiSportCount++;
-            else console.error(`[MultiSport] Failed to upsert ${sportKey} game ${event.id}:`, error);
+            if (!error) {
+              multiSportCount++;
+              multiSportDebug[sportKey].upserted++;
+            } else {
+              multiSportDebug[sportKey].errors++;
+              console.error(`[MultiSport] Failed to upsert ${sportKey} game ${event.id}:`, error);
+            }
           }
         } catch (e) {
           console.warn(`[MultiSport] ESPN ${sportKey} fetch failed:`, e);
@@ -720,6 +730,7 @@ Deno.serve(async (req) => {
       gamesFound: sdioAvailable ? sdioGames.length : espnGames.length,
       gamesUpserted: upsertedCount,
       multiSportGames: multiSportCount,
+      multiSportBySport: multiSportDebug,
       espnOnlyGames: espnOnlyCount,
       sportradarGames: sportradarGames.length,
       sportradarTeamsMapped: sportradarMapped,
