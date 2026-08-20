@@ -101,3 +101,43 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - run: eas update --auto --channel production --non-interactive
         if: env.EXPO_TOKEN != ''
+        env:
+          # Inlined into the OTA JS bundle at publish time. Without these, an
+          # update published from CI ships process.env.EXPO_PUBLIC_* as
+          # undefined and lib/supabase.ts throws at cold launch (the build
+          # 1.4.0(23) crash). Public client config by design: anon key only,
+          # verified role=anon; never put a service_role key here.
+          EXPO_PUBLIC_SUPABASE_URL: https://shijrazlzawjpobrpmnt.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoaWpyYXpsemF3anBvYnJwbW50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDI2NjMsImV4cCI6MjA4NjkxODY2M30.3nqRpyNWdILhy0f8NexYgiZjFxXM8jm6r2DHYtFxJ0Y
+
+  eas-build:
+    name: EAS Build (iOS, tag-gated)
+    runs-on: ubuntu-latest
+    needs: [client, deno, migrations]
+    # Fires only when a main-branch push's commit message contains [eas-build],
+    # so ordinary pushes never consume EAS build credits. Build-time env comes
+    # from eas.json (build.production.env), not from this job.
+    if: >
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      contains(github.event.head_commit.message, '[eas-build]')
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - uses: expo/expo-github-action@v8
+        if: env.EXPO_TOKEN != ''
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Queue iOS production build (auto-submit)
+        if: env.EXPO_TOKEN != ''
+        # --no-wait: EAS builds and submits server-side; CI does not block.
+        run: eas build --platform ios --profile production --non-interactive --no-wait --auto-submit
+      - name: Warn if EXPO_TOKEN missing
+        if: env.EXPO_TOKEN == ''
+        run: echo "::warning::EXPO_TOKEN not set - build was NOT queued."

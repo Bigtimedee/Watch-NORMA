@@ -19,7 +19,11 @@
     "production": {
       "autoIncrement": true,
       "node": "22.14.0",
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://shijrazlzawjpobrpmnt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoaWpyYXpsemF3anBvYnJwbW50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDI2NjMsImV4cCI6MjA4NjkxODY2M30.3nqRpyNWdILhy0f8NexYgiZjFxXM8jm6r2DHYtFxJ0Y"
+      }
     }
   },
   "submit": {
