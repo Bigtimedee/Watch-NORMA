@@ -55,10 +55,35 @@ jobs:
       - run: supabase start
       - run: supabase stop
 
+  deploy-functions:
+    name: Deploy Edge Functions
+    runs-on: ubuntu-latest
+    needs: [client, deno, migrations]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Warn if secrets are missing
+        if: env.SUPABASE_ACCESS_TOKEN == '' || env.SUPABASE_PROJECT_REF == ''
+        run: |
+          echo "::warning::SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF not set."
+          echo "::warning::Edge Functions were NOT deployed. Repo and production will drift."
+      - name: Deploy all Edge Functions
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+      - name: List deployed functions
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: supabase functions list --project-ref "$SUPABASE_PROJECT_REF"
+
   ota-update:
     name: OTA Update (EAS)
     runs-on: ubuntu-latest
-    needs: [client, deno, migrations]
+    needs: [client, deno, migrations, deploy-functions]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

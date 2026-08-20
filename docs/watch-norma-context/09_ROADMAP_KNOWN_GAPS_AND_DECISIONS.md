@@ -76,7 +76,7 @@ These decisions require owner confirmation:
 
 Based on repository inspection, the highest-impact immediate work:
 
-1. ~~**Expand sports coverage (data layer).**~~ **Done (P1-12).** NFL and NCAAF ingestion scaffold is in place: schedule polling, boxscore polling, and Sportradar bases are all wired. ~~Alert evaluation for football is explicitly a no-op; sport-specific football alert rules are the next step.~~ **Done (July 2026).** Football alert rules fully implemented; gated behind `ALERTABLE_SPORTS` until Sept 1, 2026 NFL kickoff.
+1. ~~**Expand sports coverage (data layer).**~~ **Done (P1-12).** NFL and NCAAF ingestion scaffold is in place: schedule polling and boxscore polling read from ESPN (the canonical real-time source) via the multi-sport loop in `poll-schedule`. Sportradar bases exist for optional supplementary PBP/summary; no Sportradar contract is required to ingest football. ~~Alert evaluation for football is explicitly a no-op; sport-specific football alert rules are the next step.~~ **Done (July 2026).** Football alert rules fully implemented. ~~Gated behind `ALERTABLE_SPORTS` until Sept 1, 2026 NFL kickoff.~~ **Activated 2026-08-19** ahead of the 2026 season; `deploy-functions` CI job added in the same push so the flip actually reached production.
 2. **Stabilize deep-link health.** Continue monitoring via `deep-link-health-check`. Consider a periodic cron that automatically checks each provider's universal link for HTTP 200 + correct redirect.
 3. ~~**Enforce geo-compliance at the CTA level.**~~ **Done** — `BetNowButton` geo-gating is live.
 4. **Implement automated health monitoring.** Connect the `health-check` endpoint to an external uptime monitor (e.g., Better Uptime, PagerDuty) that alerts on degradation.
@@ -90,7 +90,7 @@ Based on repository inspection, the highest-impact immediate work:
 - Add health-check alerting for stale watchers and failed polls
 - Implement automatic provider failover (if ESPN is down, auto-promote SportsDataIO)
 - ~~Add NFL/college football data sources~~ — **Done (P1-12)**: data layer wired
-- ~~Sport-specific football alert rules~~ — **Done (July 2026)**: evaluators + scoring + must-notify + floor prices; gated until Sept 1, 2026 NFL kickoff
+- ~~Sport-specific football alert rules~~ — **Done (July 2026)**: evaluators + scoring + must-notify + floor prices. ~~Gated until Sept 1, 2026 NFL kickoff.~~ **Activated 2026-08-19** — `ALERTABLE_SPORTS` extended to include `ncaaf` + `nfl`, and CI now deploys Edge Functions so the flip reaches production.
 
 ### Alert Engine
 - ~~Add user feedback mechanism (thumbs up/down on alerts)~~ — **Done (P1-09)**: thumbs up/down on `AlertCard` persists to `alerts.feedback_polarity`

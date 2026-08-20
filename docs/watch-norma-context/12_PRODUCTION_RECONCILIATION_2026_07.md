@@ -99,9 +99,9 @@ The legacy service role JWT is stored in plaintext inside `cron.job` command tex
 
 ---
 
-## 3.5 Automated function deployment (added 2026-07-29)
+## 3.5 Automated function deployment (added 2026-07-29, landed 2026-08-19)
 
-**Status: the `config.toml` half is committed. The CI job below is NOT yet in `.github/workflows/ci.yml`,** because GitHub refuses workflow file edits from a token without the `workflow` permission. Anyone with such a token should paste this job into `ci.yml` immediately above `ota-update:`.
+**Status: LANDED 2026-08-19.** The `deploy-functions` job is now in `.github/workflows/ci.yml` immediately above `ota-update:`, and `ota-update` depends on it — the client bundle never ships to devices before the backend it depends on. The job is gated on two GitHub repository secrets; until those secrets are populated the job emits a warning and skips (keeps the pipeline green but flags drift). This was the load-bearing gap behind the 2026-08-19 NCAAF/NFL activation not reaching users: commit a652e91 changed the code, CI passed, but with no deploy step the production Edge Functions and the repo diverged. The job below is the version now committed:
 
 ```yaml
   deploy-functions:

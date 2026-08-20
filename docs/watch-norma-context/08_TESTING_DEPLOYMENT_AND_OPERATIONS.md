@@ -235,8 +235,11 @@ Previously noted risks that have been resolved:
 
 1. **Client job:** `npm ci --legacy-peer-deps` → `tsc --noEmit` → `npm test -- --ci --coverage`
 2. **Deno job:** Type-check key logic files → `deno test --allow-env --allow-net=none supabase/functions/`
-3. **Migrations job:** `supabase start` → `supabase stop` (verifies migrations apply cleanly)
-4. **OTA Update job:** (main branch push only) `eas update --auto --channel production --non-interactive`
+3. **Migrations job:** `supabase start` → `supabase stop` (verifies migrations apply cleanly against a throwaway local DB — does NOT push to production)
+4. **Deploy Edge Functions job** (added 2026-08-19, main branch push only): `supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"`. Gated on `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` GitHub secrets. If either is missing, the job emits a warning and skips (keeps the pipeline green but flags drift). Closes the drift described in `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.5.
+5. **OTA Update job:** (main branch push only) `eas update --auto --channel production --non-interactive`. Now depends on `deploy-functions` so the client bundle never ships to devices before the backend it depends on.
+
+Database migrations remain a deliberate manual step (see `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.6). Adding `supabase db push` to CI today would immediately apply parked cron migrations that fail without corresponding `app.*` settings; do not add it until those settings are seeded.
 
 ## Observability
 
