@@ -31,6 +31,14 @@ const ESPN_BASES: Record<string, string> = {
 };
 
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
+
+// ESPN's public scoreboard endpoints 403 on Mozilla/* and Deno/* User-Agents;
+// they whitelist well-known HTTP client library UAs. Leading with `curl/*`
+// (and appending an app identifier for accountability) reliably returns 200.
+const ESPN_FETCH_HEADERS: Record<string, string> = {
+  "User-Agent": "curl/8.7.1 (Watch-NORMA/1.0 poll-schedule)",
+  "Accept": "application/json",
+};
 // Legacy constants for backward compatibility in NCAA-only code paths
 const SPORTSDATAIO_BASE = SPORTSDATAIO_BASES.ncaam;
 const ESPN_BASE = ESPN_BASES.ncaam;
@@ -156,7 +164,9 @@ Deno.serve(async (req) => {
     const espnGames: ESPNGameData[] = [];
     try {
       const espnDate = dateStr.replace(/-/g, "");
-      const espnRes = await fetch(`${ESPN_BASE}/scoreboard?dates=${espnDate}&groups=50&limit=300`);
+      const espnRes = await fetch(`${ESPN_BASE}/scoreboard?dates=${espnDate}&groups=50&limit=300`, {
+        headers: ESPN_FETCH_HEADERS,
+      });
       if (espnRes.ok) {
         const espnData = await espnRes.json();
         for (const event of espnData.events ?? []) {
@@ -628,14 +638,13 @@ Deno.serve(async (req) => {
         if (!espnBase) { multiSportDebug[sportKey].errors++; continue; }
 
         try {
-          // ESPN's public scoreboard endpoints return 400/403 when hit from
-          // Deno's default fetch (no UA / no Accept). Sending a browser-like
-          // User-Agent + Accept header restores 200 responses.
+          // ESPN's public scoreboard endpoints 403 on Deno's default UA and
+          // on browser-like Mozilla/* strings. They allow well-known HTTP
+          // client library UAs (curl, python-requests, Go-http-client, etc.).
+          // We lead with `curl/*` and append the app identifier for
+          // accountability. See ESPN_FETCH_HEADERS below.
           const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`, {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (compatible; Watch-NORMA/1.0; +https://getnorma.app)",
-              "Accept": "application/json",
-            },
+            headers: ESPN_FETCH_HEADERS,
           });
           multiSportDebug[sportKey].lastStatus = res.status;
           if (!res.ok) {

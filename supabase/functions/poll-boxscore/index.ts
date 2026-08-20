@@ -104,7 +104,14 @@ async function fetchEspnGames(easternDate: string, sport = "ncaam"): Promise<ESP
     const groupsParam = sport === "ncaam" ? "&groups=50" : "";
     const res = await fetch(
       `${espnBase}/scoreboard?dates=${espnDate}${groupsParam}&limit=300`,
-      { signal: controller.signal },
+      {
+        signal: controller.signal,
+        // ESPN 403s Mozilla/*/Deno/* UAs; whitelist accepts curl/* etc.
+        headers: {
+          "User-Agent": "curl/8.7.1 (Watch-NORMA/1.0 poll-boxscore)",
+          "Accept": "application/json",
+        },
+      },
     );
     if (!res.ok) {
       return { games: [], fetchFailed: true, failReason: `HTTP ${res.status}` };
