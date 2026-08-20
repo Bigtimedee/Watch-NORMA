@@ -564,7 +564,7 @@ Deno.serve(async (req) => {
     // 9. Ingest all non-NCAAM sports (NBA, MLB, NCAAF, NFL) from ESPN — always available, no SDIO key needed.
     // ESPN is the canonical real-time source for scores and live game state across every sport.
     let multiSportCount = 0;
-    const multiSportDebug: Record<string, { events: number; upserted: number; errors: number }> = {};
+    const multiSportDebug: Record<string, { events: number; upserted: number; errors: number; lastStatus: number | null }> = {};
     {
       const espnDateMulti = dateStr.replace(/-/g, "");
 
@@ -624,11 +624,20 @@ Deno.serve(async (req) => {
       for (const sport of ENABLED_SPORTS.filter((s) => s.key !== "ncaam")) {
         const sportKey = sport.key;
         const espnBase = ESPN_BASES[sportKey];
-        multiSportDebug[sportKey] = { events: 0, upserted: 0, errors: 0 };
+        multiSportDebug[sportKey] = { events: 0, upserted: 0, errors: 0, lastStatus: null };
         if (!espnBase) { multiSportDebug[sportKey].errors++; continue; }
 
         try {
-          const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`);
+          // ESPN's public scoreboard endpoints return 400/403 when hit from
+          // Deno's default fetch (no UA / no Accept). Sending a browser-like
+          // User-Agent + Accept header restores 200 responses.
+          const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (compatible; Watch-NORMA/1.0; +https://getnorma.app)",
+              "Accept": "application/json",
+            },
+          });
+          multiSportDebug[sportKey].lastStatus = res.status;
           if (!res.ok) {
             console.warn(`[MultiSport] ESPN ${sportKey} scoreboard returned ${res.status}`);
             multiSportDebug[sportKey].errors++;
