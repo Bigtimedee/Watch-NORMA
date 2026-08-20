@@ -31,6 +31,7 @@ export default function GamesScreen() {
   const {
     data: allGames,
     isLoading,
+    isError,
     refetch,
     isRefetching,
   } = useGames(selectedDateStr, selectedSport);
@@ -185,6 +186,17 @@ export default function GamesScreen() {
           <ActivityIndicator size="large" color="#f97316" />
           <Text style={s.loadingText}>Loading games...</Text>
         </View>
+      ) : isError ? (
+        // A failed load must never look like an empty slate. Builds 23-25 shipped
+        // a query that always rejected, and because this branch did not exist the
+        // screen rendered "No games scheduled today" for every sport instead of
+        // surfacing the failure. That is why the outage was invisible.
+        <View style={s.emptyContainer}>
+          <Text style={s.emptyText}>Couldn't load games.</Text>
+          <Pressable onPress={() => refetch()} style={s.retryButton}>
+            <Text style={s.retryText}>Try again</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={games}
@@ -233,6 +245,14 @@ const s = StyleSheet.create({
   loadingText: { color: "#94a3b8", marginTop: 16 },
   emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
   emptyText: { color: "#94a3b8", fontSize: 16, textAlign: "center" },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    backgroundColor: "#f97316",
+  },
+  retryText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
   sportRow: { flexDirection: "row", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   sportPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 9999 },
   sportPillActive: { backgroundColor: "#f97316" },

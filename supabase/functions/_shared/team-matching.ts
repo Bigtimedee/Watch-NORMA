@@ -96,7 +96,7 @@ for (const [canonical, aliases] of Object.entries(TEAM_ALIASES)) {
 /**
  * Normalize for exact matching: trim, collapse whitespace, normalize quotes/dots.
  */
-function normalize(name: string): string {
+export function normalize(name: string): string {
   return name
     .trim()
     .replace(/\s+/g, " ")

@@ -11,7 +11,7 @@ import {
   getCallCount,
 } from "../_shared/sportradar.ts";
 import type { SportradarScheduleGame } from "../_shared/sportradar.ts";
-import { matchTeamName, teamMatchScore } from "../_shared/team-matching.ts";
+import { matchTeamName, normalize, teamMatchScore } from "../_shared/team-matching.ts";
 
 // Sport-specific base URLs
 // ncaaf/nfl are ingestion-only — alert rules not yet implemented (see doc 09 roadmap)

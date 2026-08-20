@@ -18,6 +18,51 @@ function localDateStr(date?: string): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * UTC offset for America/New_York at `at`, formatted "+HH:MM" / "-HH:MM".
+ *
+ * Hermes (React Native's JS engine) does not parse locale-formatted date
+ * strings such as "8/20/2026, 9:04:21 PM" — `new Date(thatString)` returns
+ * NaN, where V8 (Node, Jest, web) parses it fine. A previous implementation
+ * diffed two such strings, so on device the offset became "+NaN:00",
+ * `new Date(...).toISOString()` threw RangeError, every games query rejected,
+ * and the screen showed "No games scheduled today" for every sport.
+ *
+ * Only ISO-8601 strings are handed to the Date parser here, which every engine
+ * is required to accept. `formatToParts` itself is already proven on device —
+ * `localDateStr` above uses it for the header date.
+ */
+export function easternUtcOffset(at: Date = new Date()): string {
+  const isoIn = (timeZone: string): string => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(at);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    // Some engines emit "24" rather than "00" for midnight under hour12:false.
+    const hour = get("hour") === "24" ? "00" : get("hour");
+    return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}:${get("second")}Z`;
+  };
+
+  const diffMin = Math.round(
+    (Date.parse(isoIn("America/New_York")) - Date.parse(isoIn("UTC"))) / 60000
+  );
+  // Never propagate NaN into a date string: fall back to EST rather than throw.
+  if (!Number.isFinite(diffMin)) return "-05:00";
+
+  const sign = diffMin < 0 ? "-" : "+";
+  const abs = Math.abs(diffMin);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `${sign}${hh}:${mm}`;
+}
+
 /** Fetch today's games with team data, subscribing to realtime updates */
 export function useGames(date?: string, sport?: SportKey) {
   const queryClient = useQueryClient();
@@ -30,16 +75,7 @@ export function useGames(date?: string, sport?: SportKey) {
       // Anchor boundaries to Eastern timezone so the query always matches
       // the Eastern calendar day regardless of the user's device timezone.
       // Use Intl to resolve the correct UTC offset (EST = -05:00, EDT = -04:00).
-      const nyOffset = (() => {
-        const now = new Date();
-        const utcStr = now.toLocaleString("en-US", { timeZone: "UTC" });
-        const nyStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-        const diffMs = new Date(nyStr).getTime() - new Date(utcStr).getTime();
-        const diffHrs = diffMs / (1000 * 60 * 60);
-        const absHrs = Math.abs(Math.round(diffHrs));
-        const sign = diffHrs < 0 ? "-" : "+";
-        return `${sign}${String(absHrs).padStart(2, "0")}:00`;
-      })();
+      const nyOffset = easternUtcOffset();
       const startOfDay = new Date(`${today}T00:00:00${nyOffset}`).toISOString();
       const endOfDay = new Date(`${today}T23:59:59${nyOffset}`).toISOString();
 
