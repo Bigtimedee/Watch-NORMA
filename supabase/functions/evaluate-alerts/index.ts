@@ -570,6 +570,12 @@ Deno.serve(async (req) => {
         .insert({
           user_id: userId,
           game_id: gameId,
+          // alerts.sport is NOT NULL DEFAULT 'ncaam' (migration 049). Omitting it
+          // stamped every alert as NCAA, so AlertCard's sport badge — which renders
+          // only when sport !== 'ncaam' — never appeared, and an NFL or MLB alert
+          // was presented to the user as college basketball. The games row is
+          // selected with `*`, so sport is available here. Fixed 2026-08-20.
+          sport: (game as any)?.sport ?? "ncaam",
           alert_type: alertType,
           title,
           body,

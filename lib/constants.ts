@@ -110,6 +110,8 @@ export const KALSHI_API_BASE = "https://trading-api.kalshi.com" as const;
 // Polymarket CLOB API
 export const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com" as const;
 
-// App Store (update with the numeric ID once the listing is live)
+// App Store. The ID matches ascAppId in eas.json (6759508383) and the URL used
+// across web/. The previous value omitted the /id segment and 404'd — it was
+// rendered into every shared moment card and share message. Fixed 2026-08-20.
 export const NORMA_APP_STORE_URL =
-  "https://apps.apple.com/app/watch-norma" as const;
+  "https://apps.apple.com/us/app/watch-norma/id6759508383" as const;

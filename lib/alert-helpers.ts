@@ -14,6 +14,13 @@ export function alertTypeLabel(type: AlertType): string {
     overtime: "Overtime",
     foul_trouble: "Foul Trouble",
     follow_alert: "Following",
+    // Emitted by _shared/alert-scoring.ts for NFL/NCAAF, and by
+    // ingest-email-wagers. Previously unmapped, so the badge showed the raw
+    // database string (e.g. "football_close_game"). Added 2026-08-20.
+    football_close_game: "Close Game",
+    football_overtime: "Overtime",
+    football_two_minute: "Two-Minute Drill",
+    email_wager_import: "Wager Imported",
   };
   return labels[type] ?? type;
 }
@@ -32,6 +39,10 @@ export function alertTypeColor(type: AlertType): string {
     overtime: "#f97316", // orange
     foul_trouble: "#eab308", // yellow
     follow_alert: "#3b82f6", // blue
+    football_close_game: "#ef4444", // red — matches close_game
+    football_overtime: "#f97316", // orange — matches overtime
+    football_two_minute: "#eab308", // yellow
+    email_wager_import: "#22c55e", // green
   };
   return colors[type] ?? "#94a3b8";
 }
@@ -50,6 +61,10 @@ export function alertTypeIcon(type: AlertType): string {
     overtime: "timer-outline",
     foul_trouble: "warning-outline",
     follow_alert: "heart-outline",
+    football_close_game: "flame-outline",
+    football_overtime: "timer-outline",
+    football_two_minute: "stopwatch-outline",
+    email_wager_import: "mail-open-outline",
   };
   return icons[type] ?? "notifications-outline";
 }

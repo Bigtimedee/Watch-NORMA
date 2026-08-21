@@ -9,8 +9,13 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
-const PRIVACY_POLICY_URL = "https://d10dave.github.io/norma/privacy-policy.html";
-const TERMS_URL = "https://d10dave.github.io/norma/terms-of-service.html";
+// Both of these returned 404 in every shipped build (the d10dave.github.io/norma
+// path does not exist). These are the live documents, verified 200. An App Store
+// reviewer follows these links. Fixed 2026-08-20.
+const PRIVACY_POLICY_URL =
+  "https://bigtimedee.github.io/norma-site/privacy-policy.html";
+const TERMS_URL =
+  "https://bigtimedee.github.io/norma-site/terms-of-service.html";
 
 export default function ProfileScreen() {
   const router = useRouter();

@@ -27,7 +27,14 @@ export type AlertType =
   | "close_game"
   | "overtime"
   | "foul_trouble"
-  | "follow_alert";
+  | "follow_alert"
+  // Emitted by _shared/alert-scoring.ts for NFL/NCAAF (live for all users) and
+  // by ingest-email-wagers. Absent from this union, they fell through every
+  // label/colour/icon lookup and rendered as raw database strings.
+  | "football_close_game"
+  | "football_overtime"
+  | "football_two_minute"
+  | "email_wager_import";
 
 export type WagerType = "spread" | "moneyline" | "over_under" | "prop";
 export type WagerStatus = "active" | "won" | "lost" | "push";

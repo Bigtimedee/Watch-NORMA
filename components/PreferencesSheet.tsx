@@ -75,6 +75,11 @@ export function PreferencesSheet({ onClose }: PreferencesSheetProps) {
           added_at: new Date().toISOString(),
         })),
         notification_settings: {
+          // Spread the existing object first. Rebuilding it from literals dropped
+          // ad_personalization_enabled, and both readers default a missing value to
+          // true — so saving Preferences silently opted the user back into ad
+          // personalization after they had switched it off. Fixed 2026-08-20.
+          ...(prefs?.notification_settings ?? {}),
           quiet_hours_start: quietStart.trim() || null,
           quiet_hours_end: quietEnd.trim() || null,
           max_alerts_per_game: parsedMaxPerGame,
