@@ -478,10 +478,10 @@ export default async function StatusPage() {
       >
         NORMA &mdash; Real-Time Sports Intent Advertising &mdash;{" "}
         <a
-          href="mailto:ads@norma-app.com"
+          href="mailto:ads@getnorma.app"
           style={{ color: "#1e293b", textDecoration: "none" }}
         >
-          ads@norma-app.com
+          ads@getnorma.app
         </a>
       </footer>
     </div>

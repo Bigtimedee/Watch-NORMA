@@ -1,6 +1,6 @@
 // intent-api: Programmatic Intent API for server-to-server buyers (P2-09)
 // STATUS: Scaffolded — gated by INTENT_API_ENABLED secret. Not in production.
-// Contact bd@norma-app.com to activate.
+// Contact bd@getnorma.app to activate.
 //
 // Auth: Bearer <api_key> → SHA-256 hash lookup in api_keys table.
 // Rate limit: 50 req/min per key (in-memory, resets on cold start).
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: "Programmatic Intent API not yet in production.",
-        note: "Contact bd@norma-app.com to activate.",
+        note: "Contact bd@getnorma.app to activate.",
         api_version: "v1",
       }),
       { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }

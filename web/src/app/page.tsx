@@ -605,7 +605,7 @@ export default function HomePage() {
               <Link href="/advertisers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertising</Link>
               <Link href="/auth" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
               <Link href="/developers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Developers</Link>
-              <a href="mailto:ads@norma-app.com" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
+              <a href="mailto:ads@getnorma.app" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
               <a href="/privacy-policy" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Privacy</a>
               <a href="/terms-of-service" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Terms</a>
               <Link href="/status" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Status</Link>

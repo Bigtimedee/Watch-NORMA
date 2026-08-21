@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
           // Link posts (Reddit): no image, store link metadata
           formatMetadata = {
             link_title: generated.link_title ?? generated.text.split("\n")[0],
-            url:        Deno.env.get("NORMA_APP_URL") ?? "https://norma-app.com",
+            url:        Deno.env.get("NORMA_APP_URL") ?? "https://getnorma.app",
           };
 
         } else {

@@ -110,7 +110,7 @@ function buildInventoryResponse(forecasts: any[], floors: any[]): object {
   return {
     api_version: "v1",
     status: "scaffolded",
-    note: "Programmatic Intent API — scaffolded. Contact bd@norma-app.com to activate for production use.",
+    note: "Programmatic Intent API — scaffolded. Contact bd@getnorma.app to activate for production use.",
     inventory,
   };
 }
@@ -465,18 +465,18 @@ describe("INTENT_API_ENABLED gate", () => {
     // Simulate the 503 response body that the handler returns when the flag is absent
     const gateOffBody = {
       error: "Programmatic Intent API not yet in production.",
-      note: "Contact bd@norma-app.com to activate.",
+      note: "Contact bd@getnorma.app to activate.",
       api_version: "v1",
     };
     expect(gateOffBody.error).toMatch(/not yet in production/);
-    expect(gateOffBody.note).toContain("bd@norma-app.com");
+    expect(gateOffBody.note).toContain("bd@getnorma.app");
     expect(gateOffBody.api_version).toBe("v1");
   });
 
   it("503 body does not accidentally expose any auction data", () => {
     const gateOffBody = {
       error: "Programmatic Intent API not yet in production.",
-      note: "Contact bd@norma-app.com to activate.",
+      note: "Contact bd@getnorma.app to activate.",
       api_version: "v1",
     };
     expect(gateOffBody).not.toHaveProperty("inventory");

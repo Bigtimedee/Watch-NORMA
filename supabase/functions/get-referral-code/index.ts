@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+const APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "https://getnorma.app";
+
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
@@ -111,7 +113,11 @@ Deno.serve(async (req) => {
       JSON.stringify({
         code: data.code,
         uses: data.uses,
-        link: `https://norma-app.com/join?ref=${data.code}`,
+        // NORMA's domain is getnorma.app. norma-app.com is not ours and was shipping
+        // in every shared invite (fixed 2026-08-20). Deep-links to the app via the
+        // registered "norma" scheme, with the site as the web fallback for people
+        // who do not have the app installed yet.
+        link: `${APP_URL}/?ref=${data.code}`,
         qualifying_referrals: qualifyingReferrals,
         insider_status: insiderStatus,
       }),

@@ -606,7 +606,7 @@ export default function AdvertisersPage() {
               <Link href="/" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Home</Link>
               <Link href="/auth/login" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
               <Link href="/developers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Developers API</Link>
-              <a href="mailto:ads@norma-app.com" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
+              <a href="mailto:ads@getnorma.app" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
             </div>
           </div>
           <div

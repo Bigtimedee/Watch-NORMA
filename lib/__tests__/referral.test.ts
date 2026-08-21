@@ -23,20 +23,20 @@ jest.mock("expo-linking", () => ({
 }));
 
 describe("getReferralCode", () => {
-  it("extracts ref from a norma-app.com join URL", () => {
-    expect(getReferralCode("https://norma-app.com/join?ref=abc123")).toBe("abc123");
+  it("extracts ref from a getnorma.app invite URL", () => {
+    expect(getReferralCode("https://getnorma.app?ref=abc123")).toBe("abc123");
   });
 
   it("returns null for URLs without a ref param", () => {
-    expect(getReferralCode("https://norma-app.com/join")).toBe(null);
+    expect(getReferralCode("https://getnorma.app")).toBe(null);
   });
 
   it("returns null when ref param is empty string", () => {
-    expect(getReferralCode("https://norma-app.com/join?ref=")).toBe(null);
+    expect(getReferralCode("https://getnorma.app?ref=")).toBe(null);
   });
 
   it("returns the first value when ref is an array", () => {
-    expect(getReferralCode("https://norma-app.com/join?ref=first&ref=second")).toBe("first");
+    expect(getReferralCode("https://getnorma.app?ref=first&ref=second")).toBe("first");
   });
 
   it("returns null for a URL with no query string at all", () => {

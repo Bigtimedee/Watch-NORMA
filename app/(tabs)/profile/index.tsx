@@ -219,17 +219,22 @@ export default function ProfileScreen() {
                       ]}
                     />
                   </View>
+                  {/* Copy must match what the code actually grants. This previously
+                      promised "NFL early access", but NFL is alertable for every user
+                      (ALERTABLE_SPORTS in evaluate-alerts includes "nfl"), and
+                      insider_status gates no feature — it only surfaces the Insider
+                      badge above. Corrected 2026-08-20. */}
                   <Text style={s.inviteSubtext}>
                     {referralData.insider_status
-                      ? "Early access to NFL alerts enabled"
-                      : `${3 - referralData.qualifying_referrals} more to unlock NFL early access`}
+                      ? "NORMA Insider unlocked"
+                      : `${3 - referralData.qualifying_referrals} more to become a NORMA Insider`}
                   </Text>
                 </>
               ) : (
                 <Text style={s.inviteTitle}>Loading invite link...</Text>
               )}
               <Text style={s.inviteLink} numberOfLines={1}>
-                {referralData?.link ?? "https://norma-app.com/join"}
+                {referralData?.link ?? "https://getnorma.app"}
               </Text>
             </View>
             <Pressable

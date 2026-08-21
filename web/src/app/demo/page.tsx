@@ -108,8 +108,8 @@ export default function DemoPage() {
               <div className="mt-12 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <p style={{ fontSize: 13, color: "#1e293b" }}>
                   Prefer email?{" "}
-                  <a href="mailto:ads@norma-app.com" style={{ color: "#f97316" }}>
-                    ads@norma-app.com
+                  <a href="mailto:ads@getnorma.app" style={{ color: "#f97316" }}>
+                    ads@getnorma.app
                   </a>
                 </p>
               </div>

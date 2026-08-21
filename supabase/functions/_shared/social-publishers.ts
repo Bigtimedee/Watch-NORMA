@@ -686,7 +686,7 @@ export async function publishToReddit(
   if (post.post_format === "link") {
     const linkTitle = (post.format_metadata?.link_title as string) ??
       (fullText.split("\n")[0] ?? fullText).slice(0, 100);
-    const appUrl = Deno.env.get("NORMA_APP_URL") ?? "https://norma-app.com";
+    const appUrl = Deno.env.get("NORMA_APP_URL") ?? "https://getnorma.app";
 
     const body = new URLSearchParams({
       sr:       subreddit,
