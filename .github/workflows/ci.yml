@@ -41,6 +41,14 @@ jobs:
           deno check supabase/functions/_shared/team-matching.ts
           deno check supabase/functions/_shared/template-vars.ts
           deno check supabase/functions/resolve-predictions/index.ts
+          # The poll-* functions deploy straight to production on every push to
+          # main but were never type-checked here. A SportsDataIO removal on
+          # 2026-08-20 surfaced the gap: a type error in these files would have
+          # shipped unverified.
+          deno check supabase/functions/poll-schedule/index.ts
+          deno check supabase/functions/poll-boxscore/index.ts
+          deno check supabase/functions/poll-summary/index.ts
+          deno check supabase/functions/poll-pbp/index.ts
       - name: Run tests
         run: deno test --allow-env --allow-net=none supabase/functions/
 

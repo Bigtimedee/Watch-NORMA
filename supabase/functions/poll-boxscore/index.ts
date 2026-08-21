@@ -2,7 +2,6 @@
 // Trigger: pg_cron every 1 minute
 //
 // Uses ESPN as the PRIMARY score source (free, reliable, always correct).
-// Falls back to SportsDataIO /scores/json/GamesByDate for games ESPN doesn't cover.
 //
 // v2: This function ONLY handles score updates and terminal events (game close).
 // PBP, summary, and alert dispatch are handled by game-watcher-orchestrator.
@@ -12,16 +11,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { hashPayload, mapStatus } from "../_shared/utils.ts";
 import { isTerminalStatus } from "../_shared/polling-state.ts";
 
-// Sport-specific SportsDataIO base URLs
 // ncaaf/nfl: ingestion only; alert evaluation is blocked until football rules are ready
-const SPORTSDATAIO_BASES: Record<string, string> = {
-  ncaam: "https://api.sportsdata.io/v3/cbb",
-  nba:   "https://api.sportsdata.io/v3/nba",
-  mlb:   "https://api.sportsdata.io/v3/mlb",
-  ncaaf: "https://api.sportsdata.io/v3/cfb",
-  nfl:   "https://api.sportsdata.io/v3/nfl",
-};
-const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
 // Sport-specific ESPN base URLs
 const ESPN_BASES: Record<string, string> = {
@@ -32,12 +22,10 @@ const ESPN_BASES: Record<string, string> = {
   nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 };
 
-// Kept for the SportsDataIO date format: CBB uses YYYY-MMM-DD
-const SPORTSDATAIO_BASE = SPORTSDATAIO_BASES.ncaam;
 const ESPN_BASE = ESPN_BASES.ncaam;
 
 /** Convert a UTC ISO timestamp to an Eastern-date YYYY-MM-DD string.
- *  SportsDataIO indexes games by Eastern date, so we must convert. */
+ *  Games are indexed by Eastern date, so we must convert. */
 function utcToEasternDate(utcIso: string): string {
   const d = new Date(utcIso);
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -239,14 +227,14 @@ Deno.serve(async (req) => {
     );
 
     // Get active games + scheduled games whose start time has passed (they may have started)
-    // Now includes sport column so we can route to the right ESPN/SportsDataIO endpoint.
+    // Now includes sport column so we can route to the right ESPN endpoint.
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     // Query active games. Include non-standard status values (status_in_progress, status_halftime,
     // end of period) that may have been written by earlier buggy ESPN status mapping, so we can
     // heal them by re-evaluating with the fixed mapStatus function.
     const { data: activeGames, error: fetchError } = await supabase
       .from("games")
-      .select("id, sport, sportsdataio_id, espn_id, sportradar_id, coverage_level, snapshot_hash, status, scheduled_at, home_team:teams!games_home_team_id_fkey(abbreviation,market,name), away_team:teams!games_away_team_id_fkey(abbreviation,market,name)")
+      .select("id, sport, espn_id, sportradar_id, coverage_level, snapshot_hash, status, scheduled_at, home_team:teams!games_home_team_id_fkey(abbreviation,market,name), away_team:teams!games_away_team_id_fkey(abbreviation,market,name)")
       .or(`status.in.("inprogress","halftime","status_in_progress","status_halftime","status_scheduled","end of period"),and(status.eq.scheduled,scheduled_at.lte.${fiveMinAgo})`);
 
     if (fetchError) throw fetchError;
@@ -257,9 +245,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Collect all unique (sport, date) combos we need to fetch ESPN/SportsDataIO scores for.
+    // Collect all unique (sport, date) combos we need to fetch ESPN scores for.
     const sportDatesToFetch = new Set<string>(); // encoded as "sport|date"
-    const datesToFetch = new Set<string>(); // legacy: used below for SportsDataIO
+    const datesToFetch = new Set<string>();
     for (const game of activeGames) {
       if (game.scheduled_at) {
         const easternDate = utcToEasternDate(game.scheduled_at);
@@ -292,60 +280,14 @@ Deno.serve(async (req) => {
           sport,
           date: dateStr,
           reason: result.failReason,
-          failover_to: "SportsDataIO",
+          failover_to: null,
           timestamp: new Date().toISOString(),
         }));
       }
     }
 
-    // Fetch SportsDataIO scores as fallback (sport-routed)
-    const scoresByGameId: Record<number, {
-      HomeTeamScore: number | null;
-      AwayTeamScore: number | null;
-      // MLB specific
-      HomeTeamRuns?: number | null;
-      AwayTeamRuns?: number | null;
-      Inning?: number | null;
-      InningHalf?: string | null;
-      Outs?: number | null;
-      Status: string;
-      IsClosed: boolean;
-      Period: string | null;
-      TimeRemainingMinutes: number | null;
-      TimeRemainingSeconds: number | null;
-      HomeTeam: string;
-      AwayTeam: string;
-    }> = {};
-
-    for (const key of sportDatesToFetch) {
-      const [sport, dateStr] = key.split("|");
-      const sdioBase = SPORTSDATAIO_BASES[sport] ?? SPORTSDATAIO_BASES.ncaam;
-      const url = `${sdioBase}/scores/json/GamesByDate/${dateStr}?key=${SPORTSDATAIO_KEY}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.warn(`GamesByDate fetch failed for sport=${sport} date=${dateStr}: ${res.status}`);
-        continue;
-      }
-      const games = await res.json();
-      for (const g of games) {
-        scoresByGameId[g.GameID] = {
-          HomeTeamScore: g.HomeTeamScore ?? g.HomeTeamRuns ?? null,
-          AwayTeamScore: g.AwayTeamScore ?? g.AwayTeamRuns ?? null,
-          HomeTeamRuns: g.HomeTeamRuns ?? null,
-          AwayTeamRuns: g.AwayTeamRuns ?? null,
-          Inning: g.Inning ?? null,
-          InningHalf: g.InningHalf ?? null,
-          Outs: g.Outs ?? null,
-          Status: g.Status,
-          IsClosed: g.IsClosed,
-          Period: g.Period ?? (g.Inning != null ? String(g.Inning) : null),
-          TimeRemainingMinutes: g.TimeRemainingMinutes ?? null,
-          TimeRemainingSeconds: g.TimeRemainingSeconds ?? null,
-          HomeTeam: g.HomeTeam,
-          AwayTeam: g.AwayTeam,
-        };
-      }
-    }
+    // SportsDataIO score fetching removed 2026-08-20 (owner decision: NORMA uses
+    // ESPN, not SportsDataIO). ESPN is now the sole score source.
 
     let updatedCount = 0;
     const gamesTransitionedToLive: string[] = [];
@@ -366,84 +308,30 @@ Deno.serve(async (req) => {
         const espnData = findEspnMatch(espnDateGames, homeMarket, awayMarket, homeFullName, awayFullName);
         const espnApiDown = espnKey != null && espnFetchFailedBySportDate.has(espnKey);
 
-        const gameData = game.sportsdataio_id
-          ? scoresByGameId[game.sportsdataio_id] ?? null
-          : null;
-
-        // Need at least one data source
-        if (!espnData && !gameData) continue;
-
-        let bestHomeScore: number;
-        let bestAwayScore: number;
-        let newStatus: string;
-        let clock: string | null = null;
-        let period: number | null = null;
-        // "espn_only" | "sdio_only" | "espn+sdio" — recorded in game_snapshots payload
-        let scoreSource: string;
-
-        if (isMlb) {
-          // MLB: use SportsDataIO for inning/half state; ESPN for scores
-          bestHomeScore = espnData?.homeScore ?? gameData?.HomeTeamRuns ?? gameData?.HomeTeamScore ?? 0;
-          bestAwayScore = espnData?.awayScore ?? gameData?.AwayTeamRuns ?? gameData?.AwayTeamScore ?? 0;
-          if (gameData) {
-            newStatus = mapStatus(gameData.Status, gameData.IsClosed);
-            const half = gameData.InningHalf ?? "T";
-            const inning = gameData.Inning ?? 0;
-            clock = inning > 0 ? `${half}${inning}` : null;
-            period = inning || null;
-            scoreSource = espnData ? "espn+sdio" : "sdio_only";
-          } else if (espnData) {
-            newStatus = mapStatus(espnData.status, false);
-            clock = espnData.clock;
-            period = espnData.period || null;
-            scoreSource = "espn_only";
-          } else {
-            continue;
+        // ESPN is the sole score source (SportsDataIO removed 2026-08-20).
+        if (!espnData) {
+          // Nothing to update from. Still record it when ESPN itself was down, so
+          // the failover metric keeps surfacing upstream outages.
+          if (espnApiDown) {
+            console.log(JSON.stringify({
+              function: "poll-boxscore",
+              event: "espn_unavailable",
+              game_id: game.id,
+              sport,
+              reason: espnFetchFailedBySportDate.get(espnKey!),
+              timestamp: new Date().toISOString(),
+            }));
+            failoverGameIds.push(game.id);
           }
-        } else if (espnData && gameData) {
-          // Both sources available — ESPN scores are more accurate, SDIO for status/clock
-          bestHomeScore = espnData.homeScore;
-          bestAwayScore = espnData.awayScore;
-          newStatus = mapStatus(gameData.Status, gameData.IsClosed);
-          clock = gameData.TimeRemainingMinutes != null && gameData.TimeRemainingSeconds != null
-            ? `${gameData.TimeRemainingMinutes}:${String(gameData.TimeRemainingSeconds).padStart(2, "0")}`
-            : null;
-          period = gameData.Period ? parseInt(gameData.Period) || null : null;
-          scoreSource = "espn+sdio";
-        } else if (espnData) {
-          // ESPN only — use ESPN clock and period data
-          bestHomeScore = espnData.homeScore;
-          bestAwayScore = espnData.awayScore;
-          newStatus = mapStatus(espnData.status, false);
-          clock = espnData.clock;
-          period = espnData.period || null;
-          scoreSource = "espn_only";
-        } else {
-          // SportsDataIO only — ESPN was unavailable (failover)
-          bestHomeScore = gameData!.HomeTeamScore ?? 0;
-          bestAwayScore = gameData!.AwayTeamScore ?? 0;
-          newStatus = mapStatus(gameData!.Status, gameData!.IsClosed);
-          clock = gameData!.TimeRemainingMinutes != null && gameData!.TimeRemainingSeconds != null
-            ? `${gameData!.TimeRemainingMinutes}:${String(gameData!.TimeRemainingSeconds).padStart(2, "0")}`
-            : null;
-          period = gameData!.Period ? parseInt(gameData!.Period) || null : null;
-          scoreSource = "sdio_only";
-
-          // Emit explicit failover event — ESPN was either down or didn't match this game
-          const failReason = espnApiDown
-            ? espnFetchFailedBySportDate.get(espnKey!)
-            : "no_espn_match";
-          console.log(JSON.stringify({
-            function: "poll-boxscore",
-            event: "failover",
-            game_id: game.id,
-            sport,
-            score_source: "sdio_only",
-            reason: failReason,
-            timestamp: new Date().toISOString(),
-          }));
-          failoverGameIds.push(game.id);
+          continue;
         }
+
+        const bestHomeScore = espnData.homeScore;
+        const bestAwayScore = espnData.awayScore;
+        const newStatus = mapStatus(espnData.status, false);
+        const clock: string | null = espnData.clock;
+        const period: number | null = espnData.period || null;
+        const scoreSource = "espn_only";
 
         // Compute hash for dedup
         const scoreData = {
@@ -482,7 +370,7 @@ Deno.serve(async (req) => {
         await supabase.from("game_snapshots").insert({
           game_id: game.id,
           snapshot_type: "scores",
-          payload: { Game: gameData ?? espnData, source: scoreSource },
+          payload: { Game: espnData, source: scoreSource },
           payload_hash: newHash,
         });
 
@@ -567,7 +455,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        console.error(`Error processing game ${game.sportsdataio_id}:`, e);
+        console.error(`Error processing game ${game.id}:`, e);
       }
     }
 

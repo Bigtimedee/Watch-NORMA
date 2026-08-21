@@ -1,4 +1,4 @@
-// poll-summary: Game summary stats — dual-source (Sportradar for richer stats, SportsDataIO fallback)
+// poll-summary: Game summary stats from Sportradar
 // Trigger: Called by poll-boxscore orchestrator every 2 minutes for active games
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -16,14 +16,6 @@ import type {
   SportradarMLBSummaryResponse,
 } from "../_shared/sportradar.ts";
 
-const SPORTSDATAIO_BASES: Record<string, string> = {
-  ncaam: "https://api.sportsdata.io/v3/cbb",
-  nba:   "https://api.sportsdata.io/v3/nba",
-  mlb:   "https://api.sportsdata.io/v3/mlb",
-  ncaaf: "https://api.sportsdata.io/v3/cfb",
-  nfl:   "https://api.sportsdata.io/v3/nfl",
-};
-const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
 /** Extract the most useful stats from a Sportradar summary for alert evaluation */
 function extractSportradarSummary(
@@ -157,7 +149,6 @@ Deno.serve(async (req) => {
     let gamesToPoll: Array<{
       id: string;
       sport: string;
-      sportsdataio_id: number | null;
       sportradar_id: string | null;
       coverage_level: string | null;
     }>;
@@ -165,7 +156,7 @@ Deno.serve(async (req) => {
     if (body.gameId) {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportradar_id, coverage_level")
         .eq("id", body.gameId)
         .single();
       if (error || !data) {
@@ -178,7 +169,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportradar_id, coverage_level")
         .in("status", ["inprogress", "halftime"]);
       if (error) throw error;
       gamesToPoll = data ?? [];
@@ -193,7 +184,6 @@ Deno.serve(async (req) => {
 
     let storedCount = 0;
     let sportradarCount = 0;
-    let sdioCount = 0;
 
     for (const game of gamesToPoll) {
       try {
@@ -201,7 +191,7 @@ Deno.serve(async (req) => {
         const isMlb = sport === "mlb";
         let payloadToStore: Record<string, unknown> | null = null;
         let snapshotType = "summary";
-        let source = "sportsdataio";
+        let source = "sportradar";
 
         if (isMlb && game.sportradar_id) {
           // MLB: use MLB-specific Sportradar summary endpoint
@@ -266,22 +256,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // SportsDataIO fallback (basketball only; MLB box score endpoint exists but structure differs)
-        if (!payloadToStore && !isMlb && game.sportsdataio_id) {
-          const sdioBase = SPORTSDATAIO_BASES[sport] ?? SPORTSDATAIO_BASES.ncaam;
-          const url = `${sdioBase}/stats/json/BoxScore/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
-          const res = await fetch(url);
-
-          if (!res.ok) {
-            console.warn(`Summary fetch failed for ${game.sportsdataio_id}: ${res.status}`);
-            continue;
-          }
-
-          payloadToStore = await res.json();
-          snapshotType = "summary";
-          source = "sportsdataio";
-          sdioCount++;
-        }
+        // SportsDataIO summary fallback removed 2026-08-20 (owner decision: NORMA
+        // uses ESPN, not SportsDataIO). Sportradar is now the sole summary source;
+        // games it cannot cover are skipped by the guard below.
 
         if (!payloadToStore) continue;
 
@@ -374,7 +351,6 @@ Deno.serve(async (req) => {
       activeGames: gamesToPoll.length,
       stored: storedCount,
       sportradarSummary: sportradarCount,
-      sdioSummary: sdioCount,
       sportradarApiCalls: getCallCount(),
     };
 

@@ -1,4 +1,4 @@
-// poll-pbp: Play-by-play events — dual-source (Sportradar for full coverage, SportsDataIO fallback)
+// poll-pbp: Play-by-play events from Sportradar
 // Trigger: Called by poll-boxscore orchestrator for active games
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -18,16 +18,6 @@ import type {
   SportradarMLBPbpEvent,
 } from "../_shared/sportradar.ts";
 
-const SPORTSDATAIO_BASES: Record<string, string> = {
-  ncaam: "https://api.sportsdata.io/v3/cbb",
-  nba:   "https://api.sportsdata.io/v3/nba",
-  mlb:   "https://api.sportsdata.io/v3/mlb",
-  // ncaaf/nfl: base URLs present for score ingestion; PBP fallback used only
-  // if a football game somehow reaches this function (evaluate-alerts gates it).
-  ncaaf: "https://api.sportsdata.io/v3/cfb",
-  nfl:   "https://api.sportsdata.io/v3/nfl",
-};
-const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
 /** Parse Sportradar PBP events into structured format for alert evaluation */
 function parseSportradarEvents(pbp: SportradarPbpResponse): Record<string, unknown> {
@@ -267,7 +257,6 @@ Deno.serve(async (req) => {
     let gamesToPoll: Array<{
       id: string;
       sport: string;
-      sportsdataio_id: number | null;
       sportradar_id: string | null;
       coverage_level: string | null;
     }>;
@@ -275,7 +264,7 @@ Deno.serve(async (req) => {
     if (body.gameId) {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportradar_id, coverage_level")
         .eq("id", body.gameId)
         .single();
       if (error || !data) {
@@ -288,7 +277,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("games")
-        .select("id, sport, sportsdataio_id, sportradar_id, coverage_level")
+        .select("id, sport, sportradar_id, coverage_level")
         .in("status", ["inprogress"]);
       if (error) throw error;
       gamesToPoll = data ?? [];
@@ -303,7 +292,6 @@ Deno.serve(async (req) => {
 
     let storedCount = 0;
     let sportradarCount = 0;
-    let sdioCount = 0;
 
     for (const game of gamesToPoll) {
       try {
@@ -311,7 +299,7 @@ Deno.serve(async (req) => {
         const isMlb = sport === "mlb";
         let payloadToStore: Record<string, unknown> | null = null;
         let snapshotType = "pbp";
-        let source = "sportsdataio";
+        let source = "sportradar";
 
         if (isMlb && game.sportradar_id) {
           // MLB PBP — use MLB-specific Sportradar endpoint
@@ -323,7 +311,7 @@ Deno.serve(async (req) => {
             sportradarCount++;
           } catch (e) {
             console.warn(`Sportradar MLB PBP failed for ${game.sportradar_id}:`, e);
-            // No SportsDataIO MLB PBP fallback — skip if Sportradar fails
+            // No fallback — skip if Sportradar fails
           }
         } else if (!isMlb && game.coverage_level === "full" && game.sportradar_id) {
           // Basketball (NCAA or NBA) — use sport-aware Sportradar endpoint
@@ -337,28 +325,15 @@ Deno.serve(async (req) => {
             sportradarCount++;
           } catch (e) {
             console.warn(
-              `Sportradar PBP failed for ${game.sportradar_id}, falling back to SportsDataIO:`,
+              `Sportradar PBP failed for ${game.sportradar_id}, skipping:`,
               e
             );
-            // Fall through to SportsDataIO
           }
         }
 
-        // SportsDataIO fallback (basketball only — MLB has no SDIO PBP endpoint)
-        if (!payloadToStore && !isMlb && game.sportsdataio_id) {
-          const sdioBase = SPORTSDATAIO_BASES[sport] ?? SPORTSDATAIO_BASES.ncaam;
-          const url = `${sdioBase}/stats/json/PlayByPlay/${game.sportsdataio_id}?key=${SPORTSDATAIO_KEY}`;
-          const res = await fetch(url);
-
-          if (!res.ok) {
-            console.warn(`PBP fetch failed for ${game.sportsdataio_id}: ${res.status}`);
-            continue;
-          }
-
-          payloadToStore = await res.json();
-          source = "sportsdataio";
-          sdioCount++;
-        }
+        // SportsDataIO PBP fallback removed 2026-08-20 (owner decision: NORMA uses
+        // ESPN, not SportsDataIO). Sportradar is now the sole PBP source; games it
+        // cannot cover are skipped by the guard below.
 
         if (!payloadToStore) continue;
 
@@ -445,7 +420,6 @@ Deno.serve(async (req) => {
       activeGames: gamesToPoll.length,
       stored: storedCount,
       sportradarPbp: sportradarCount,
-      sdioPbp: sdioCount,
       sportradarApiCalls: getCallCount(),
     };
 
