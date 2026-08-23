@@ -49,6 +49,12 @@ jobs:
           deno check supabase/functions/poll-boxscore/index.ts
           deno check supabase/functions/poll-summary/index.ts
           deno check supabase/functions/poll-pbp/index.ts
+          # evaluate-alerts and intent-api entry points were both failing deno
+          # check on 2026-08-20 (audit item I / 2026-08-23 audit H-10). Fixed
+          # in Phase 2 FX7; adding them here so a regression can't reland.
+          deno check supabase/functions/evaluate-alerts/index.ts
+          deno check supabase/functions/intent-api/index.ts
+          deno check supabase/functions/_shared/quiet-hours.ts
       - name: Run tests
         run: deno test --allow-env --allow-net=none supabase/functions/
 

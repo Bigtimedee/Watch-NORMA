@@ -502,7 +502,15 @@ export function determineAlertType(
 // Used by evaluate-alerts to populate intent_moments.intent_score.
 // Deterministic: same inputs always produce the same output.
 
-export function computeIntentScore(score: number, signals: SignalVector): number {
+/** Signals that computeIntentScore actually reads. Kept as a subset of
+ *  SignalVector so callers can pass in either a full vector or a lightweight
+ *  post-outcome bundle without constructing the whole thing. */
+export type IntentSignals = Pick<
+  SignalVector,
+  "is_overtime" | "is_final_two" | "is_close_game" | "is_final_minutes"
+>;
+
+export function computeIntentScore(score: number, signals: IntentSignals): number {
   // Base: clamp raw alert score to [0, 0.9] — reserve headroom for game-state premiums
   let base = Math.min(Math.max(score, 0) / 100, 0.9);
 

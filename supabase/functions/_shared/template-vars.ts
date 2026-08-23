@@ -81,8 +81,8 @@ export function buildPersonalizationContext(
   gameState: {
     home_score?: number;
     away_score?: number;
-    home_team?: { name?: string; abbreviation?: string };
-    away_team?: { name?: string; abbreviation?: string };
+    home_team?: { name?: string; abbreviation?: string } | null;
+    away_team?: { name?: string; abbreviation?: string } | null;
   }
 ): PersonalizationContext {
   const ctx: PersonalizationContext = {};
