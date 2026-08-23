@@ -24,9 +24,9 @@ const SPORT_INTERVALS: Record<string, { pbp: number; summary: number; alert: num
   ncaam: { pbp: 30_000,  summary: 120_000, alert: 60_000 },
   nba:   { pbp: 30_000,  summary: 120_000, alert: 60_000 },
   mlb:   { pbp: 60_000,  summary: 90_000,  alert: 60_000 },
-  // ncaaf/nfl: schedule + score ingestion only; alerts gated by ALERTABLE_SPORTS
-  // in evaluate-alerts (see docs/09 roadmap). Intervals still needed so the
-  // orchestrator can schedule score-refresh dispatches for football games.
+  // ncaaf/nfl: football alerting is ACTIVE (since 2026-08-19); ALERTABLE_SPORTS
+  // in evaluate-alerts/index.ts includes both keys and evaluators fire on each
+  // orchestrator cycle. Intervals here schedule score-refresh + alert dispatches.
   ncaaf: { pbp: 45_000,  summary: 120_000, alert: 60_000 },
   nfl:   { pbp: 45_000,  summary: 120_000, alert: 60_000 },
 };
