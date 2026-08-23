@@ -30,8 +30,12 @@ export function mapStatus(rawStatus: string, isClosed: boolean): string {
   if (stripped === "inprogress" || stripped === "in_progress" || stripped === "in progress") return "inprogress";
   // Halftime
   if (stripped === "halftime" || stripped === "half") return "halftime";
-  // End of period (still in progress overall)
-  if (stripped === "end_of_period" || stripped === "end of period") return "inprogress";
+  // End of period / quarter / half / regulation — the game is transitioning, not over.
+  // ESPN emits strings like "End of 1st Quarter", "End of Regulation", "End of Period".
+  // Football hits this every quarter break; treating it as closed prematurely finals
+  // the game (see 2026-08-23 season-readiness audit BL-1 for the failure that motivated
+  // the startsWith guard).
+  if (stripped === "end_of_period" || stripped.startsWith("end of ")) return "inprogress";
   // Final / Closed
   if (stripped === "final" || stripped === "f" || stripped === "f/ot" || stripped === "complete") return "closed";
   // Cancelled
