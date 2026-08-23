@@ -9,6 +9,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { prioritize } from "./priority.ts";
 
 // Concurrency limits per orchestrator cycle
 const MAX_PBP_DISPATCHES = 5;
@@ -62,6 +63,36 @@ interface GameInfo {
 function computeBackoff(errorCount: number): number {
   return Math.min(BACKOFF_BASE_MS * Math.pow(2, errorCount), BACKOFF_MAX_MS);
 }
+
+/** FX8 — collect the set of game IDs a user cares about (follows or wagers) so
+ *  the orchestrator can dispatch them first on saturated Saturdays. Runs at most
+ *  two small queries per orchestrator cycle regardless of user count. */
+// deno-lint-ignore no-explicit-any
+async function buildHighPrioritySet(supabase: any, activeGameIds: string[]): Promise<Set<string>> {
+  const priority = new Set<string>();
+  if (activeGameIds.length === 0) return priority;
+
+  const { data: follows } = await supabase
+    .from("follows")
+    .select("game_id")
+    .in("game_id", activeGameIds)
+    .not("game_id", "is", null);
+  for (const f of (follows ?? []) as Array<{ game_id: string | null }>) {
+    if (f.game_id) priority.add(f.game_id);
+  }
+
+  const { data: wagers } = await supabase
+    .from("wagers")
+    .select("game_id")
+    .in("game_id", activeGameIds)
+    .in("status", ["active", "pending"]);
+  for (const w of (wagers ?? []) as Array<{ game_id: string | null }>) {
+    if (w.game_id) priority.add(w.game_id);
+  }
+
+  return priority;
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -236,6 +267,15 @@ Deno.serve(async (req) => {
       }));
     }
 
+    // --- Step 2.5: Build the high-priority set (FX8) ---
+    // Games followed by any user or with an open wager get first pick of the
+    // per-cycle dispatch budget. On a 60-game NCAAF Saturday, MAX_PBP=5 means
+    // the tail games can wait 12+ minutes for a PBP poll under FIFO ordering;
+    // prioritizing user-relevant games keeps their alert latency low even when
+    // the overall queue is saturated (H-2 / H-3 in the 2026-08-23 audit).
+    const highPriorityGameIds = await buildHighPrioritySet(supabase, activeGameIds);
+    const CANDIDATE_POOL_MULTIPLIER = 4;
+
     // --- Step 3: Check Sportradar rate budget ---
     const windowStart = new Date(
       Math.floor(now.getTime() / 60_000) * 60_000
@@ -255,14 +295,16 @@ Deno.serve(async (req) => {
     // --- Step 4: Dispatch PBP polls ---
     let pbpDispatched = 0;
     if (sportradarBudgetRemaining > 0) {
-      const { data: pbpDue } = await supabase
+      const pbpBudget = Math.min(MAX_PBP_DISPATCHES, sportradarBudgetRemaining);
+      const { data: pbpCandidates } = await supabase
         .from("watcher_state")
         .select("game_id, sport, pbp_error_count")
         .eq("is_active", true)
         .not("pbp_next_poll_at", "is", null)
         .lte("pbp_next_poll_at", nowIso)
         .order("pbp_next_poll_at", { ascending: true })
-        .limit(Math.min(MAX_PBP_DISPATCHES, sportradarBudgetRemaining));
+        .limit(pbpBudget * CANDIDATE_POOL_MULTIPLIER);
+      const pbpDue = prioritize(pbpCandidates ?? [], highPriorityGameIds).slice(0, pbpBudget);
 
       for (const row of pbpDue ?? []) {
         try {
@@ -315,14 +357,15 @@ Deno.serve(async (req) => {
 
       // Summary can use SportsDataIO fallback, so we still dispatch even without Sportradar budget
       // but we limit to MAX_SUMMARY_DISPATCHES either way
-      const { data: summaryDue } = await supabase
+      const { data: summaryCandidates } = await supabase
         .from("watcher_state")
         .select("game_id, sport, summary_error_count")
         .eq("is_active", true)
         .not("summary_next_poll_at", "is", null)
         .lte("summary_next_poll_at", nowIso)
         .order("summary_next_poll_at", { ascending: true })
-        .limit(MAX_SUMMARY_DISPATCHES);
+        .limit(MAX_SUMMARY_DISPATCHES * CANDIDATE_POOL_MULTIPLIER);
+      const summaryDue = prioritize(summaryCandidates ?? [], highPriorityGameIds).slice(0, MAX_SUMMARY_DISPATCHES);
 
       for (const row of summaryDue ?? []) {
         try {
@@ -365,14 +408,15 @@ Deno.serve(async (req) => {
     // --- Step 6: Dispatch Alert evaluations ---
     let alertsDispatched = 0;
     {
-      const { data: alertDue } = await supabase
+      const { data: alertCandidates } = await supabase
         .from("watcher_state")
         .select("game_id")
         .eq("is_active", true)
         .not("alert_next_evaluate_at", "is", null)
         .lte("alert_next_evaluate_at", nowIso)
         .order("alert_next_evaluate_at", { ascending: true })
-        .limit(MAX_ALERT_DISPATCHES);
+        .limit(MAX_ALERT_DISPATCHES * CANDIDATE_POOL_MULTIPLIER);
+      const alertDue = prioritize(alertCandidates ?? [], highPriorityGameIds).slice(0, MAX_ALERT_DISPATCHES);
 
       for (const row of alertDue ?? []) {
         try {

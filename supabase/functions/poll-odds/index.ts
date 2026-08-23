@@ -1,10 +1,15 @@
 // poll-odds: Fetch odds from The Odds API for all enabled sports
 // Trigger: pg_cron every 5 minutes
 //
-// Sports covered: NCAAB (ncaam), NBA (nba), MLB (mlb)
+// Sports covered: NCAAB (ncaam), NBA (nba), MLB (mlb), NCAAF (ncaaf), NFL (nfl).
+// Football was added 2026-08-23 (FX5 / BL-2 in the season-readiness audit).
 // To disable a sport at runtime without a redeploy, set the env var:
-//   ODDS_DISABLED_SPORTS=basketball_nba,baseball_mlb
+//   ODDS_DISABLED_SPORTS=americanfootball_ncaaf,americanfootball_nfl
 // Each entry is the Odds API sport key (oddsApiKey column below).
+//
+// Quota note: adding the two football sports increases daily request volume by
+// ~66% (5 sports x 12 polls/hour x 24 hours vs. prior 3 sports). ODDS_DISABLED_SPORTS
+// is the kill switch if quota headroom becomes tight during peak weeks.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -18,9 +23,11 @@ const MARKETS = ["spreads", "totals", "h2h"];
 // Maps Odds API sport keys → our DB sport enum values.
 // Adding a new sport here is sufficient — no code change needed.
 const SPORT_CONFIG: Array<{ oddsApiKey: string; dbSport: string }> = [
-  { oddsApiKey: "basketball_ncaab", dbSport: "ncaam" },
-  { oddsApiKey: "basketball_nba",   dbSport: "nba"   },
-  { oddsApiKey: "baseball_mlb",     dbSport: "mlb"   },
+  { oddsApiKey: "basketball_ncaab",     dbSport: "ncaam" },
+  { oddsApiKey: "basketball_nba",       dbSport: "nba"   },
+  { oddsApiKey: "baseball_mlb",         dbSport: "mlb"   },
+  { oddsApiKey: "americanfootball_ncaaf", dbSport: "ncaaf" },
+  { oddsApiKey: "americanfootball_nfl",   dbSport: "nfl"   },
 ];
 
 interface OddsOutcome {

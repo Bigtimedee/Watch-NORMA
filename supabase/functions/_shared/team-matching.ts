@@ -84,12 +84,45 @@ const TEAM_ALIASES: Record<string, string[]> = {
   "Tampa Bay Rays": ["TB Rays"],
 };
 
-// Build a reverse lookup: lowercased alias -> canonical name
+// Build a reverse lookup: lowercased alias -> canonical name.
+//
+// H-4 in the 2026-08-23 season-readiness audit: multiple NCAAF schools share
+// a mascot (Tigers = LSU/Auburn/Missouri/Clemson; Bulldogs = Georgia/Miss
+// State/UNC Asheville/Fresno State; Cougars = BYU/Washington State; etc.).
+// The prior build was last-write-wins — an odds event that said "Tigers vs
+// Volunteers" resolved to whichever school appeared latest in the TEAM_ALIASES
+// literal, silently mis-routing odds to the wrong game.
+//
+// Two-pass build:
+//   1. Count how many canonicals each alias resolves to.
+//   2. Register the alias only if it resolves uniquely; ambiguous aliases
+//      (multi-school mascots) are collected into an `ambiguousAliases` set so
+//      callers can detect them and fall back to scored matching, which uses
+//      the market/city name to disambiguate.
 const aliasMap = new Map<string, string>();
+const aliasCanonicalCandidates = new Map<string, Set<string>>();
+export const ambiguousAliases = new Set<string>();
+
 for (const [canonical, aliases] of Object.entries(TEAM_ALIASES)) {
-  aliasMap.set(canonical.toLowerCase(), canonical);
+  const canonicalKey = canonical.toLowerCase();
+  if (!aliasCanonicalCandidates.has(canonicalKey)) {
+    aliasCanonicalCandidates.set(canonicalKey, new Set());
+  }
+  aliasCanonicalCandidates.get(canonicalKey)!.add(canonical);
   for (const alias of aliases) {
-    aliasMap.set(alias.toLowerCase(), canonical);
+    const key = alias.toLowerCase();
+    if (!aliasCanonicalCandidates.has(key)) {
+      aliasCanonicalCandidates.set(key, new Set());
+    }
+    aliasCanonicalCandidates.get(key)!.add(canonical);
+  }
+}
+
+for (const [key, candidates] of aliasCanonicalCandidates) {
+  if (candidates.size === 1) {
+    aliasMap.set(key, [...candidates][0]);
+  } else {
+    ambiguousAliases.add(key);
   }
 }
 
