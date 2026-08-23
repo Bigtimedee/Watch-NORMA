@@ -15,6 +15,10 @@ export interface GameContext {
   home_team: string;
   away_team: string;
   scheduled_at: string;
+  /** NORMA sport key: ncaam | nba | mlb | ncaaf | nfl. Determines which
+   *  league-specific path the deep link routes to. Defaults to ncaam
+   *  when omitted so pre-existing callers stay on their prior behavior. */
+  sport?: string;
   game_id?: string;
 }
 
@@ -25,47 +29,122 @@ export interface AffiliateConfig {
   postback_url?: string;
 }
 
+// --- Sport → per-book URL segments ---
+//
+// Every sportsbook exposes a different path per league. Basketball-only
+// hardcoding routed "Bet Now" on football games to the college-basketball
+// section (BL-6 in the 2026-08-23 audit). Segments below were verified
+// against each book's public URL structure as of 2026-08-23.
+//
+// Fields:
+//   dk / fd / mgm_web / mgm_scheme / cae — league identifiers used in each
+//   book's URLs. espn_scheme mirrors DraftKings' league keys; espn_web
+//   uses the umbrella sport (basketball/football/baseball) because ESPN
+//   BET's game routes live under /sport/{umbrella}/.
+
+interface SportPaths {
+  dk: string;         // DraftKings scheme + web path
+  fd: string;         // FanDuel league slug
+  mgm_web: string;    // BetMGM web sport/league combo
+  mgm_scheme: string; // BetMGM native scheme league key
+  cae: string;        // Caesars web + scheme league slug
+  espn_scheme: string;
+  espn_web: string;
+}
+
+const SPORT_PATHS: Record<string, SportPaths> = {
+  ncaam: {
+    dk: "ncaab",
+    fd: "college-basketball",
+    mgm_web: "basketball/college",
+    mgm_scheme: "ncaab",
+    cae: "college-basketball",
+    espn_scheme: "ncaab",
+    espn_web: "basketball",
+  },
+  nba: {
+    dk: "nba",
+    fd: "nba",
+    mgm_web: "basketball/nba",
+    mgm_scheme: "nba",
+    cae: "nba",
+    espn_scheme: "nba",
+    espn_web: "basketball",
+  },
+  ncaaf: {
+    dk: "cfb",
+    fd: "college-football",
+    mgm_web: "football/college",
+    mgm_scheme: "cfb",
+    cae: "college-football",
+    espn_scheme: "cfb",
+    espn_web: "football",
+  },
+  nfl: {
+    dk: "nfl",
+    fd: "nfl",
+    mgm_web: "football/nfl",
+    mgm_scheme: "nfl",
+    cae: "nfl",
+    espn_scheme: "nfl",
+    espn_web: "football",
+  },
+  mlb: {
+    dk: "mlb",
+    fd: "mlb",
+    mgm_web: "baseball/mlb",
+    mgm_scheme: "mlb",
+    cae: "mlb",
+    espn_scheme: "mlb",
+    espn_web: "baseball",
+  },
+};
+
+function sportPaths(sport: string | undefined): SportPaths {
+  return SPORT_PATHS[sport ?? "ncaam"] ?? SPORT_PATHS.ncaam;
+}
+
 // --- Provider Deep Link Templates ---
 
 interface ProviderTemplate {
-  native_scheme: (gameSlug: string) => string;
-  universal_link: (gameSlug: string) => string;
+  native_scheme: (gameSlug: string, p: SportPaths) => string;
+  universal_link: (gameSlug: string, p: SportPaths) => string;
   web_fallback: string;
   affiliate_param_key: string;
 }
 
 const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
   draftkings: {
-    native_scheme: (slug) => `draftkings://sportsbook/ncaab/game/${slug}`,
-    universal_link: (slug) =>
-      `https://sportsbook.draftkings.com/event/${slug}`,
+    native_scheme: (slug, p) => `draftkings://sportsbook/${p.dk}/game/${slug}`,
+    universal_link: (slug, p) =>
+      `https://sportsbook.draftkings.com/leagues/${p.dk}/event/${slug}`,
     web_fallback: "https://www.draftkings.com",
     affiliate_param_key: "ref",
   },
   fanduel: {
-    native_scheme: (slug) => `fanduel://sportsbook/ncaab/${slug}`,
-    universal_link: (slug) =>
-      `https://sportsbook.fanduel.com/college-basketball/${slug}`,
+    native_scheme: (slug, p) => `fanduel://sportsbook/${p.fd}/${slug}`,
+    universal_link: (slug, p) =>
+      `https://sportsbook.fanduel.com/${p.fd}/${slug}`,
     web_fallback: "https://www.fanduel.com",
     affiliate_param_key: "btag",
   },
   betmgm: {
-    native_scheme: (slug) => `betmgm://sports/ncaab/${slug}`,
-    universal_link: (slug) =>
-      `https://sports.betmgm.com/en/sports/basketball/college/${slug}`,
+    native_scheme: (slug, p) => `betmgm://sports/${p.mgm_scheme}/${slug}`,
+    universal_link: (slug, p) =>
+      `https://sports.betmgm.com/en/sports/${p.mgm_web}/${slug}`,
     web_fallback: "https://sports.betmgm.com",
     affiliate_param_key: "wm",
   },
   caesars: {
-    native_scheme: (slug) => `caesarssportsbook://sports/ncaab/${slug}`,
-    universal_link: (slug) =>
-      `https://www.caesars.com/sportsbook-and-casino/college-basketball/${slug}`,
+    native_scheme: (slug, p) => `caesarssportsbook://sports/${p.cae}/${slug}`,
+    universal_link: (slug, p) =>
+      `https://www.caesars.com/sportsbook-and-casino/${p.cae}/${slug}`,
     web_fallback: "https://www.caesars.com/sportsbook-and-casino",
     affiliate_param_key: "pid",
   },
   espnbet: {
-    native_scheme: (slug) => `espnbet://sportsbook/ncaab/${slug}`,
-    universal_link: (slug) => `https://espnbet.com/sport/basketball/${slug}`,
+    native_scheme: (slug, p) => `espnbet://sportsbook/${p.espn_scheme}/${slug}`,
+    universal_link: (slug, p) => `https://espnbet.com/sport/${p.espn_web}/${slug}`,
     web_fallback: "https://espnbet.com",
     affiliate_param_key: "aff",
   },
@@ -81,6 +160,7 @@ export function buildSportsbookLink(
 ): SportsbookDeepLink {
   const template = PROVIDER_TEMPLATES[providerKey];
   const gameSlug = buildGameSlug(game);
+  const paths = sportPaths(game.sport);
 
   if (!template) {
     // Fallback for unknown providers
@@ -104,8 +184,8 @@ export function buildSportsbookLink(
 
   return {
     provider_key: providerKey,
-    native_scheme: template.native_scheme(gameSlug),
-    universal_link: template.universal_link(gameSlug) + affiliateParams,
+    native_scheme: template.native_scheme(gameSlug, paths),
+    universal_link: template.universal_link(gameSlug, paths) + affiliateParams,
     web_fallback: template.web_fallback + affiliateParams,
     affiliate_params: affiliateParams,
   };
