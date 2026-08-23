@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { AppState } from "react-native";
+import { AppState, Alert as RNAlert } from "react-native";
 import { maybeRequestReview } from "../lib/review-prompt";
 import * as Haptics from "expo-haptics";
 import {
@@ -95,12 +95,30 @@ export function useTapToStreamEngine() {
 
   const fireDeepLink = useCallback(async () => {
     const provider = providerRef.current;
+    let launchFailed = false;
     if (provider) {
       try {
-        await openStreamingApp(provider);
-      } catch {
-        // URL failed — show waiting/failsafe state
+        const result = await openStreamingApp(provider);
+        // openStreamingApp returns { opened: false, method: "none" } when every
+        // fallback in the chain failed. Previously that case animated
+        // "Connecting..." for 5s and faded out with no error state, leaving the
+        // user to guess (audit item D / 2026-08-23 H-7). Show a real message
+        // and skip the waiting animation.
+        if (!result?.opened) launchFailed = true;
+      } catch (err) {
+        launchFailed = true;
+        // Non-PII log for observability; the alert below is the user-facing signal.
+        console.warn("[useTapToStream] openStreamingApp threw:", (err as Error)?.message);
       }
+    }
+
+    if (launchFailed && provider) {
+      resetToIdle();
+      RNAlert.alert(
+        `Could not open ${provider.name}`,
+        `The app doesn't appear to be installed. Search for "${provider.name}" in the App Store to watch.`,
+      );
+      return;
     }
 
     // Set up waiting state in case deep link is slow

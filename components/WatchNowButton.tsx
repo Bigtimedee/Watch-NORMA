@@ -41,7 +41,17 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
   );
   const isRegional = isRegionalBroadcast(game.broadcast);
 
+  // "Broadcast TBD" is informational only — nothing is actionable until the
+  // schedule reveals a broadcaster. Rendering it as a pressable with no work
+  // to do produces a mystery tap (audit item D / 2026-08-23 H-6).
+  const isBroadcastTbd = !bestProvider && !game.broadcast;
+
   const handlePress = async () => {
+    if (isBroadcastTbd) {
+      // Guard: someone else adjusted styling to make this pressable again — do
+      // nothing rather than fall into the else-if / no-op path.
+      return;
+    }
     if (bestProvider) {
       // Pre-flight check: if no URL can be resolved for this provider, show an
       // actionable message instead of silently doing nothing. This surfaces the
@@ -94,9 +104,12 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         s.button,
         bestProvider ? s.buttonBrand : s.buttonDefault,
         bestProvider ? animatedButtonStyle : undefined,
+        isBroadcastTbd ? s.buttonDisabled : undefined,
       ]}
       onPress={handlePress}
-      accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Watch"}
+      disabled={isBroadcastTbd}
+      accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Broadcast information not yet available"}
+      accessibilityState={{ disabled: isBroadcastTbd }}
     >
       <Ionicons
         name="play-circle"
@@ -132,6 +145,7 @@ const s = StyleSheet.create({
   },
   buttonBrand: { backgroundColor: "#f97316" },
   buttonDefault: { backgroundColor: "#334155" },
+  buttonDisabled: { backgroundColor: "#1e293b", opacity: 0.6 },
   textContainer: { marginLeft: 12 },
   label: { fontSize: 16, fontWeight: "700" },
   labelBrand: { color: "#ffffff" },

@@ -21,6 +21,7 @@ import {
   openStreamingApp,
   resolveDeepLinkUrl,
   isRegionalBroadcast,
+  getBroadcastProviderKeys,
 } from "../deep-links";
 import type { StreamingProvider } from "../types";
 
@@ -90,6 +91,66 @@ describe("isRegionalBroadcast", () => {
   });
   it("returns false for empty string", () => {
     expect(isRegionalBroadcast("")).toBe(false);
+  });
+});
+
+// ─── getBroadcastProviderKeys — football + blackout guard (H-5/H-6/H-8) ─────
+
+describe("getBroadcastProviderKeys — football broadcast narrative strings", () => {
+  it("Sunday Night Football (no NBC prefix) routes to Peacock", () => {
+    const keys = getBroadcastProviderKeys("Sunday Night Football");
+    expect(keys).toContain("peacock");
+  });
+
+  it("SNF (bare acronym) routes to Peacock", () => {
+    expect(getBroadcastProviderKeys("SNF")).toContain("peacock");
+  });
+
+  it("Thursday Night Football (no Amazon prefix) routes to Prime Video", () => {
+    expect(getBroadcastProviderKeys("Thursday Night Football")).toContain("prime_video");
+  });
+
+  it("TNF (bare acronym) routes to Prime Video", () => {
+    expect(getBroadcastProviderKeys("TNF")).toContain("prime_video");
+  });
+
+  it("NFL+ Exclusive routes to Peacock (per NBC/Peacock partnership on NFL+)", () => {
+    expect(getBroadcastProviderKeys("NFL+ Exclusive")).toContain("peacock");
+  });
+
+  it("NFL Sunday Ticket routes to YouTube Primetime Channels", () => {
+    expect(getBroadcastProviderKeys("NFL Sunday Ticket")).toContain("youtube_primetime_channels");
+  });
+
+  it("NBC (national) still routes to Peacock (backward compat)", () => {
+    expect(getBroadcastProviderKeys("NBC")).toContain("peacock");
+  });
+
+  it("Amazon Prime (backward compat) still routes to Prime Video", () => {
+    expect(getBroadcastProviderKeys("Amazon Prime Video")).toContain("prime_video");
+  });
+});
+
+describe("getBroadcastProviderKeys — regional blackout guard (H-6)", () => {
+  it("regional RSN does NOT append live-TV providers", () => {
+    // "NBCS Bay Area" is regional — YouTube TV etc. cannot bypass local blackout.
+    const keys = getBroadcastProviderKeys("NBCS Bay Area");
+    expect(keys).not.toContain("youtube_tv");
+    expect(keys).not.toContain("hulu_live");
+    expect(keys).not.toContain("fubo");
+    expect(keys).not.toContain("sling");
+    expect(keys).not.toContain("directv_stream");
+  });
+
+  it("national broadcast DOES append live-TV providers", () => {
+    const keys = getBroadcastProviderKeys("CBS");
+    expect(keys).toContain("youtube_tv");
+    expect(keys).toContain("hulu_live");
+    expect(keys).toContain("fubo");
+  });
+
+  it("null broadcast returns empty list", () => {
+    expect(getBroadcastProviderKeys(null)).toEqual([]);
   });
 });
 
