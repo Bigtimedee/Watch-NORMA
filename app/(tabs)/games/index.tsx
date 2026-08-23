@@ -85,13 +85,30 @@ export default function GamesScreen() {
     selectedDateStr + "T12:00:00"
   ).toLocaleDateString("en-US", { weekday: "long" });
 
-  const SPORT_PILLS: Array<{ key: SportKey | undefined; label: string }> = [
+  // Sport pill order weights the active sports for the current month so users
+  // don't have to scroll past out-of-season leagues during their season
+  // (H-12 in the 2026-08-23 audit). Football leads Aug–Feb; MLB leads Mar–Oct;
+  // basketball keeps a stable presence.
+  const currentMonth = new Date().getMonth(); // 0=Jan .. 11=Dec
+  const isFootballSeason = currentMonth >= 7 || currentMonth <= 1; // Aug–Feb
+  const isMlbSeason = currentMonth >= 2 && currentMonth <= 9;      // Mar–Oct
+  const ALL_SPORT_PILLS: Array<{ key: SportKey | undefined; label: string }> = [
     { key: undefined, label: "All Sports" },
-    { key: "ncaam",  label: "NCAA" },
-    { key: "nba",    label: "NBA" },
-    { key: "mlb",    label: "MLB" },
-    { key: "ncaaf",  label: "NCAAF" },
-    { key: "nfl",    label: "NFL" },
+    { key: "ncaam",   label: "NCAA"  },
+    { key: "nba",     label: "NBA"   },
+    { key: "mlb",     label: "MLB"   },
+    { key: "ncaaf",   label: "NCAAF" },
+    { key: "nfl",     label: "NFL"   },
+  ];
+  const PILL_ORDER_BY_SEASON: SportKey[] = isFootballSeason
+    ? ["nfl", "ncaaf", "nba", "ncaam", "mlb"]
+    : isMlbSeason
+      ? ["mlb", "nba", "ncaam", "nfl", "ncaaf"]
+      : ["ncaam", "nba", "nfl", "ncaaf", "mlb"];
+  const byKey = new Map(ALL_SPORT_PILLS.map((p) => [p.key, p]));
+  const SPORT_PILLS: Array<{ key: SportKey | undefined; label: string }> = [
+    byKey.get(undefined)!,
+    ...PILL_ORDER_BY_SEASON.map((k) => byKey.get(k)!),
   ];
 
   const selectedSportLabel =

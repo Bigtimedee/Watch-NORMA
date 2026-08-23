@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-const APP_STORE_URL = "https://apps.apple.com/app/watch-norma/id6504228672";
+// ascAppId per eas.json is 6759508383; all other web pages + lib/constants
+// use that value. The old id6504228672 was a stale duplicate that 404s.
+// (Audit item J from 2026-08-20.)
+const APP_STORE_URL = "https://apps.apple.com/us/app/watch-norma/id6759508383";
 
 const VALUE_PROPS = [
   {

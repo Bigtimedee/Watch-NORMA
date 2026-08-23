@@ -56,4 +56,13 @@ describe("sport pill row layout", () => {
     expect(styleBlock("sportPillTextActive")).toMatch(/color:\s*"#/);
     expect(styleBlock("sportPillTextInactive")).toMatch(/color:\s*"#/);
   });
+
+  it("football is prioritized when currentMonth is Aug-Feb (H-12)", () => {
+    // Source assertion: the seasonal branch must place NFL/NCAAF first for football months.
+    expect(source).toMatch(/isFootballSeason[\s\S]{0,200}?\["nfl",\s*"ncaaf"/);
+  });
+
+  it("MLB is prioritized when currentMonth is Mar-Oct (H-12)", () => {
+    expect(source).toMatch(/isMlbSeason[\s\S]{0,200}?\["mlb"/);
+  });
 });
