@@ -1,27 +1,36 @@
-// morning-briefing: Daily "Tonight's Games" push notification
-// Schedule: 6 PM CT = 11 PM UTC (cron: '0 23 * * *')
+// morning-briefing: Daily push notification with sport-aware editions.
 //
-// For each user with a push token and notifications enabled:
-//   1. Find today's upcoming games (status = 'scheduled', game_date = today)
-//   2. Filter to games the user follows or has open wagers on (max 5)
-//   3. Send a "Tonight's Games" push notification listing those games
+// Default cron: 6 AM CT = 11 AM UTC (cron: '0 11 * * *')
+//   • Every day:  "Tonight's Games" for games the user follows/wagered (existing behavior)
+//   • Saturday:   NCAAF slate edition (if NCAAF games exist today)
+//   • Thursday:   NFL Thursday-night edition (if NFL games exist today)
+//   • Sunday:     NFL Sunday slate edition (if NFL games exist today)
 //
-// Respects: quiet_hours, notifications_enabled flag, push token presence
+// Edition routing by day-of-week (user's local timezone via profiles.timezone):
+//   Saturday  → NCAAF edition injected before the standard tail
+//   Thursday  → NFL Thursday edition (replaces standard if user has NFL coverage)
+//   Sunday    → NFL Sunday edition (replaces standard if user has NFL coverage)
+//   Other     → existing "Tonight's Games" logic unchanged
+//
+// Personalization order (per edition):
+//   1. Games user follows or has wagered on (entity_type=team|game + wagers.mapped_entities)
+//   2. Ranked matchups (NCAAF: games where home_rank or away_rank is set)
+//   3. Primetime / Thursday-night games (NFL: scheduled_at latest time slot)
+//
+// Respects: FX1 quiet-hours module (user's local timezone), notifications_enabled,
+//   push_token presence. No change to behavior on non-football days.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isInQuietHours as isInQuietHoursShared } from "../_shared/quiet-hours.ts";
+import {
+  buildEditionMessage,
+  localDayOfWeek,
+  type Game,
+  type DayContext,
+} from "./logic.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const MAX_GAMES_PER_BRIEFING = 5;
-
-interface Game {
-  id: string;
-  home_team: string;
-  away_team: string;
-  scheduled_at: string | null;
-  sport: string | null;
-}
 
 interface UserProfile {
   id: string;
@@ -47,15 +56,16 @@ Deno.serve(async (req) => {
   let errorCount = 0;
 
   try {
-    // 1. Get today's scheduled games (UTC date window)
-    const todayStart = new Date();
+    // 1. Query today's scheduled games (UTC date window).
+    const now = new Date();
+    const todayStart = new Date(now);
     todayStart.setUTCHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
 
     const { data: todayGames, error: gamesError } = await supabase
       .from("games")
-      .select("id, home_team, away_team, scheduled_at, sport")
+      .select("id, home_team, away_team, scheduled_at, sport, home_rank, away_rank")
       .eq("status", "scheduled")
       .gte("scheduled_at", todayStart.toISOString())
       .lt("scheduled_at", todayEnd.toISOString())
@@ -77,7 +87,7 @@ Deno.serve(async (req) => {
       console.log(JSON.stringify({
         function: "morning-briefing",
         event: "no_games_today",
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
       }));
       return new Response(
         JSON.stringify({ success: true, message: "No scheduled games today" }),
@@ -85,9 +95,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const gameIds = todayGames.map((g: Game) => g.id);
+    // 2. Compute day context once (sport availability + UTC day-of-week).
+    const games = todayGames as Game[];
+    const dayCtx: DayContext = {
+      hasNcaaf: games.some((g) => g.sport === "ncaaf"),
+      hasNfl: games.some((g) => g.sport === "nfl"),
+      utcDayOfWeek: now.getUTCDay(),
+    };
 
-    // 2. Get all users with push tokens
+    // 3. Get all users with push tokens and notifications enabled.
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, push_token, notifications_enabled, timezone, notification_settings")
@@ -106,7 +122,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. For each user, determine which of today's games they care about
+    // 4. For each user, build and send a briefing.
     for (const profile of profiles as UserProfile[]) {
       try {
         if (!profile.push_token?.startsWith("ExponentPushToken[")) {
@@ -114,66 +130,69 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check quiet hours in the user's own timezone.
+        // Check quiet hours in the user's own timezone (FX1 fix).
         if (isInQuietHours(profile.notification_settings, profile.timezone ?? null)) {
           skippedCount++;
           continue;
         }
 
-        // Get games user follows (via follows table)
-        const { data: follows } = await supabase
+        // Fetch user's follows and open wagers once.
+        const { data: followsRows } = await supabase
           .from("follows")
           .select("entity_id, entity_type, game_id, team_id")
           .eq("user_id", profile.id);
 
         const followedTeamIds = new Set<string>();
         const followedGameIds = new Set<string>();
-        for (const f of follows ?? []) {
+        for (const f of followsRows ?? []) {
           if (f.entity_type === "team" && f.entity_id) followedTeamIds.add(f.entity_id);
           if (f.entity_type === "game" && f.entity_id) followedGameIds.add(f.entity_id);
           if (f.team_id) followedTeamIds.add(f.team_id);
           if (f.game_id) followedGameIds.add(f.game_id);
         }
 
-        // Get games with open wagers
-        const { data: wagers } = await supabase
+        const { data: wagersRows } = await supabase
           .from("wagers")
           .select("mapped_entities")
           .eq("user_id", profile.id)
           .eq("status", "active");
 
         const wageredGameIds = new Set<string>();
-        for (const w of wagers ?? []) {
+        for (const w of wagersRows ?? []) {
           const entities = w.mapped_entities as { game_ids?: string[] } | null;
           for (const gid of entities?.game_ids ?? []) {
             wageredGameIds.add(gid);
           }
         }
 
-        // Filter today's games to ones the user cares about
-        const relevantGames = (todayGames as Game[]).filter((game) => {
-          if (followedGameIds.has(game.id)) return true;
-          if (wageredGameIds.has(game.id)) return true;
-          if (followedTeamIds.has(game.home_team) || followedTeamIds.has(game.away_team)) return true;
-          return false;
-        });
+        // Helper: is a game personally relevant to this user?
+        const isPersonal = (game: Game): boolean =>
+          followedGameIds.has(game.id) ||
+          wageredGameIds.has(game.id) ||
+          followedTeamIds.has(game.home_team) ||
+          followedTeamIds.has(game.away_team);
 
-        if (relevantGames.length === 0) {
+        // Determine the user's local day-of-week for edition routing.
+        const localDay = localDayOfWeek(now, profile.timezone);
+
+        // Build the briefing message based on day + sport context.
+        const message = buildEditionMessage(games, dayCtx, localDay, isPersonal);
+
+        if (!message) {
           skippedCount++;
           continue;
         }
 
-        const featured = relevantGames.slice(0, MAX_GAMES_PER_BRIEFING);
-        const { title, body } = buildBriefingMessage(featured);
+        const { title, body, featuredIds } = message;
 
-        // Send push
+        // Send push.
         const pushPayload = {
           to: profile.push_token,
           title,
           body,
           data: {
             type: "morning_briefing",
-            gameIds: featured.map((g) => g.id),
+            gameIds: featuredIds,
           },
           sound: "default",
           priority: "normal",
@@ -216,12 +235,13 @@ Deno.serve(async (req) => {
       function: "morning-briefing",
       event: "completed",
       total_users: (profiles as UserProfile[]).length,
-      games_today: todayGames.length,
+      games_today: games.length,
+      day_context: dayCtx,
       sent: sentCount,
       skipped: skippedCount,
       errors: errorCount,
       duration_ms: durationMs,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
     }));
 
     return new Response(
@@ -230,7 +250,7 @@ Deno.serve(async (req) => {
         sent: sentCount,
         skipped: skippedCount,
         errors: errorCount,
-        games_today: todayGames.length,
+        games_today: games.length,
         duration_ms: durationMs,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -249,53 +269,8 @@ Deno.serve(async (req) => {
   }
 });
 
-// --- Helpers ---
-
-/**
- * Build the push notification title and body for a briefing.
- */
-function buildBriefingMessage(games: Game[]): { title: string; body: string } {
-  const title = games.length === 1
-    ? "Tonight: 1 game on your list"
-    : `Tonight: ${games.length} games on your list`;
-
-  const lines = games.map((g) => {
-    const time = g.scheduled_at
-      ? formatGameTime(g.scheduled_at)
-      : "TBD";
-    return `${g.away_team} @ ${g.home_team} (${time})`;
-  });
-
-  const body = lines.join("\n");
-
-  return { title, body };
-}
-
-/**
- * Format a UTC ISO timestamp to a human-readable ET game time.
- * e.g. "2026-06-11T23:00:00Z" => "7:00 PM ET"
- */
-function formatGameTime(isoString: string): string {
-  try {
-    const date = new Date(isoString);
-    // Convert UTC to ET (UTC-4 in EDT, UTC-5 in EST)
-    // Use a fixed offset of -4 for summer (EDT) — close enough for sports scheduling
-    const etHour = (date.getUTCHours() - 4 + 24) % 24;
-    const etMinute = date.getUTCMinutes();
-    const period = etHour >= 12 ? "PM" : "AM";
-    const hour12 = etHour % 12 || 12;
-    const minute = etMinute.toString().padStart(2, "0");
-    return `${hour12}:${minute} ${period} ET`;
-  } catch {
-    return "TBD";
-  }
-}
-
 // Quiet-hours check delegates to the shared _shared/quiet-hours.ts helper so
-// morning-briefing and evaluate-alerts stay in lock step. The prior inline
-// implementation compared UTC time against local settings — for Eastern users
-// the 23:00–08:00 window silenced roughly 19:00–04:00 local, exactly the
-// window this briefing exists to fire in (2026-08-20 audit item B).
+// morning-briefing and evaluate-alerts stay in lock step (2026-08-20 audit item B).
 function isInQuietHours(
   settings: Record<string, unknown> | null,
   timezone: string | null,
