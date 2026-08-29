@@ -34,7 +34,10 @@ export type AlertType =
   | "football_close_game"
   | "football_overtime"
   | "football_two_minute"
-  | "email_wager_import";
+  | "email_wager_import"
+  // Phase 3 / F3 football alert types (2026-08-29)
+  | "football_red_zone"
+  | "football_upset_watch";
 
 export type WagerType = "spread" | "moneyline" | "over_under" | "prop";
 export type WagerStatus = "active" | "won" | "lost" | "push";

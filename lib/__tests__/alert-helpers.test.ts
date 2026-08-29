@@ -10,6 +10,38 @@ import {
 } from "../alert-helpers";
 import type { Alert, AlertType, Game } from "../types";
 
+// ─── alertTypeLabel — Phase 3 / F3 new football alert types ───
+
+describe("alertTypeLabel — Phase 3 F3 football types", () => {
+  it("returns 'Red Zone Alert' for football_red_zone", () => {
+    expect(alertTypeLabel("football_red_zone")).toBe("Red Zone Alert");
+  });
+
+  it("returns 'Upset Watch' for football_upset_watch", () => {
+    expect(alertTypeLabel("football_upset_watch")).toBe("Upset Watch");
+  });
+});
+
+describe("alertTypeColor — Phase 3 F3 football types", () => {
+  it("football_red_zone → red (#ef4444)", () => {
+    expect(alertTypeColor("football_red_zone")).toBe("#ef4444");
+  });
+
+  it("football_upset_watch → orange (#f97316)", () => {
+    expect(alertTypeColor("football_upset_watch")).toBe("#f97316");
+  });
+});
+
+describe("alertTypeIcon — Phase 3 F3 football types", () => {
+  it("football_red_zone → american-football-outline", () => {
+    expect(alertTypeIcon("football_red_zone")).toBe("american-football-outline");
+  });
+
+  it("football_upset_watch → alert-circle-outline", () => {
+    expect(alertTypeIcon("football_upset_watch")).toBe("alert-circle-outline");
+  });
+});
+
 // ─── alertTypeLabel ───
 
 describe("alertTypeLabel", () => {

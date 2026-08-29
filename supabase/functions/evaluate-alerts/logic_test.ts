@@ -18,6 +18,8 @@ import {
   evaluateFootballTotal,
   evaluateFootballMoneyline,
   evaluateFootballCloseGame,
+  evaluateFootballRedZone,
+  evaluateFootballUpsetWatch,
 } from "./logic.ts";
 import {
   makeGameState,
@@ -612,4 +614,188 @@ Deno.test("evaluateFootballCloseGame: fires in OT with close score", () => {
 Deno.test("evaluateFootballCloseGame: no alert for closed game", () => {
   const game = makeGameState({ clock: "0:00", period: 4, home_score: 28, away_score: 24, status: "closed" });
   assertEquals(evaluateFootballCloseGame(game), null);
+});
+
+// ─── evaluateFootballRedZone ───
+
+Deno.test("evaluateFootballRedZone: fires when inRedZone=true, no team filter", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 2,
+    clock: "7:30",
+    home_score: 14,
+    away_score: 7,
+    sport: "ncaaf",
+  });
+  const result = evaluateFootballRedZone(game, true, "team-duke", []);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_red_zone");
+});
+
+Deno.test("evaluateFootballRedZone: no alert when inRedZone=false", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 3,
+    clock: "4:00",
+    home_score: 21,
+    away_score: 14,
+    sport: "ncaaf",
+  });
+  assertEquals(evaluateFootballRedZone(game, false, "team-duke", []), null);
+});
+
+Deno.test("evaluateFootballRedZone: no alert when not inprogress", () => {
+  const game = makeGameState({
+    status: "closed",
+    period: 4,
+    clock: "0:00",
+    home_score: 28,
+    away_score: 21,
+    sport: "nfl",
+  });
+  assertEquals(evaluateFootballRedZone(game, true, "team-duke", []), null);
+});
+
+Deno.test("evaluateFootballRedZone: no alert when possession team not in user's team list", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "3:00",
+    home_score: 21,
+    away_score: 21,
+    sport: "nfl",
+  });
+  // User follows team-duke (home), but possession is team-unc (away)
+  const result = evaluateFootballRedZone(game, true, "team-unc", ["team-duke"]);
+  assertEquals(result, null);
+});
+
+Deno.test("evaluateFootballRedZone: fires when possession team matches user's team", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "2:15",
+    home_score: 21,
+    away_score: 21,
+    sport: "nfl",
+  });
+  // User follows team-duke (home), possession is also team-duke
+  const result = evaluateFootballRedZone(game, true, "team-duke", ["team-duke"]);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_red_zone");
+});
+
+// ─── evaluateFootballUpsetWatch ───
+
+Deno.test("evaluateFootballUpsetWatch: fires when ranked home team trails in Q4 by ≤14", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "8:00",
+    home_score: 14,
+    away_score: 21,
+    sport: "ncaaf",
+    home_team: { name: "Alabama Crimson Tide", abbreviation: "ALA" },
+    away_team: { name: "Troy Trojans", abbreviation: "TROY" },
+  });
+  // Ranked home (ALA) trailing by 7 — upset watch
+  const result = evaluateFootballUpsetWatch(game, 3, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_upset_watch");
+});
+
+Deno.test("evaluateFootballUpsetWatch: fires when ranked away team trails in Q4 by ≤14", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "5:30",
+    home_score: 28,
+    away_score: 21,
+    sport: "ncaaf",
+    home_team: { name: "App State Mountaineers", abbreviation: "APP" },
+    away_team: { name: "Ohio State Buckeyes", abbreviation: "OSU" },
+  });
+  // Ranked away (OSU #2) trailing by 7
+  const result = evaluateFootballUpsetWatch(game, null, 2);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_upset_watch");
+});
+
+Deno.test("evaluateFootballUpsetWatch: no alert when ranked team leads", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "4:00",
+    home_score: 35,
+    away_score: 14,
+    sport: "ncaaf",
+  });
+  // Ranked home team is WINNING — no upset watch
+  assertEquals(evaluateFootballUpsetWatch(game, 5, null), null);
+});
+
+Deno.test("evaluateFootballUpsetWatch: no alert when trail > 14 (two+ possessions)", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "6:00",
+    home_score: 14,
+    away_score: 35,
+    sport: "ncaaf",
+  });
+  // Ranked home trailing by 21 — too far behind
+  assertEquals(evaluateFootballUpsetWatch(game, 4, null), null);
+});
+
+Deno.test("evaluateFootballUpsetWatch: no alert in Q3 (too early)", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 3,
+    clock: "2:00",
+    home_score: 14,
+    away_score: 21,
+    sport: "ncaaf",
+  });
+  assertEquals(evaluateFootballUpsetWatch(game, 8, null), null);
+});
+
+Deno.test("evaluateFootballUpsetWatch: no alert when neither team is ranked", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "3:00",
+    home_score: 14,
+    away_score: 21,
+    sport: "ncaaf",
+  });
+  assertEquals(evaluateFootballUpsetWatch(game, null, null), null);
+});
+
+Deno.test("evaluateFootballUpsetWatch: no alert for NFL (AP poll is NCAAF only)", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 4,
+    clock: "4:00",
+    home_score: 14,
+    away_score: 21,
+    sport: "nfl",
+  });
+  assertEquals(evaluateFootballUpsetWatch(game, 1, null), null);
+});
+
+Deno.test("evaluateFootballUpsetWatch: fires in OT when ranked team trails by ≤14", () => {
+  const game = makeGameState({
+    status: "inprogress",
+    period: 5,
+    clock: "7:00",
+    home_score: 28,
+    away_score: 35,
+    sport: "ncaaf",
+    home_team: { name: "Georgia Bulldogs", abbreviation: "UGA" },
+    away_team: { name: "Kennesaw State Owls", abbreviation: "KSU" },
+  });
+  // Ranked home (UGA #1) trailing by 7 in OT
+  const result = evaluateFootballUpsetWatch(game, 1, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.alertType, "football_upset_watch");
 });

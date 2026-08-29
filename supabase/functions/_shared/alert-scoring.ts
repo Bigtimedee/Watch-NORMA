@@ -55,6 +55,11 @@ const WEIGHTS = {
   bench_swing: 5,
   efg_divergence: 5,
   follows_player: 5,
+  // Phase 3 / F3 football alert weights (2026-08-29)
+  // football_red_zone: +15 base (follows_team already adds 15; possession context adds another 15)
+  football_red_zone: 15,
+  // football_upset_watch: must-notify; scoring weight is additive for borderline cases
+  football_upset_watch: 20,
 };
 
 const SCORE_THRESHOLD = 40;

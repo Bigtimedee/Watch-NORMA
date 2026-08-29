@@ -1173,6 +1173,128 @@ export function evaluateFootballCloseGame(
 }
 
 /**
+ * Football Red Zone alert: the followed or wagered team is inside the opponent's 20-yard line.
+ *
+ * ESPN scoreboard exposes situation data on the `situation` object (yardLine, possession,
+ * downDistanceText). This data is NOT yet persisted as first-class columns on the `games`
+ * table; it is stored raw in the `game_snapshots` JSONB payload. For now, the evaluator
+ * accepts an explicit `inRedZone` boolean derived by the caller from the latest ESPN snapshot.
+ * When the games table gains a `situation` JSONB column (planned Phase 3 data work), the
+ * caller can parse it directly.
+ *
+ * Scoring: not a must-notify; adds +15 (follows team) in the scoring pipeline.
+ * The alert fires at any point in the game when the flag is set.
+ */
+export function evaluateFootballRedZone(
+  game: GameState,
+  /** True when the ESPN snapshot indicates the possession team is inside the opponent 20 */
+  inRedZone: boolean,
+  /** Team ID of the team currently in possession (from ESPN situation.possession) */
+  possessionTeamId: string | null,
+  /** Optional: user's followed/wagered team IDs — if provided, only fire when their team has ball */
+  userTeamIds: string[] = [],
+): AlertCandidate | null {
+  if (game.status !== "inprogress") return null;
+  if (!inRedZone) return null;
+
+  // If the caller knows which team has possession, verify it's a team the user cares about.
+  // When userTeamIds is empty the alert fires for any followed game (generic follow alert).
+  if (userTeamIds.length > 0 && possessionTeamId) {
+    if (!userTeamIds.includes(possessionTeamId)) return null;
+  }
+
+  const isHomeTeamPossession = possessionTeamId === game.home_team_id;
+  const possessionTeamName = possessionTeamId === game.home_team_id
+    ? (game.home_team?.abbreviation ?? "Home")
+    : possessionTeamId === game.away_team_id
+      ? (game.away_team?.abbreviation ?? "Away")
+      : (possessionTeamId ? "Your Team" : "A Team");
+
+  const periodLabel = game.period != null && game.period > 4
+    ? `OT${game.period - 4 > 1 ? game.period - 4 : ""}`
+    : game.period != null
+      ? `Q${game.period}`
+      : "Q?";
+
+  const clockStr = game.clock ?? "";
+  const timeCtx = clockStr ? ` with ${clockStr} left in ${periodLabel}` : ` in ${periodLabel}`;
+
+  return {
+    alertType: "football_red_zone",
+    title: `${possessionTeamName} — Red Zone`,
+    body: `Inside the 20${timeCtx}`,
+    why: `🏈 ${possessionTeamName} is in the red zone${timeCtx}. Tune in — scoring chance right now.`,
+  };
+}
+
+/**
+ * Football Upset Watch alert: a ranked NCAAF team is trailing in Q4 by ≤ 14 points.
+ * ESPN scoreboard exposes AP rank on competitor records (team.rank or curatedRank.current).
+ *
+ * Like red zone data, ESPN's rank field is in the scoreboard payload, not yet persisted
+ * as a first-class column. The caller must resolve the ranked side and pass it in.
+ *
+ * Must-notify: yes — this is added to the must-notify list in index.ts.
+ * Fires only for ncaaf; NFL has no AP poll.
+ */
+export function evaluateFootballUpsetWatch(
+  game: GameState,
+  /** AP rank of the home team (null if unranked) */
+  homeRank: number | null,
+  /** AP rank of the away team (null if unranked) */
+  awayRank: number | null,
+): AlertCandidate | null {
+  if (game.status !== "inprogress") return null;
+  if (game.sport !== "ncaaf") return null;
+
+  const clockMins = parseClockMinutes(game.clock);
+  if (clockMins == null || game.period == null) return null;
+
+  // Only fire in Q4 (or OT — period >= 5)
+  if (game.period < 4) return null;
+
+  const margin = game.home_score - game.away_score; // positive = home leading
+
+  // Determine if a ranked team is trailing by ≤ 14 (still within one possession)
+  let rankedTeamTrailing = false;
+  let rankedTeamName = "";
+  let rankedTeamRank = 0;
+  let trailingBy = 0;
+
+  if (homeRank != null && margin < 0 && Math.abs(margin) <= 14) {
+    // Ranked home team is trailing
+    rankedTeamTrailing = true;
+    rankedTeamName = game.home_team?.abbreviation ?? "Home";
+    rankedTeamRank = homeRank;
+    trailingBy = Math.abs(margin);
+  } else if (awayRank != null && margin > 0 && margin <= 14) {
+    // Ranked away team is trailing
+    rankedTeamTrailing = true;
+    rankedTeamName = game.away_team?.abbreviation ?? "Away";
+    rankedTeamRank = awayRank;
+    trailingBy = margin;
+  }
+
+  if (!rankedTeamTrailing) return null;
+
+  const periodLabel = game.period >= 5
+    ? `OT${game.period - 4 > 1 ? game.period - 4 : ""}`
+    : "Q4";
+  const clockStr = game.clock ?? "";
+  const timeCtx = clockStr ? `${clockStr} left in ${periodLabel}` : periodLabel;
+  const homeName = game.home_team?.abbreviation ?? "Home";
+  const awayName = game.away_team?.abbreviation ?? "Away";
+  const scoreStr = `${awayName} ${game.away_score}, ${homeName} ${game.home_score}`;
+
+  return {
+    alertType: "football_upset_watch",
+    title: `Upset Watch — #${rankedTeamRank} ${rankedTeamName} Trails by ${trailingBy}`,
+    body: `${scoreStr} — ${timeCtx}`,
+    why: `#${rankedTeamRank} ${rankedTeamName} trails by ${trailingBy} with ${timeCtx}. They need one score — this could be an upset. Tune in now.`,
+  };
+}
+
+/**
  * NBA-specific close game alert: uses tighter margin threshold (6 pts vs 8 for NCAA)
  * and triggers only in the 4th quarter with under 3 minutes left.
  */
