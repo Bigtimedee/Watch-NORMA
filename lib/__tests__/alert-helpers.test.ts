@@ -5,6 +5,7 @@ import {
   isUrgent,
   timeAgo,
   formatClock,
+  formatPeriodLabel,
   sortAlerts,
 } from "../alert-helpers";
 import type { Alert, AlertType, Game } from "../types";
@@ -178,6 +179,78 @@ describe("formatClock", () => {
   it("second OT for NCAA uses OT2", () => {
     const game = { ...baseGame, period: 4, clock: "1:00" };
     expect(formatClock(game)).toBe("1:00 OT2");
+  });
+
+  // Football regression suite — BL-3/BL-4 in the 2026-08-23 audit.
+  // Previously the NCAA-basketball fall-through rendered NFL Q3/Q4 as OT1/OT2.
+  it("NFL Q1 → Q1 (not H1)", () => {
+    const game = { ...baseGame, sport: "nfl" as const, period: 1, clock: "12:34" };
+    expect(formatClock(game)).toBe("12:34 Q1");
+  });
+
+  it("NFL Q3 → Q3 (not OT1)", () => {
+    const game = { ...baseGame, sport: "nfl" as const, period: 3, clock: "5:22" };
+    expect(formatClock(game)).toBe("5:22 Q3");
+  });
+
+  it("NFL Q4 → Q4 (not OT2)", () => {
+    const game = { ...baseGame, sport: "nfl" as const, period: 4, clock: "0:45" };
+    expect(formatClock(game)).toBe("0:45 Q4");
+  });
+
+  it("NFL OT (period 5) → OT", () => {
+    const game = { ...baseGame, sport: "nfl" as const, period: 5, clock: "9:30" };
+    expect(formatClock(game)).toBe("9:30 OT");
+  });
+
+  it("NCAAF Q2 → Q2", () => {
+    const game = { ...baseGame, sport: "ncaaf" as const, period: 2, clock: "3:07" };
+    expect(formatClock(game)).toBe("3:07 Q2");
+  });
+
+  it("NCAAF Q4 → Q4", () => {
+    const game = { ...baseGame, sport: "ncaaf" as const, period: 4, clock: "0:12" };
+    expect(formatClock(game)).toBe("0:12 Q4");
+  });
+
+  it("NCAAF double-OT (period 6) → OT2", () => {
+    const game = { ...baseGame, sport: "ncaaf" as const, period: 6, clock: null };
+    expect(formatClock(game)).toBe("OT2");
+  });
+});
+
+// ─── formatPeriodLabel — sport-aware period rendering ───
+
+describe("formatPeriodLabel", () => {
+  it("NCAAM: 2 halves + OT (regression guard)", () => {
+    expect(formatPeriodLabel("ncaam", 1)).toBe("H1");
+    expect(formatPeriodLabel("ncaam", 2)).toBe("H2");
+    expect(formatPeriodLabel("ncaam", 3)).toBe("OT1");
+    expect(formatPeriodLabel("ncaam", 5)).toBe("OT3");
+  });
+
+  it("NBA: 4 quarters + OT (regression guard)", () => {
+    expect(formatPeriodLabel("nba", 1)).toBe("Q1");
+    expect(formatPeriodLabel("nba", 4)).toBe("Q4");
+    expect(formatPeriodLabel("nba", 5)).toBe("OT");
+    expect(formatPeriodLabel("nba", 6)).toBe("OT2");
+  });
+
+  it("NFL: 4 quarters + OT", () => {
+    expect(formatPeriodLabel("nfl", 1)).toBe("Q1");
+    expect(formatPeriodLabel("nfl", 4)).toBe("Q4");
+    expect(formatPeriodLabel("nfl", 5)).toBe("OT");
+  });
+
+  it("NCAAF: 4 quarters + numbered OT (2OT+ common in college)", () => {
+    expect(formatPeriodLabel("ncaaf", 3)).toBe("Q3");
+    expect(formatPeriodLabel("ncaaf", 5)).toBe("OT");
+    expect(formatPeriodLabel("ncaaf", 6)).toBe("OT2");
+    expect(formatPeriodLabel("ncaaf", 7)).toBe("OT3");
+  });
+
+  it("MLB: falls back to Inn (caller should use formatMLBClock)", () => {
+    expect(formatPeriodLabel("mlb", 7)).toBe("Inn 7");
   });
 });
 

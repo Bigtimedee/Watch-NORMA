@@ -22,6 +22,7 @@ import { AddWagerSheet } from "../../../components/AddWagerSheet";
 import { ReviewScannedWagersSheet } from "../../../components/ReviewScannedWagersSheet";
 import { MarketPrices } from "../../../components/MarketPrices";
 import { LIVE_STATUSES } from "../../../lib/constants";
+import { formatPeriodLabel } from "../../../lib/alert-helpers";
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
@@ -159,7 +160,7 @@ export default function GameDetailScreen() {
                 game.venue ? ["Venue", game.venue] : null,
                 game.broadcast ? ["Broadcast", game.broadcast] : null,
                 game.tournament_round ? ["Round", game.tournament_round] : null,
-                game.period ? ["Period", game.period > 2 ? `OT${game.period - 2}` : `Half ${game.period}`] : null,
+                game.period ? ["Period", formatPeriodLabel(game.sport, game.period)] : null,
               ].filter((item): item is [string, string] => item !== null)
             ).map(([label, value], i) => (
               <View

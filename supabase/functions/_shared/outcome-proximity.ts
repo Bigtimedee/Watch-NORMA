@@ -31,21 +31,48 @@ interface PlayerStats {
   side: "home" | "away";
 }
 
+// Sport-specific clock geometry. Regulation is `regulationPeriods` periods of
+// `periodMinutes` each; OT periods run `otMinutes`. Basketball halves (NCAAM)
+// were the original hardcode — that made every football (15-min quarters ×4)
+// prop-proximity score wrong (BL-7 in the 2026-08-23 audit).
+interface SportClockCfg {
+  periodMinutes: number;
+  regulationPeriods: number;
+  otMinutes: number;
+}
+
+const SPORT_CLOCK: Record<string, SportClockCfg> = {
+  ncaam: { periodMinutes: 20, regulationPeriods: 2, otMinutes: 5 },
+  nba:   { periodMinutes: 12, regulationPeriods: 4, otMinutes: 5 },
+  nfl:   { periodMinutes: 15, regulationPeriods: 4, otMinutes: 10 },
+  // NCAAF overtime is untimed (possession-based); treat each OT round as a
+  // 15-minute period for pacing math so proximity trend doesn't spike.
+  ncaaf: { periodMinutes: 15, regulationPeriods: 4, otMinutes: 15 },
+};
+
+function clockCfg(sport: string | null | undefined): SportClockCfg {
+  return SPORT_CLOCK[sport ?? "ncaam"] ?? SPORT_CLOCK.ncaam;
+}
+
 function getMinutesElapsed(game: GameState): number {
   const clockMins = parseClockMinutes(game.clock);
   if (clockMins == null || game.period == null) return 0;
+  const cfg = clockCfg(game.sport);
 
-  if (game.period === 1) return 20 - clockMins;
-  if (game.period === 2) return 40 - clockMins;
-  // OT periods are 5 minutes each
-  return 40 + (5 * (game.period - 2)) - clockMins;
+  // Regulation: (p-1) completed periods + (periodMinutes - clockMins) into current
+  if (game.period <= cfg.regulationPeriods) {
+    return game.period * cfg.periodMinutes - clockMins;
+  }
+  // Overtime: full regulation + previous OT periods + elapsed in current OT
+  const regulation = cfg.regulationPeriods * cfg.periodMinutes;
+  return regulation + (game.period - cfg.regulationPeriods) * cfg.otMinutes - clockMins;
 }
 
 function getTotalGameMinutes(game: GameState): number {
-  if (game.period == null) return 40;
-  if (game.period <= 2) return 40;
-  // In OT, total expected is 40 + 5 per OT period
-  return 40 + 5 * (game.period - 2);
+  const cfg = clockCfg(game.sport);
+  const regulation = cfg.regulationPeriods * cfg.periodMinutes;
+  if (game.period == null || game.period <= cfg.regulationPeriods) return regulation;
+  return regulation + (game.period - cfg.regulationPeriods) * cfg.otMinutes;
 }
 
 function getTimePressure(game: GameState): number {

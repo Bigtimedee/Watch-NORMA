@@ -132,18 +132,34 @@ export function formatClock(game: Game): string {
     return formatMLBClock(game.clock, game.period);
   }
 
-  // Basketball (NCAA and NBA)
   if (!game.period) return game.clock ?? "LIVE";
-  // NBA has 4 quarters; NCAA has 2 halves
-  let periodLabel: string;
-  if (game.sport === "nba") {
-    periodLabel = game.period > 4
-      ? `OT${game.period - 4 > 1 ? game.period - 4 : ""}`
-      : `Q${game.period}`;
-  } else {
-    periodLabel = game.period > 2 ? `OT${game.period - 2}` : `H${game.period}`;
-  }
+  const periodLabel = formatPeriodLabel(game.sport, game.period);
   return game.clock ? `${game.clock} ${periodLabel}` : periodLabel;
+}
+
+/** Sport-aware period label for basketball halves/quarters, football quarters,
+ *  and MLB innings. Exposed so game-detail, cards, and alerts render the same
+ *  text for the same game state. */
+export function formatPeriodLabel(sport: Game["sport"] | undefined | null, period: number): string {
+  // NBA: 4 quarters + OT
+  if (sport === "nba") {
+    return period > 4
+      ? `OT${period - 4 > 1 ? period - 4 : ""}`
+      : `Q${period}`;
+  }
+  // NFL / NCAAF: 4 quarters + OT (NCAAF stacks OT periods 5,6,7…; NFL uses period 5+)
+  if (sport === "nfl" || sport === "ncaaf") {
+    return period > 4
+      ? `OT${period - 4 > 1 ? period - 4 : ""}`
+      : `Q${period}`;
+  }
+  // MLB: caller should route to formatMLBClock; if we get here (e.g. missing
+  // clock), fall back to a generic inning label.
+  if (sport === "mlb") {
+    return `Inn ${period}`;
+  }
+  // NCAAM (default): 2 halves + OT
+  return period > 2 ? `OT${period - 2}` : `H${period}`;
 }
 
 /** Sort alerts: unread first, then by date desc */

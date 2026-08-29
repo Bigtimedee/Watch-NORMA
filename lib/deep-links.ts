@@ -288,13 +288,30 @@ export function getBroadcastProviderKeys(
   if (normalized.includes("TRUTV")) {
     providers.push("trutv", "max");
   }
-  if (normalized.includes("PEACOCK") || normalized.includes("NBC")) {
+  // Peacock: NBC Sunday Night Football + NBC exclusive Sunday games are labeled
+  // in a handful of narrative forms by ESPN ("NBC", "Peacock", "Sunday Night
+  // Football", "NFL+ Exclusive", "Peacock Exclusive"). The bare "NBC"/"PEACOCK"
+  // check missed the primetime narrative strings (H-5 in the 2026-08-23 audit).
+  if (
+    normalized.includes("PEACOCK") ||
+    normalized.includes("NBC") ||
+    normalized.includes("SUNDAY NIGHT FOOTBALL") ||
+    normalized.includes("SNF") ||
+    normalized.includes("NFL+")
+  ) {
     providers.push("peacock");
   }
   if (normalized.includes("MLB")) {
     providers.push("mlb_tv");
   }
-  if (normalized.includes("PRIME") || normalized.includes("AMAZON")) {
+  // Prime Video: Amazon Thursday Night Football is often listed just as
+  // "Thursday Night Football" or "TNF"; add explicit narrative patterns.
+  if (
+    normalized.includes("PRIME") ||
+    normalized.includes("AMAZON") ||
+    normalized.includes("THURSDAY NIGHT FOOTBALL") ||
+    normalized.includes("TNF")
+  ) {
     providers.push("prime_video");
   }
   if (normalized.includes("APPLE TV") || normalized.includes("APPLE TV+")) {
@@ -302,6 +319,11 @@ export function getBroadcastProviderKeys(
   }
   if (normalized.includes("NFL NETWORK") || normalized.includes("NFLNET")) {
     providers.push("nfl_network");
+  }
+  // NFL Sunday Ticket is exclusive to YouTube Primetime Channels (per YouTube).
+  // If ESPN emits "SUNDAY TICKET" or "NFL SUNDAY TICKET", route users there.
+  if (normalized.includes("SUNDAY TICKET")) {
+    providers.push("youtube_primetime_channels");
   }
   if (normalized.includes("NBA TV") || normalized.includes("NBATV")) {
     providers.push("nba_tv");
@@ -313,8 +335,13 @@ export function getBroadcastProviderKeys(
     providers.push("dazn");
   }
 
-  // Live TV providers can show any broadcast game
-  providers.push("youtube_tv", "hulu_live", "fubo", "sling", "directv_stream");
+  // Live TV providers (YouTube TV, Hulu Live, Fubo, Sling, DirecTV Stream) can
+  // carry most national feeds, but they cannot bypass regional blackouts —
+  // linking to them for a blackout-prone RSN game leads the user to a dead end.
+  // Only append them for non-regional broadcasts (H-6 in the 2026-08-23 audit).
+  if (!isRegionalBroadcast(broadcast)) {
+    providers.push("youtube_tv", "hulu_live", "fubo", "sling", "directv_stream");
+  }
 
   return providers;
 }

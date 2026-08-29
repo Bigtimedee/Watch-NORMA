@@ -33,6 +33,15 @@ const ESPN_BASES: Record<string, string> = {
   nfl:   "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
 };
 
+// ESPN scoreboards partition schools by group. Without a groups= parameter,
+// the NCAA endpoints default to Top-25 rankings (~25 games), silently dropping
+// unranked FBS matchups. groups=80 = FBS (~130 schools); groups=50 = D1 men's
+// basketball. NBA/MLB/NFL scoreboards do not require a groups filter.
+const ESPN_SCOREBOARD_GROUPS: Record<string, string> = {
+  ncaam: "50",
+  ncaaf: "80",
+};
+
 const SPORTSDATAIO_KEY = Deno.env.get("SPORTSDATAIO_API_KEY")!;
 
 // ESPN's public scoreboard endpoints 403 on Mozilla/* and Deno/* User-Agents;
@@ -166,7 +175,8 @@ Deno.serve(async (req) => {
     const espnGames: ESPNGameData[] = [];
     try {
       const espnDate = dateStr.replace(/-/g, "");
-      const espnRes = await fetch(`${ESPN_BASE}/scoreboard?dates=${espnDate}&groups=50&limit=300`, {
+      const ncaamGroups = ESPN_SCOREBOARD_GROUPS.ncaam;
+      const espnRes = await fetch(`${ESPN_BASE}/scoreboard?dates=${espnDate}&groups=${ncaamGroups}&limit=300`, {
         headers: ESPN_FETCH_HEADERS,
       });
       if (espnRes.ok) {
@@ -390,19 +400,9 @@ Deno.serve(async (req) => {
     if (!sdioAvailable && espnGames.length > 0) {
       console.log(`[ESPN Fallback] SportsDataIO unavailable, creating ${espnGames.length} games from ESPN`);
 
-      /** Map ESPN status description to our internal status */
-      function mapEspnStatus(desc: string): string {
-        const s = desc.toLowerCase();
-        if (s.includes("scheduled") || s.includes("pre")) return "scheduled";
-        if (s.includes("in progress") || s.includes("in_progress")) return "inprogress";
-        if (s.includes("halftime")) return "halftime";
-        if (s.includes("final") || s.includes("end of")) return "closed";
-        if (s.includes("canceled") || s.includes("cancelled")) return "cancelled";
-        if (s.includes("postponed")) return "postponed";
-        if (s.includes("delayed")) return "scheduled";
-        return "scheduled";
-      }
-
+      // Status mapping delegates to the shared mapStatus helper so all pollers agree.
+      // The inline copy that lived here previously mapped "End of {Quarter}" to
+      // "closed", which finaled live football games at every quarter break.
       // Fetch all teams once for matching (mutable — we'll add new teams as we create them)
       const { data: initialDbTeams } = await supabase
         .from("teams")
@@ -435,7 +435,7 @@ Deno.serve(async (req) => {
       }
 
       for (const espn of espnGames) {
-        const status = mapEspnStatus(espn.status);
+        const status = mapStatus(espn.status, false);
         if (status === "cancelled") continue;
 
         // Find BEST matching DB team for each side (highest score wins, not first match)
@@ -579,18 +579,10 @@ Deno.serve(async (req) => {
     {
       const espnDateMulti = dateStr.replace(/-/g, "");
 
-      function mapEspnStatusMulti(desc: string): string {
-        const s = desc.toLowerCase();
-        if (s.includes("scheduled") || s.includes("pre")) return "scheduled";
-        if (s.includes("in progress") || s.includes("in_progress")) return "inprogress";
-        if (s.includes("halftime")) return "halftime";
-        if (s.includes("final") || s.includes("end of")) return "closed";
-        if (s.includes("canceled") || s.includes("cancelled")) return "cancelled";
-        if (s.includes("postponed")) return "postponed";
-        if (s.includes("delayed")) return "scheduled";
-        return "scheduled";
-      }
-
+      // Status mapping delegates to the shared mapStatus helper.
+      // The inline mapEspnStatusMulti that lived here mapped "End of {Quarter}" to
+      // "closed", which finaled live football games at each quarter break (BL-1
+      // in the 2026-08-23 season-readiness audit).
       const { data: allTeamsForMulti } = await supabase
         .from("teams")
         .select("id, name, market, abbreviation, sportsdataio_id, sport");
@@ -638,7 +630,8 @@ Deno.serve(async (req) => {
         if (!espnBase) continue;
 
         try {
-          const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}&limit=300`, {
+          const groupsParam = ESPN_SCOREBOARD_GROUPS[sportKey] ? `&groups=${ESPN_SCOREBOARD_GROUPS[sportKey]}` : "";
+          const res = await fetch(`${espnBase}/scoreboard?dates=${espnDateMulti}${groupsParam}&limit=300`, {
             headers: ESPN_FETCH_HEADERS,
           });
           if (!res.ok) {
@@ -656,7 +649,7 @@ Deno.serve(async (req) => {
             const home = comp.competitors?.find((c: any) => c.homeAway === "home");
             if (!away || !home) continue;
 
-            const status = mapEspnStatusMulti(comp.status?.type?.description ?? "");
+            const status = mapStatus(comp.status?.type?.description ?? "", false);
             if (status === "cancelled") continue;
 
             const awayS = away.score;

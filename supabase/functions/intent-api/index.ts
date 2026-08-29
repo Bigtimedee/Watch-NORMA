@@ -7,11 +7,23 @@
 // Routes: GET /inventory (supply forecasts), POST /bid (enters existing Vickrey auction).
 // Aggregate-only: no user data ever returned. Clearing logic unchanged.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const RATE_LIMIT_PER_MINUTE = 50;
 const rateLimitCounters = new Map<number, { count: number; windowStart: number }>();
+
+/** api_keys row shape used by intent-api. Local because there is no generated
+ *  types module for the intent tables and the Supabase generic client can't
+ *  otherwise infer the row type past `never`. */
+interface ApiKeyRow {
+  id: number;
+  advertiser_id: number;
+  scopes: string[] | null;
+  rate_limit_per_minute: number | null;
+  is_active: boolean;
+  revoked_at: string | null;
+}
 
 async function sha256Hex(input: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -35,20 +47,22 @@ function checkRateLimit(keyId: number): boolean {
 }
 
 async function authenticateKey(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any, "public", "public", any, any>,
   authHeader: string | null
-): Promise<{ keyRow: any; error?: string }> {
+): Promise<{ keyRow: ApiKeyRow | null; error?: string }> {
   if (!authHeader?.startsWith("Bearer ")) {
     return { keyRow: null, error: "Missing or invalid Authorization header" };
   }
   const rawKey = authHeader.slice(7);
   const hash = await sha256Hex(rawKey);
 
-  const { data: keyRow } = await supabase
+  const { data } = await supabase
     .from("api_keys")
     .select("id, advertiser_id, scopes, rate_limit_per_minute, is_active, revoked_at")
     .eq("key_hash", hash)
     .single();
+  const keyRow = data as ApiKeyRow | null;
 
   if (!keyRow) return { keyRow: null, error: "Invalid API key" };
   if (!keyRow.is_active || keyRow.revoked_at) return { keyRow: null, error: "API key revoked" };

@@ -21,6 +21,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { parseEmailWagers, detectSportsbook } from "../_shared/email-parser.ts";
+import { buildEmailWagerAlertPayload } from "./logic.ts";
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = ReturnType<typeof createClient<any>>;
@@ -446,9 +447,20 @@ async function processMessage(
   await recordImport(supabase, messageId, fromEmail, userId,
     wagers[0]?.provider_key ?? null, created, "ok");
 
-  // Send in-app notification if wagers were created
+  // Send in-app notification if wagers were created. The wager rows are the
+  // authoritative record; a failed notification is annoying but not fatal.
   if (created > 0) {
-    await createInAppNotification(supabase, userId, created, wagers[0]?.provider_key ?? "sportsbook");
+    try {
+      await createInAppNotification(supabase, userId, created, wagers[0]?.provider_key ?? "sportsbook");
+    } catch (e) {
+      console.warn(JSON.stringify({
+        function: "ingest-email-wagers",
+        event: "notification_insert_failed",
+        userId,
+        wagersCreated: created,
+        error: (e as Error).message,
+      }));
+    }
   }
 
   return { wagersCreated: created };
@@ -489,18 +501,14 @@ async function createInAppNotification(
   wagersCreated: number,
   sportsbook: string,
 ): Promise<void> {
-  const bookName = sportsbook.charAt(0).toUpperCase() + sportsbook.slice(1);
-  await supabase.from("alerts").insert({
-    user_id:    userId,
-    alert_type: "email_wager_import",
-    title:      `${wagersCreated} bet${wagersCreated !== 1 ? "s" : ""} imported from ${bookName}`,
-    message:    `We imported your ${bookName} confirmation${wagersCreated !== 1 ? "s" : ""}. Check your wager history to review.`,
-    status:     "unread",
-    explanation: {
-      headline: `${wagersCreated} bet${wagersCreated !== 1 ? "s" : ""} imported from ${bookName}`,
-      bullets:  ["Imported from forwarded bet confirmation email", "Review in your Wagers tab"],
-    },
-  });
+  const { error } = await supabase
+    .from("alerts")
+    .insert(buildEmailWagerAlertPayload(userId, wagersCreated, sportsbook));
+  if (error) {
+    // Surface the insert failure so the caller can log it. The prior version
+    // swallowed the error and hid the schema mismatch for months.
+    throw new Error(`createInAppNotification insert failed: ${error.message}`);
+  }
 }
 
 async function recordImport(

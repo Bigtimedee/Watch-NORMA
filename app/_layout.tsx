@@ -91,6 +91,7 @@ function AuthGate() {
     if (!session) return;
 
     registerPushToken();
+    syncDeviceTimezone();
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
@@ -172,6 +173,26 @@ async function registerPushToken() {
     }
   } catch (error) {
     console.warn("Failed to register push token:", error);
+  }
+}
+
+// FX3 (2026-08-23 audit BL-8): collect the device's IANA timezone and write
+// it to profiles.timezone on every launch. The column defaulted to
+// "America/New_York" for every account because no code path ever wrote it.
+// Combined with the geo-compliance fail-closed policy, having a real
+// timezone lets Central / Pacific / Mountain users see legal sportsbooks
+// instead of being uniformly treated as NY.
+async function syncDeviceTimezone() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz || tz === "UTC" || tz === "Etc/UTC") return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").update({ timezone: tz }).eq("id", user.id);
+  } catch (error) {
+    console.warn("Failed to sync device timezone:", error);
   }
 }
 

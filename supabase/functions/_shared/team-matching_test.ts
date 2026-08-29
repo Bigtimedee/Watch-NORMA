@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { matchTeamName, matchGame } from "./team-matching.ts";
+import { matchTeamName, matchGame, ambiguousAliases } from "./team-matching.ts";
 
 const DB_TEAMS = [
   { id: "t1", name: "Connecticut Huskies", market: "Connecticut", abbreviation: "CONN" },
@@ -119,8 +119,13 @@ Deno.test("NBA alias: Sixers → Philadelphia 76ers", () => {
   assertEquals(matchTeamName("Sixers", NBA_TEAMS)?.id, "n6");
 });
 
-Deno.test("NBA alias: Blazers → Portland Trail Blazers", () => {
-  assertEquals(matchTeamName("Blazers", NBA_TEAMS)?.id, "n5");
+// "Blazers" is now flagged ambiguous (UAB Blazers vs Portland Trail Blazers)
+// by the collision-detection two-pass build. Cross-sport dbTeams filtering
+// happens at the caller layer (poll-odds passes NBA teams only), so bare
+// "Blazers" is expected to no longer resolve via aliasMap. The unique form
+// "Trail Blazers" still does, which is what odds feeds actually emit.
+Deno.test("NBA alias: Trail Blazers → Portland Trail Blazers", () => {
+  assertEquals(matchTeamName("Trail Blazers", NBA_TEAMS)?.id, "n5");
 });
 
 Deno.test("NBA alias: OKC → Oklahoma City Thunder", () => {
@@ -183,4 +188,41 @@ Deno.test("MLB alias: St Louis Cardinals → St. Louis Cardinals", () => {
 
 Deno.test("MLB alias: LA Dodgers → Los Angeles Dodgers", () => {
   assertEquals(matchTeamName("LA Dodgers", MLB_TEAMS)?.id, "m5");
+});
+
+// ─── FX5a: NCAAF ambiguous-mascot regression suite (H-4) ────────────────────
+// TEAM_ALIASES lists mascots ("Tigers", "Bulldogs", "Cougars", "Spartans")
+// against multiple canonical schools. Prior to FX5a the alias map was
+// last-write-wins, so an odds event that said "Tigers" resolved to whichever
+// school happened to appear latest in the source file. The two-pass build
+// now detects these collisions and refuses to auto-resolve — the scored
+// matching path uses school/market names to disambiguate.
+
+Deno.test("ambiguous-alias detection: 'Bulldogs' is flagged (LSU, UNC Asheville, Fresno State, Miss State)", () => {
+  assertEquals(ambiguousAliases.has("bulldogs"), true);
+});
+
+Deno.test("ambiguous-alias detection: 'Cougars' is flagged (BYU, Washington State)", () => {
+  assertEquals(ambiguousAliases.has("cougars"), true);
+});
+
+Deno.test("ambiguous-alias detection: 'Spartans' is flagged (Michigan State, UNC Greensboro)", () => {
+  assertEquals(ambiguousAliases.has("spartans"), true);
+});
+
+Deno.test("unique alias still resolves (Ole Miss 'Rebels' — only Mississippi)", () => {
+  const teams = [
+    { id: "u1", name: "Mississippi Rebels", market: "Mississippi", abbreviation: "MISS" },
+    { id: "u2", name: "Louisiana State Tigers", market: "Louisiana State", abbreviation: "LSU" },
+  ];
+  assertEquals(matchTeamName("Rebels", teams)?.id, "u1");
+});
+
+Deno.test("scored match still finds LSU when full name is given, even though 'Tigers' alone is ambiguous", () => {
+  const teams = [
+    { id: "u1", name: "Louisiana State Tigers", market: "Louisiana State", abbreviation: "LSU" },
+    { id: "u2", name: "Auburn Tigers", market: "Auburn", abbreviation: "AUB" },
+  ];
+  assertEquals(matchTeamName("Louisiana State", teams)?.id, "u1");
+  assertEquals(matchTeamName("LSU", teams)?.id, "u1");
 });

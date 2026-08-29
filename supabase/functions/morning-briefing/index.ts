@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { isInQuietHours as isInQuietHoursShared } from "../_shared/quiet-hours.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const MAX_GAMES_PER_BRIEFING = 5;
@@ -113,8 +114,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Check quiet hours
-        if (isInQuietHours(profile.notification_settings)) {
+        // Check quiet hours in the user's own timezone.
+        if (isInQuietHours(profile.notification_settings, profile.timezone ?? null)) {
           skippedCount++;
           continue;
         }
@@ -290,29 +291,17 @@ function formatGameTime(isoString: string): string {
   }
 }
 
-/**
- * Check if the current UTC time falls within the user's quiet hours.
- * notification_settings.quiet_hours_start / quiet_hours_end are stored
- * as "HH:MM" strings in local time. We use UTC as an approximation.
- */
-function isInQuietHours(settings: Record<string, unknown> | null): boolean {
-  if (!settings) return false;
-  const start = settings.quiet_hours_start as string | null;
-  const end = settings.quiet_hours_end as string | null;
-  if (!start || !end) return false;
-
-  const now = new Date();
-  const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  const startMinutes = sh * 60 + sm;
-  const endMinutes = eh * 60 + em;
-
-  if (startMinutes <= endMinutes) {
-    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  } else {
-    // Overnight quiet hours (e.g., 22:00 – 08:00)
-    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
-  }
+// Quiet-hours check delegates to the shared _shared/quiet-hours.ts helper so
+// morning-briefing and evaluate-alerts stay in lock step. The prior inline
+// implementation compared UTC time against local settings — for Eastern users
+// the 23:00–08:00 window silenced roughly 19:00–04:00 local, exactly the
+// window this briefing exists to fire in (2026-08-20 audit item B).
+function isInQuietHours(
+  settings: Record<string, unknown> | null,
+  timezone: string | null,
+): boolean {
+  return isInQuietHoursShared(
+    settings as Parameters<typeof isInQuietHoursShared>[0],
+    timezone,
+  );
 }

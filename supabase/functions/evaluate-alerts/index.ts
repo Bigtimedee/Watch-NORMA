@@ -54,6 +54,7 @@ import {
   interpolateTemplate,
   buildPersonalizationContext,
 } from "../_shared/template-vars.ts";
+import { isInQuietHours } from "../_shared/quiet-hours.ts";
 
 // Cooldown: minimum 5 minutes between same alert_type for same game per user
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -201,12 +202,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check notification preferences
+    // Load profiles for every interested user. The push toggle
+    // (profiles.notifications_enabled) previously filtered here, which meant
+    // users with push off saw no alerts in the app either — the Alerts tab
+    // stayed permanently empty. Now we always create the alert row; the push
+    // send below is what respects notifications_enabled.
+    // (2026-08-20 audit item C / 2026-08-23 audit BL-10.)
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, notifications_enabled, display_name")
-      .in("id", Array.from(allUserIds))
-      .eq("notifications_enabled", true);
+      .select("id, notifications_enabled, display_name, timezone")
+      .in("id", Array.from(allUserIds));
 
     const enabledUserIds = new Set((profiles ?? []).map((p: any) => p.id));
     const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -485,23 +490,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check quiet hours
-      let suppressPush = false;
-      if (notifSettings.quiet_hours_start && notifSettings.quiet_hours_end) {
-        const now = new Date();
-        const hours = now.getHours();
-        const mins = now.getMinutes();
-        const currentTime = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-        const start = notifSettings.quiet_hours_start;
-        const end = notifSettings.quiet_hours_end;
-
-        // Handle overnight quiet hours (e.g., 22:00 - 08:00)
-        if (start > end) {
-          suppressPush = currentTime >= start || currentTime < end;
-        } else {
-          suppressPush = currentTime >= start && currentTime < end;
-        }
-      }
+      // Quiet hours are evaluated in the user's local timezone (profiles.timezone).
+      // The prior UTC-based comparison silenced Eastern users during prime evening
+      // football windows (2026-08-20 audit item B, 2026-08-23 audit BL-9).
+      const userTimezone = profileMap.get(userId)?.timezone ?? null;
+      const suppressPush = isInQuietHours(notifSettings, userTimezone);
 
       // --- Stage 3.5: Auction — attach sponsor if available ---
       // Determine user segment for auction
@@ -582,7 +575,9 @@ Deno.serve(async (req) => {
           why: whyText,
           score,
           explanation: whyNow,
-          suppressed_reason: suppressPush ? "quiet_hours" : null,
+          suppressed_reason: suppressPush
+            ? "quiet_hours"
+            : (profileMap.get(userId)?.notifications_enabled === true ? null : "push_disabled"),
           // Sponsor fields from auction
           sponsor_bid_id: auctionResult?.winning_bid_id ?? null,
           sponsor_text: finalSponsorText,
@@ -683,8 +678,11 @@ Deno.serve(async (req) => {
       totalAlerts++;
       alertedUserIds.push(userId);
 
-      // Send push (unless quiet hours)
-      if (!suppressPush) {
+      // Push is gated by BOTH the user's push toggle (profiles.notifications_enabled)
+      // AND the quiet-hours check. In-app alerts (the row we just inserted) always
+      // fly regardless; only the push channel is suppressed.
+      const pushEnabled = profileMap.get(userId)?.notifications_enabled === true;
+      if (!suppressPush && pushEnabled) {
         alertsToSendPush.push(newAlert.id);
       }
     }

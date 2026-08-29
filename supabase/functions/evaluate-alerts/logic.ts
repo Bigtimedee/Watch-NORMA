@@ -26,6 +26,9 @@ export interface GameState {
   home_team: { name: string; abbreviation: string } | null;
   away_team: { name: string; abbreviation: string } | null;
   sport?: string | null;
+  /** Tournament identifier surfaced by the ingestion path (e.g. "Sweet 16",
+   *  "Bowl Game"). Optional — poll-* functions attach it opportunistically. */
+  tournament_round?: string | null;
 }
 
 export interface UserWager {
