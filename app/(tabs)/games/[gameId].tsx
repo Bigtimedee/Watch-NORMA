@@ -15,6 +15,7 @@ import { useGameDetail, useGameFollow } from "../../../hooks/useGameDetail";
 import { useWagers } from "../../../hooks/useWagers";
 import { useBetSlipScanner, type ScanResult } from "../../../hooks/useBetSlipScanner";
 import { ScoreHeader } from "../../../components/ScoreHeader";
+import { FootballScoreboard } from "../../../components/FootballScoreboard";
 import { WatchNowButton } from "../../../components/WatchNowButton";
 import { OddsDisplay } from "../../../components/OddsDisplay";
 import { WagerCard } from "../../../components/WagerCard";
@@ -87,6 +88,14 @@ export default function GameDetailScreen() {
       <ScrollView style={s.flex} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Score */}
         <ScoreHeader game={game} />
+
+        {/* Football scoreboard — quarter line score, possession, scoring plays */}
+        {(game.sport === "ncaaf" || game.sport === "nfl") && (
+          <FootballScoreboard
+            game={game}
+            sport={game.sport}
+          />
+        )}
 
         {/* Odds */}
         <OddsDisplay gameId={gameId} />
