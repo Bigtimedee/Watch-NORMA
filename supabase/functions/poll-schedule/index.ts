@@ -14,7 +14,10 @@ import type { SportradarScheduleGame } from "../_shared/sportradar.ts";
 import { matchTeamName, normalize, teamMatchScore } from "../_shared/team-matching.ts";
 
 // Sport-specific base URLs
-// ncaaf/nfl are ingestion-only — alert rules not yet implemented (see doc 09 roadmap)
+// ncaaf/nfl football alerts are ACTIVE (since 2026-08-19); ALERTABLE_SPORTS in
+// evaluate-alerts/index.ts includes both keys, and evaluateFootballSpread/Total/
+// Moneyline/CloseGame plus the football must-notify rules are wired end-to-end.
+// See docs/watch-norma-context/09_ROADMAP_KNOWN_GAPS_AND_DECISIONS.md.
 const SPORTSDATAIO_BASES: Record<string, string> = {
   ncaam: "https://api.sportsdata.io/v3/cbb",
   nba:   "https://api.sportsdata.io/v3/nba",
@@ -44,9 +47,8 @@ const SPORTSDATAIO_BASE = SPORTSDATAIO_BASES.ncaam;
 const ESPN_BASE = ESPN_BASES.ncaam;
 const HAS_SPORTRADAR = !!Deno.env.get("SPORTRADAR_API_KEY");
 
-// Which sports to ingest (driven by env vars — if key missing, sport is skipped)
-// ncaaf/nfl: schedule + score ingestion only; alert evaluation is a no-op until
-// football-specific alert rules are implemented (see evaluate-alerts guard).
+// Which sports to ingest (driven by env vars — if key missing, sport is skipped).
+// ncaaf/nfl: full pipeline (ingest → score → alerts) is live as of 2026-08-19.
 const ENABLED_SPORTS: Array<{ key: string; hasSportradar: boolean }> = [
   { key: "ncaam", hasSportradar: HAS_SPORTRADAR },
   { key: "nba",   hasSportradar: !!Deno.env.get("SPORTRADAR_NBA_API_KEY") || HAS_SPORTRADAR },
