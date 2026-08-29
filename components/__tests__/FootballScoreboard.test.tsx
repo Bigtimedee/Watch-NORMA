@@ -88,13 +88,14 @@ const NCAAF_SCORING_PLAYS: FootballScoringPlay[] = [
 
 describe("FootballScoreboard — NCAAF", () => {
   it("renders Q1, Q2, Q3, Q4 column headers", () => {
-    const { getByText } = render(
+    const { getAllByText } = render(
       <FootballScoreboard game={makeGame()} sport="ncaaf" scoringPlays={NCAAF_SCORING_PLAYS} />,
     );
-    expect(getByText("Q1")).toBeTruthy();
-    expect(getByText("Q2")).toBeTruthy();
-    expect(getByText("Q3")).toBeTruthy();
-    expect(getByText("Q4")).toBeTruthy();
+    // Q labels appear in both header and scoring-play rows — just assert at least one
+    expect(getAllByText("Q1").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q2").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q3").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q4").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders team abbreviations in the line score", () => {
@@ -123,11 +124,13 @@ describe("FootballScoreboard — NCAAF", () => {
   });
 
   it("shows the live situation bar with quarter and clock when inprogress", () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <FootballScoreboard game={makeGame()} sport="ncaaf" scoringPlays={NCAAF_SCORING_PLAYS} />,
     );
-    // The game is in Q3 at 8:22 — situation bar should mention both
-    expect(getByText("Q3")).toBeTruthy();
+    // Q3 appears in both situation bar and column header
+    expect(getAllByText("Q3").length).toBeGreaterThanOrEqual(1);
+    // Clock "8:22" is unique
+    expect(getByText("· 8:22")).toBeTruthy();
   });
 
   it("renders scoring plays section", () => {
@@ -141,15 +144,15 @@ describe("FootballScoreboard — NCAAF", () => {
     const { getAllByText } = render(
       <FootballScoreboard game={makeGame()} sport="ncaaf" scoringPlays={NCAAF_SCORING_PLAYS} />,
     );
-    // Multiple TDs in the fixture
-    expect(getAllByText("TD").length).toBeGreaterThanOrEqual(1);
+    // playTypeLabel is embedded in "TD — description" text node; use regex
+    expect(getAllByText(/\bTD\b/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders FG label in scoring plays", () => {
     const { getAllByText } = render(
       <FootballScoreboard game={makeGame()} sport="ncaaf" scoringPlays={NCAAF_SCORING_PLAYS} />,
     );
-    expect(getAllByText("FG").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText(/\bFG\b/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders down & distance when provided", () => {
@@ -239,13 +242,13 @@ describe("FootballScoreboard — NFL", () => {
   ];
 
   it("renders Q1-Q4 column headers for NFL", () => {
-    const { getByText } = render(
+    const { getAllByText } = render(
       <FootballScoreboard game={NFL_GAME} sport="nfl" scoringPlays={NFL_SCORING_PLAYS} />,
     );
-    expect(getByText("Q1")).toBeTruthy();
-    expect(getByText("Q2")).toBeTruthy();
-    expect(getByText("Q3")).toBeTruthy();
-    expect(getByText("Q4")).toBeTruthy();
+    expect(getAllByText("Q1").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q2").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q3").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Q4").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders NFL team abbreviations", () => {
@@ -276,7 +279,8 @@ describe("FootballScoreboard — NFL", () => {
     const { getAllByText } = render(
       <FootballScoreboard game={NFL_GAME} sport="nfl" scoringPlays={NFL_SCORING_PLAYS} />,
     );
-    expect(getAllByText("2PT/Safety").length).toBeGreaterThanOrEqual(1);
+    // Label is embedded in "2PT/Safety — description" text node
+    expect(getAllByText(/2PT\/Safety/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("adds OT column when a scoring play occurs in OT", () => {
@@ -289,15 +293,15 @@ describe("FootballScoreboard — NFL", () => {
       homeScoreAfter: 24,
       awayScoreAfter: 17,
     };
-    const { getByText } = render(
+    const { getAllByText } = render(
       <FootballScoreboard
         game={{ ...NFL_GAME, home_score: 24, period: 5 }}
         sport="nfl"
         scoringPlays={[...NFL_SCORING_PLAYS, otPlay]}
       />,
     );
-    // period 5 = "OT" for NFL
-    expect(getByText("OT")).toBeTruthy();
+    // "OT" appears in column header and possibly scoring plays
+    expect(getAllByText("OT").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders HALFTIME label when game is at halftime", () => {
