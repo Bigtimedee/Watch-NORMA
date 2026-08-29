@@ -21,6 +21,8 @@ import {
   evaluateFootballTotal,
   evaluateFootballMoneyline,
   evaluateFootballCloseGame,
+  evaluateFootballRedZone,
+  evaluateFootballUpsetWatch,
   evaluateProp,
   evaluatePosition,
   evaluateResolved,
@@ -243,6 +245,73 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch latest ESPN boxscore snapshot for red-zone + rank data (Phase 3 / F3).
+    // ESPN stores possession, yardLine, and team rank on the scoreboard competitor objects.
+    // We extract these opportunistically; if absent the evaluators no-op gracefully.
+    interface ESPNSituationCache {
+      inRedZone: boolean;
+      possessionTeamId: string | null;
+      homeRank: number | null;
+      awayRank: number | null;
+    }
+    let espnSituationCache: ESPNSituationCache | null = null;
+    const gameSportForESPN: string = (game as any).sport ?? "";
+
+    if (gameSportForESPN === "nfl" || gameSportForESPN === "ncaaf") {
+      try {
+        const { data: espnSnapshots } = await supabase
+          .from("game_snapshots")
+          .select("payload")
+          .eq("game_id", gameId)
+          .eq("snapshot_type", "espn_boxscore")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (espnSnapshots && espnSnapshots.length > 0) {
+          const payload = espnSnapshots[0].payload as any;
+
+          // ESPN boxscore situation object lives at payload.situation (if the game
+          // has a current drive). The yardLine is distance from the end zone: <= 20
+          // means the team is inside the opponent 20.
+          const situation = payload?.situation ?? null;
+          const yardLine = situation?.yardLine ?? null;
+          const possession = situation?.possession ?? null; // ESPN team object with id
+
+          // ESPN maps possession to a team object; we need the team's id to match
+          // against game.home_team_id / game.away_team_id.
+          // The ESPN competitor object: competitions[0].competitors[i].team.id
+          let possessionTeamId: string | null = null;
+          if (possession?.id) {
+            // Try to match ESPN team id against our stored espn_id-prefixed game team ids.
+            // The `games` table stores espn_id; teams table stores their ESPN team id.
+            // As a fallback we compare against the raw possession id from the snapshot.
+            possessionTeamId = possession.id as string;
+          }
+
+          const inRedZone = yardLine != null && yardLine <= 20;
+
+          // Rank: ESPN competitor objects expose `curatedRank.current` (AP rank).
+          // payload.competitors is a flattened array or nested under competitions.
+          const competitors: any[] =
+            payload?.competitions?.[0]?.competitors ?? payload?.competitors ?? [];
+          let homeRank: number | null = null;
+          let awayRank: number | null = null;
+          for (const comp of competitors) {
+            const rank = comp?.curatedRank?.current ?? comp?.team?.rank ?? null;
+            const rankNum = rank != null ? parseInt(String(rank), 10) : null;
+            if (rankNum != null && !isNaN(rankNum) && rankNum > 0) {
+              if (comp?.homeAway === "home") homeRank = rankNum;
+              else if (comp?.homeAway === "away") awayRank = rankNum;
+            }
+          }
+
+          espnSituationCache = { inRedZone, possessionTeamId, homeRank, awayRank };
+        }
+      } catch {
+        // Non-critical — proceed without ESPN situation data
+      }
+    }
+
     // Count lead changes from game_events (last 5 minutes of game time)
     let leadChangesRecent = 0;
     try {
@@ -385,6 +454,37 @@ Deno.serve(async (req) => {
       if (userWagers.length === 0 && (gameSport === "nfl" || gameSport === "ncaaf")) {
         const fbClose = evaluateFootballCloseGame(gameState);
         if (fbClose) v1Candidates.push(fbClose);
+      }
+
+      // --- Phase 3 / F3: Red Zone + Upset Watch evaluators (football only) ---
+      if (gameSport === "nfl" || gameSport === "ncaaf") {
+        // Red Zone — derive from ESPN boxscore snapshot (situation.yardLine + possession).
+        // The ESPN scoreboard payload (snapshot_type = 'espn_boxscore') stores a `situation`
+        // object. We read it opportunistically; if absent, we skip rather than error.
+        const redZoneData = espnSituationCache;
+        if (redZoneData) {
+          const userTeamIds = [
+            ...userFollowTeams,
+            ...userWagers.filter((w) => w.team_id).map((w) => w.team_id as string),
+          ];
+          const redZoneAlert = evaluateFootballRedZone(
+            gameState,
+            redZoneData.inRedZone,
+            redZoneData.possessionTeamId,
+            userTeamIds,
+          );
+          if (redZoneAlert) v1Candidates.push(redZoneAlert);
+        }
+
+        // Upset Watch — only NCAAF (AP poll); ranks from ESPN scoreboard snapshot
+        if (gameSport === "ncaaf" && espnSituationCache) {
+          const upsetAlert = evaluateFootballUpsetWatch(
+            gameState,
+            espnSituationCache.homeRank,
+            espnSituationCache.awayRank,
+          );
+          if (upsetAlert) v1Candidates.push(upsetAlert);
+        }
       }
 
       // For position holders, run position evaluator (now proximity-aware)
@@ -681,8 +781,21 @@ Deno.serve(async (req) => {
       // Push is gated by BOTH the user's push toggle (profiles.notifications_enabled)
       // AND the quiet-hours check. In-app alerts (the row we just inserted) always
       // fly regardless; only the push channel is suppressed.
+      // Must-notify alert types bypass quiet-hours suppression (user explicitly wants
+      // to know about these moments regardless of the hour).
+      const MUST_NOTIFY_PUSH_TYPES = new Set([
+        "football_overtime",
+        "football_two_minute",
+        "football_close_game",
+        "overtime",
+        "close_game",
+        "bet_resolved",
+        // Phase 3 / F3: upset watch is must-notify
+        "football_upset_watch",
+      ]);
       const pushEnabled = profileMap.get(userId)?.notifications_enabled === true;
-      if (!suppressPush && pushEnabled) {
+      const isMustNotifyType = MUST_NOTIFY_PUSH_TYPES.has(alertType);
+      if ((!suppressPush || isMustNotifyType) && pushEnabled) {
         alertsToSendPush.push(newAlert.id);
       }
     }

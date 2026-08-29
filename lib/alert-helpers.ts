@@ -21,6 +21,9 @@ export function alertTypeLabel(type: AlertType): string {
     football_overtime: "Overtime",
     football_two_minute: "Two-Minute Drill",
     email_wager_import: "Wager Imported",
+    // Phase 3 / F3 — football alert types added 2026-08-29
+    football_red_zone: "Red Zone Alert",
+    football_upset_watch: "Upset Watch",
   };
   return labels[type] ?? type;
 }
@@ -43,6 +46,9 @@ export function alertTypeColor(type: AlertType): string {
     football_overtime: "#f97316", // orange — matches overtime
     football_two_minute: "#eab308", // yellow
     email_wager_import: "#22c55e", // green
+    // Phase 3 / F3
+    football_red_zone: "#ef4444", // red — high urgency
+    football_upset_watch: "#f97316", // orange — excitement
   };
   return colors[type] ?? "#94a3b8";
 }
@@ -65,6 +71,9 @@ export function alertTypeIcon(type: AlertType): string {
     football_overtime: "timer-outline",
     football_two_minute: "stopwatch-outline",
     email_wager_import: "mail-open-outline",
+    // Phase 3 / F3
+    football_red_zone: "american-football-outline",
+    football_upset_watch: "alert-circle-outline",
   };
   return icons[type] ?? "notifications-outline";
 }
