@@ -22,6 +22,20 @@ export interface GameContext {
   game_id?: string;
 }
 
+/**
+ * Pick'em context for DFS pick'em providers like PrizePicks and Underdog.
+ * These platforms target a player board or specific player projection,
+ * not a game slug — so the link structure differs from traditional sportsbooks.
+ */
+export interface PickEmContext {
+  /** NORMA sport key (ncaaf | nfl | nba | mlb | ncaam) — used to route
+   *  the user to the appropriate board within the pick'em app. */
+  sport?: string;
+  /** Optional player name — some pick'em deep links allow routing to a
+   *  specific player's prop board. Omit to open the main board. */
+  player_name?: string;
+}
+
 export interface AffiliateConfig {
   affiliate_id: string;
   referral_code: string;
@@ -149,6 +163,120 @@ const PROVIDER_TEMPLATES: Record<string, ProviderTemplate> = {
     affiliate_param_key: "aff",
   },
 };
+
+// --- Pick'em Provider Templates ---
+//
+// PrizePicks and Underdog do not use game-slug-based URLs. Their deep links
+// open the main lobby/board, optionally scoped to a sport. The `sport` field
+// from PickEmContext is mapped to each platform's own sport identifier.
+
+interface PickEmTemplate {
+  /** Opens the board for a given sport (or the main lobby when sport omitted). */
+  native_scheme: (sport: string | undefined) => string;
+  universal_link: (sport: string | undefined) => string;
+  web_fallback: string;
+  affiliate_param_key: string;
+}
+
+// PrizePicks sport slugs (as used in their URL structure):
+const PRIZEPICKS_SPORT_SLUGS: Record<string, string> = {
+  nfl:   "NFL",
+  ncaaf: "CFB",
+  nba:   "NBA",
+  ncaam: "CBB",
+  mlb:   "MLB",
+};
+
+// Underdog sport slugs:
+const UNDERDOG_SPORT_SLUGS: Record<string, string> = {
+  nfl:   "nfl",
+  ncaaf: "college_football",
+  nba:   "nba",
+  ncaam: "college_basketball",
+  mlb:   "mlb",
+};
+
+const PICKEM_TEMPLATES: Record<string, PickEmTemplate> = {
+  prizepicks: {
+    native_scheme: (sport) => {
+      const slug = sport ? PRIZEPICKS_SPORT_SLUGS[sport] : undefined;
+      return slug
+        ? `prizepicks://lobby?sport=${slug}`
+        : "prizepicks://lobby";
+    },
+    universal_link: (sport) => {
+      const slug = sport ? PRIZEPICKS_SPORT_SLUGS[sport] : undefined;
+      return slug
+        ? `https://app.prizepicks.com/board?sport=${slug}`
+        : "https://app.prizepicks.com";
+    },
+    web_fallback: "https://app.prizepicks.com",
+    affiliate_param_key: "promo",
+  },
+  underdog: {
+    native_scheme: (sport) => {
+      const slug = sport ? UNDERDOG_SPORT_SLUGS[sport] : undefined;
+      return slug
+        ? `underdog://picks?sport=${slug}`
+        : "underdog://picks";
+    },
+    universal_link: (sport) => {
+      const slug = sport ? UNDERDOG_SPORT_SLUGS[sport] : undefined;
+      return slug
+        ? `https://app.underdogfantasy.com/picks?sport=${slug}`
+        : "https://app.underdogfantasy.com";
+    },
+    web_fallback: "https://app.underdogfantasy.com",
+    affiliate_param_key: "ref",
+  },
+};
+
+/**
+ * Build a pick'em deep link for PrizePicks or Underdog.
+ * These apps target a player board, not a `{away}-at-{home}` game slug —
+ * so this is distinct from `buildSportsbookLink`.
+ */
+export function buildPickEmLink(
+  providerKey: string,
+  context: PickEmContext,
+  campaignId: number,
+  affiliate?: AffiliateConfig
+): SportsbookDeepLink {
+  const template = PICKEM_TEMPLATES[providerKey];
+
+  if (!template) {
+    return {
+      provider_key: providerKey,
+      native_scheme: "",
+      universal_link: "",
+      web_fallback: "",
+      affiliate_params: "",
+    };
+  }
+
+  let affiliateParams = `?${template.affiliate_param_key}=NORMA&campaign=${campaignId}`;
+  if (affiliate) {
+    affiliateParams += `&aff_id=${affiliate.affiliate_id}`;
+    if (affiliate.referral_code) {
+      affiliateParams += `&code=${affiliate.referral_code}`;
+    }
+  }
+
+  const nativeScheme  = template.native_scheme(context.sport);
+  const universalBase = template.universal_link(context.sport);
+  // Append affiliate params — the universal link may already have a query string
+  const universalLink = universalBase.includes("?")
+    ? `${universalBase}&campaign=${campaignId}`
+    : universalBase + affiliateParams;
+
+  return {
+    provider_key:    providerKey,
+    native_scheme:   nativeScheme,
+    universal_link:  universalLink,
+    web_fallback:    template.web_fallback + affiliateParams,
+    affiliate_params: affiliateParams,
+  };
+}
 
 // --- Build Deep Link ---
 

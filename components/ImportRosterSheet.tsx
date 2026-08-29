@@ -18,6 +18,7 @@ const FANTASY_PLATFORMS = [
   { value: "yahoo_fantasy", label: "Yahoo Fantasy" },
   { value: "sleeper", label: "Sleeper" },
   { value: "espn_fantasy", label: "ESPN Fantasy" },
+  { value: "prizepicks", label: "PrizePicks" },
   { value: "underdog", label: "Underdog" },
   { value: "other", label: "Other" },
 ] as const;
