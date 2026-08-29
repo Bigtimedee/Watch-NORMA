@@ -75,10 +75,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const prompt = `You are analyzing a screenshot of a sports betting slip. Extract all wagers from this image.
+    const prompt = `You are analyzing a screenshot of a sports betting slip or DFS pick'em entry slip. Extract all wagers from this image.
 ${gameContext}
 For each wager, return:
-- sportsbook: The betting platform (e.g. "draftkings", "fanduel", "betmgm", "espnbet", "caesars"). Use lowercase keys.
+- sportsbook: The betting platform (e.g. "draftkings", "fanduel", "betmgm", "espnbet", "caesars", "prizepicks", "underdog"). Use lowercase keys. PrizePicks and Underdog entries show player projections (more/less on a stat line) rather than traditional spreads.
 - wager_type: One of "spread", "moneyline", "over_under", or "prop"
 - description: A short description of the bet (e.g. "Duke -3.5", "Over 145.5", "Zach Edey Over 22.5 Points")
 - team_name: The team name if applicable, or null for over/under and props

@@ -25,6 +25,9 @@ const SPORTSBOOK_DOMAINS: Record<string, string> = {
   "barstoolsports.com": "barstool",
   "betrivers.com":   "betrivers",
   "draftkings-noreply.com": "draftkings",
+  // DFS pick'em platforms — entries are multi-leg projections (player prop style)
+  "prizepicks.com":  "prizepicks",
+  "underdogfantasy.com": "underdog",
 };
 
 export function detectSportsbook(fromAddress: string): string | null {

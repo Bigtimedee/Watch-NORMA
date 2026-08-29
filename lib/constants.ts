@@ -95,13 +95,16 @@ export const ODDS_BOOKMAKERS = [
   "espnbet",
 ] as const;
 
-// Sportsbook display names
+// Sportsbook display names (also covers DFS pick'em platforms — same map,
+// category distinction lives in provider_registry.category = 'dfs_pickem')
 export const SPORTSBOOK_NAMES: Record<string, string> = {
   draftkings: "DraftKings",
   fanduel: "FanDuel",
   betmgm: "BetMGM",
   espnbet: "ESPN BET",
   caesars: "Caesars",
+  prizepicks: "PrizePicks",
+  underdog: "Underdog",
 };
 
 // Kalshi API

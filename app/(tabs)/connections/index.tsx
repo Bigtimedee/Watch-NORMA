@@ -28,7 +28,14 @@ export default function ConnectionsScreen() {
       c.provider_type === "sportsbook" &&
       c.connected &&
       c.provider_key !== "kalshi" &&
-      c.provider_key !== "polymarket"
+      c.provider_key !== "polymarket" &&
+      c.provider_key !== "prizepicks" &&
+      c.provider_key !== "underdog"
+  ).length;
+  const pickEmCount = (connections ?? []).filter(
+    (c) =>
+      c.connected &&
+      (c.provider_key === "prizepicks" || c.provider_key === "underdog")
   ).length;
   const predictionCount = (connections ?? []).filter(
     (c) =>
@@ -56,6 +63,13 @@ export default function ConnectionsScreen() {
       subtitle: "Track your wagers across books",
       icon: "cash-outline" as const,
       count: bookCount,
+      route: "/(tabs)/connections/sportsbooks" as const,
+    },
+    {
+      title: "Pick'em & DFS",
+      subtitle: "PrizePicks, Underdog, and daily fantasy",
+      icon: "football-outline" as const,
+      count: pickEmCount,
       route: "/(tabs)/connections/sportsbooks" as const,
     },
     {
