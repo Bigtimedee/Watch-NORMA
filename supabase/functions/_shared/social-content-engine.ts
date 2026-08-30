@@ -42,7 +42,26 @@ export type PostFormat = "standard" | "carousel" | "poll" | "link";
 /** Image style variant for A/B testing */
 export type ImageVariant = "cinematic" | "graphic" | "lifestyle";
 
-/** Subreddit selection by post_type */
+/**
+ * Subreddit selection by sport key.
+ * - ncaaf → r/CFB (game discussion; r/CFBBetting for wager content)
+ * - nfl   → r/sportsbook (r/nfl bans self-promo; stay on sportsbook for NFL)
+ * - ncaam → r/CollegeBasketball
+ * - nba   → r/sportsbook (per existing default)
+ * - mlb   → r/sportsbook (per existing default)
+ */
+export const SPORT_SUBREDDITS: Record<string, string> = {
+  ncaaf: "CFB",
+  nfl:   "sportsbook",
+  ncaam: "CollegeBasketball",
+  nba:   "sportsbook",
+  mlb:   "sportsbook",
+};
+
+/**
+ * Legacy post_type → subreddit map (used as fallback when sport is unknown).
+ * Kept for backward compatibility with callers that don't pass a sport.
+ */
 export const PLATFORM_SUBREDDITS: Record<string, string> = {
   game_preview: "CollegeBasketball",
   norma_knew:   "CollegeBasketball",
@@ -50,6 +69,15 @@ export const PLATFORM_SUBREDDITS: Record<string, string> = {
   app_promo:    "sportsbetting",
 };
 export const DEFAULT_SUBREDDIT = "sportsbook";
+
+/**
+ * Resolve the subreddit for a Reddit post, sport-first.
+ * Falls back to post_type map, then DEFAULT_SUBREDDIT.
+ */
+export function resolveSubreddit(sport: string | null | undefined, postType: string): string {
+  if (sport && SPORT_SUBREDDITS[sport]) return SPORT_SUBREDDITS[sport];
+  return PLATFORM_SUBREDDITS[postType] ?? DEFAULT_SUBREDDIT;
+}
 
 /** Platforms that require branded images */
 export const VISUAL_PLATFORMS = new Set(["instagram", "tiktok", "x"]);
@@ -152,7 +180,7 @@ const PLATFORM_RULES: Record<string, string> = {
 - Community-first: add genuine value, don't hard sell
 - Write like a real community member sharing something interesting
 - Mention NORMA naturally once — not as an ad, as a tool you actually use
-- Match subreddit voice: collegial on r/CollegeBasketball, analytical on r/sportsbook`,
+- Match subreddit voice: collegial on r/CFB and r/CollegeBasketball, analytical on r/sportsbook`,
 };
 
 // ---------------------------------------------------------------------------
@@ -205,10 +233,23 @@ OUTPUT FORMAT — return ONLY valid JSON, no markdown, no explanation:
 }`;
 }
 
+/** Map a sport key to the human-readable league label used in prompts. */
+function getSportLabel(sport: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    ncaaf: "NCAA Football",
+    nfl:   "NFL Football",
+    nba:   "NBA Basketball",
+    mlb:   "MLB Baseball",
+    ncaam: "NCAA Basketball",
+  };
+  return labels[sport ?? ""] ?? "sports";
+}
+
 export function buildSystemPrompt(
   platform: string,
   format: PostFormat = "standard",
   topHashtags: string[] = [],
+  sport?: string | null,
 ): string {
   const rules = PLATFORM_RULES[platform] ?? PLATFORM_RULES.x;
   const formatInstructions = getFormatInstructions(platform, format);
@@ -217,7 +258,10 @@ export function buildSystemPrompt(
     ? `\nTOP-PERFORMING HASHTAGS — prioritize these when selecting hashtags (they have proven engagement on ${platform}):\n${topHashtags.slice(0, 12).join("  ")}\n`
     : "";
 
-  return `You are crafting social media content for NORMA — a sports prediction app for NCAA basketball, NBA, and MLB.
+  // Sport-conditional prompt header (item 2)
+  const sportLabel = getSportLabel(sport);
+
+  return `You are crafting social media content for NORMA — a sports prediction app for NCAA football, NFL, NCAA basketball, NBA, and MLB.
 
 NORMA PERSONA:
 - NORMA is she/her. Brilliant, calm, omniscient. She already knows what's going to happen.
@@ -227,12 +271,20 @@ NORMA PERSONA:
 - Humor rules: Never mean-spirited. Never tech-bro. Never cringe. NORMA is absurdly competent and you know it.
 
 WHAT NORMA DOES:
-- Sends real-time alerts for NCAA basketball, NBA, and MLB — exactly when to tune in
+- Sends real-time alerts for NCAA football, NFL, NCAA basketball, NBA, and MLB — exactly when to tune in
 - Tracks wagers and tells users when their bet is live and on the line
 - Cuts through noise: no endless stats, just the one moment that actually matters
 - She's not a chatbot. She's a precision instrument in human form.
 
-WRITE CONTENT ABOUT THE ACTUAL GAMES PROVIDED BELOW. If today's games are NBA or MLB, write NBA or MLB content. Do not force NCAA basketball framing onto NBA or MLB games.
+TODAY'S SPORT CONTEXT: ${sportLabel}
+WRITE CONTENT ABOUT THE ACTUAL GAMES PROVIDED BELOW. Match the sport's vocabulary — football uses downs, red zone, covers the spread, backdoor cover, red-zone stand, primetime slate, RedZone channel window; basketball uses possessions, fouls, buzzer; baseball uses innings and runs. Do not force one sport's framing onto another.
+
+FOOTBALL BETTING VOCABULARY (use when sport is ncaaf or nfl):
+- "backdoor cover" — late scoring that changes the spread outcome
+- "red-zone stand" — defense holds inside the 20
+- "primetime slate" — Sunday or Monday night nationally-televised games
+- "RedZone channel window" — multi-game simultaneous coverage
+- "covers the spread" — team beats the point spread
 
 THREE CHARACTER ARCHETYPES:
 🏆 HERO — The user who checked NORMA at the perfect moment and won big
@@ -256,6 +308,8 @@ export interface GameData {
   status?: string | null;
   home_score?: number | null;
   away_score?: number | null;
+  /** Sport key from the games.sport column (ncaaf, nfl, ncaam, nba, mlb). */
+  sport?: string | null;
   [key: string]: unknown;
 }
 
@@ -298,8 +352,14 @@ export async function generatePostContent(
   characterAngle: CharacterAngle,
   format: PostFormat = "standard",
   topHashtags: string[] = [],
+  /** Optional sport override. If omitted, derived from the first game's sport field. */
+  sportOverride?: string | null,
 ): Promise<GeneratedContent> {
-  const systemPrompt = buildSystemPrompt(platform, format, topHashtags);
+  // Derive the active sport from the override, then from the first game, then null.
+  const activeSport: string | null =
+    sportOverride ?? gameData[0]?.sport ?? null;
+
+  const systemPrompt = buildSystemPrompt(platform, format, topHashtags, activeSport);
 
   const gamesText = gameData.length > 0
     ? gameData
@@ -328,9 +388,12 @@ export async function generatePostContent(
     late_friend:     "THE LATE FRIEND — the one who skipped NORMA and suffered the completely predictable consequences",
   };
 
+  // Sport-conditional section header for the user prompt (item 2)
+  const sportSectionLabel = getSportLabel(activeSport).toUpperCase() + " GAMES";
+
   const userPrompt = `Generate a ${platform} post for NORMA.
 
-TODAY'S NCAA BASKETBALL GAMES:
+TODAY'S ${sportSectionLabel}:
 ${gamesText}
 
 POST TYPE: ${postType}
@@ -488,4 +551,48 @@ export function getDayOfYear(): number {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
   return Math.floor((now.getTime() - start.getTime()) / 86_400_000);
+}
+
+// ---------------------------------------------------------------------------
+// Day-of-week cadence weighting (item 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the recommended number of social posts to generate for a given
+ * day-of-week and active sport set.
+ *
+ * Rationale: NFL Sundays and NCAAF Saturdays concentrate 10-60+ games into
+ * a single day — the standard 4-post minimum is too low to capture that
+ * energy, and the standard 8-post ceiling is appropriate only for game days.
+ * Weekday practice/news days warrant a lighter schedule (4 posts).
+ *
+ * @param dayOfWeek  0 = Sunday … 6 = Saturday (matches Date.getDay())
+ * @param activeSports  Array of sport keys active this season (e.g. ['ncaaf', 'nfl', 'ncaam'])
+ * @returns Recommended post count for the day (between 4 and 8 inclusive)
+ */
+export function getDailyPostCount(
+  dayOfWeek: number,
+  activeSports: string[],
+): number {
+  const hasFootball = activeSports.some((s) => s === "ncaaf" || s === "nfl");
+  const hasBasketball = activeSports.some((s) => s === "ncaam" || s === "nba");
+
+  if (hasFootball) {
+    // Saturday: NCAAF slate (50+ games) → max posts
+    if (dayOfWeek === 6) return 8;
+    // Sunday: NFL primary slate + SNF → max posts
+    if (dayOfWeek === 0) return 8;
+    // Thursday: TNF single game — still elevated
+    if (dayOfWeek === 4) return 6;
+    // Monday: MNF recap + hype → slightly elevated
+    if (dayOfWeek === 1) return 6;
+  }
+
+  if (hasBasketball) {
+    // NBA/NCAAB games cluster Tue–Sat; slight boost on those days
+    if (dayOfWeek >= 2 && dayOfWeek <= 6) return 6;
+  }
+
+  // Default: standard minimum
+  return 4;
 }
