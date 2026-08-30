@@ -1,7 +1,7 @@
 # Fantasy Sports Partner Brief
 
 **Platform:** NORMA — Real-time sports alerts for bettors and fantasy players  
-**Version:** June 2026  
+**Version:** August 2026 (updated for football season launch)  
 **Contact:** partnerships@norma-app.com
 
 ---
@@ -108,3 +108,46 @@ This drives direct value perception for the partner in every alert.
 3. Agree on co-marketing launch plan alongside the API go-live.
 
 Contact: partnerships@norma-app.com
+
+---
+
+## PrizePicks & Underdog Integration (Shipped)
+
+**Updated:** 2026-08-29 | **Integration tier:** C (import-only)
+
+### What Shipped
+
+PrizePicks and Underdog are now included in NORMA's fantasy roster import flow. This is a **Tier C** integration — meaning users manually paste their entry player names into NORMA. There is no live API connection to either platform.
+
+**What works today:**
+
+1. **Roster/entry import:** `components/ImportRosterSheet.tsx` includes `{ value: "prizepicks", label: "PrizePicks" }` and `{ value: "underdog", label: "Underdog" }` in `FANTASY_PLATFORMS`. Users select their platform, paste player names (one per line), and tap "Import Roster." NORMA creates `follows` rows with `entity_type = 'player'` for each name and records the platform as `fantasy_source = 'prizepicks'` or `fantasy_source = 'underdog'`. Migration `088_follows_fantasy_source.sql` supports the `fantasy_source` column.
+
+2. **Deep-link scheme registration:** Both `"prizepicks"` and `"underdog"` are registered in `app.json` under `LSApplicationQueriesSchemes`. This allows iOS `Linking.canOpenURL` to correctly detect whether the PrizePicks or Underdog app is installed on the device, enabling the deep-link fallback chain to route to the native app instead of the web fallback.
+
+3. **Provider registry:** PrizePicks and Underdog are seeded in the `provider_registry` table as `category = 'dfs_pickem'`. This category is distinct from `sportsbook`, which allows the geo-compliance layer (FX3) to treat DFS pick'em platforms separately from licensed sportsbooks in states where the two categories have different regulatory treatment.
+
+4. **Constants:** `lib/constants.ts` includes `prizepicks: "PrizePicks"` and `underdog: "Underdog"` in `SPORTSBOOK_NAMES`. This ensures both platforms render correctly in any UI that uses this map for display names.
+
+5. **Parse-bet-slip extension:** The `parse-bet-slip` Edge Function's vision prompt has been extended to recognize PrizePicks entry screenshots — player name, stat projection, more/less selection, entry fee, and payout multiplier. These are mapped to a wager with `market_type = 'player_prop'` and `provider_key = 'prizepicks'`. The `legs` JSONB column stores each projection leg.
+
+### What This Is Not
+
+This integration is **Tier C** (import-only), not Tier A (real-time API sync). Specifically:
+
+- NORMA does **not** have a live connection to PrizePicks or Underdog servers.
+- Roster data is not automatically refreshed. Users re-import when their lineup changes.
+- Entry status (win/loss) is not tracked via a partner API. NORMA tracks the underlying player stats from ESPN and Sportradar.
+- There is no OAuth flow. No user credentials are stored.
+
+### Football-Season Relevance
+
+With NFL and NCAAF now live in NORMA, PrizePicks and Underdog users can import their football pick'em entries and receive player-based alerts during games. A user who imports "Justin Jefferson, CeeDee Lamb, Lamar Jackson" receives alerts when any of those players hits a key in-game moment — the same pipeline that powers wager-based alerts now powers pick'em entry tracking.
+
+### Path to Tier B / Tier A
+
+A Tier B integration would extend `parse-bet-slip` and `ingest-email-wagers` to automatically parse PrizePicks or Underdog entry confirmation emails, removing the manual paste step.
+
+A Tier A integration would require a partner API agreement providing a read-only roster/entry endpoint. The NORMA architecture supports this via the existing `BetIngestor` interface in `_shared/bet-ingestor.ts` and the `connections.auth_mode = 'partner_api'` pattern. No architectural changes are needed when a partnership is secured — only an adapter implementation.
+
+**Next step:** Schedule a technical call to review PrizePicks and Underdog roster API specifications for a potential Tier B/A roadmap. Contact: partnerships@norma-app.com
