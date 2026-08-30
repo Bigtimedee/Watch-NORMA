@@ -4,8 +4,10 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-export type SportKey = "ncaam" | "nba" | "mlb" | "ncaaf" | "nfl";
+// KL-7: SportKey single source of truth is lib/types.ts (client-side).
+// _shared/sportradar.ts keeps its own copy — Deno runtime can't import from lib/.
+import type { SportKey } from "./types";
+export type { SportKey };
 
 export const SPORT_LABELS: Record<SportKey, string> = {
   ncaam: "NCAA",

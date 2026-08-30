@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -18,13 +18,14 @@ import { GameCard } from "../../../components/GameCard";
 import DatePicker, { offsetToDateStr } from "../../../components/DatePicker";
 import { LIVE_STATUSES } from "../../../lib/constants";
 import type { SportKey } from "../../../lib/types";
+import { useSport } from "../../../lib/sport-context";
 
 type Tab = "all" | "live" | "following";
 
 export default function GamesScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [selectedOffset, setSelectedOffset] = useState<number>(0);
-  const [selectedSport, setSelectedSport] = useState<SportKey | undefined>(undefined);
+  const { selectedSport, setSelectedSport } = useSport();
 
   const selectedDateStr = offsetToDateStr(selectedOffset);
 
