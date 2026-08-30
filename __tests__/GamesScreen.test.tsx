@@ -14,6 +14,7 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { useGames, useFollowedGames } from "../hooks/useGames";
 import type { Game } from "../lib/types";
+import { SportProvider } from "../lib/sport-context";
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -124,13 +125,22 @@ beforeEach(() => {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const GamesScreen = require("../app/(tabs)/games/index").default;
 
+/** Render GamesScreen wrapped in SportProvider so useSport() context is available. */
+function renderScreen() {
+  return render(
+    <SportProvider>
+      <GamesScreen />
+    </SportProvider>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 1. Sport pill rendering
 // ---------------------------------------------------------------------------
 
 describe("sport pill rendering", () => {
   it("renders exactly 4 sport pills", () => {
-    const { getAllByRole } = render(<GamesScreen />);
+    const { getAllByRole } = renderScreen();
     const pillLabels = new Set(["All Sports", "NCAA", "NBA", "MLB"]);
     const pills = getAllByRole("button").filter((btn) =>
       pillLabels.has(btn.props.accessibilityLabel)
@@ -139,7 +149,7 @@ describe("sport pill rendering", () => {
   });
 
   it("renders a pill for each expected label", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
     expect(getByRole("button", { name: "All Sports" })).toBeTruthy();
     expect(getByRole("button", { name: "NCAA" })).toBeTruthy();
     expect(getByRole("button", { name: "NBA" })).toBeTruthy();
@@ -147,14 +157,14 @@ describe("sport pill rendering", () => {
   });
 
   it("All Sports pill is active (selected) by default", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
     expect(
       getByRole("button", { name: "All Sports" }).props.accessibilityState.selected
     ).toBe(true);
   });
 
   it("NCAA, NBA, and MLB pills are inactive by default", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
     expect(
       getByRole("button", { name: "NCAA" }).props.accessibilityState.selected
     ).toBe(false);
@@ -173,7 +183,7 @@ describe("sport pill rendering", () => {
 
 describe("sport selection", () => {
   it("pressing NBA activates NBA and deactivates All Sports", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
 
@@ -192,7 +202,7 @@ describe("sport selection", () => {
   });
 
   it("pressing NCAA activates NCAA and deactivates the others", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NCAA" }));
 
@@ -211,7 +221,7 @@ describe("sport selection", () => {
   });
 
   it("pressing MLB activates MLB and deactivates the others", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "MLB" }));
 
@@ -230,7 +240,7 @@ describe("sport selection", () => {
   });
 
   it("pressing All Sports after selecting NCAA resets to All Sports active", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NCAA" }));
     fireEvent.press(getByRole("button", { name: "All Sports" }));
@@ -244,7 +254,7 @@ describe("sport selection", () => {
   });
 
   it("pressing All Sports after selecting NBA resets to All Sports active", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
     fireEvent.press(getByRole("button", { name: "All Sports" }));
@@ -258,7 +268,7 @@ describe("sport selection", () => {
   });
 
   it("selecting NBA calls useGames with the 'nba' SportKey", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
 
@@ -267,7 +277,7 @@ describe("sport selection", () => {
   });
 
   it("selecting NCAA calls useGames with the 'ncaam' SportKey", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NCAA" }));
 
@@ -276,7 +286,7 @@ describe("sport selection", () => {
   });
 
   it("selecting MLB calls useGames with the 'mlb' SportKey", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "MLB" }));
 
@@ -285,7 +295,7 @@ describe("sport selection", () => {
   });
 
   it("resetting to All Sports calls useGames with undefined sport", () => {
-    const { getByRole } = render(<GamesScreen />);
+    const { getByRole } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
     fireEvent.press(getByRole("button", { name: "All Sports" }));
@@ -295,7 +305,7 @@ describe("sport selection", () => {
   });
 
   it("useGames is initially called with today's YYYY-MM-DD string at offset 0", () => {
-    render(<GamesScreen />);
+    renderScreen();
 
     const firstCall = (useGames as jest.Mock).mock.calls[0];
     expect(firstCall[0]).toBe(offsetDateStr(0));
@@ -316,7 +326,7 @@ describe("liveCount in the Live tab label", () => {
       ],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     expect(getByText("Live (2)")).toBeTruthy();
   });
@@ -327,7 +337,7 @@ describe("liveCount in the Live tab label", () => {
       data: [makeGame({ status: "scheduled" })],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     expect(getByText("Live")).toBeTruthy();
   });
@@ -338,7 +348,7 @@ describe("liveCount in the Live tab label", () => {
       data: [makeGame({ status: "inprogress" })],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     expect(getByText("Live (1)")).toBeTruthy();
   });
@@ -353,7 +363,7 @@ describe("liveCount in the Live tab label", () => {
       ],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     expect(getByText("Live (2)")).toBeTruthy();
   });
@@ -367,7 +377,7 @@ describe("liveCount in the Live tab label", () => {
       ],
     });
 
-    const { getByRole, getByText } = render(<GamesScreen />);
+    const { getByRole, getByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
 
@@ -402,7 +412,7 @@ describe("followedGames sport filter", () => {
       data: [nbaGame],
     });
 
-    const { getByRole, getByText, queryByText } = render(<GamesScreen />);
+    const { getByRole, getByText, queryByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
     fireEvent.press(getByText("Following"));
@@ -431,7 +441,7 @@ describe("followedGames sport filter", () => {
       data: [ncaamGame, nbaGame],
     });
 
-    const { getByText, queryByText } = render(<GamesScreen />);
+    const { getByText, queryByText } = renderScreen();
 
     // All Sports is already active; just switch to Following tab.
     fireEvent.press(getByText("Following"));
@@ -456,7 +466,7 @@ describe("followedGames sport filter", () => {
       data: [],
     });
 
-    const { getByRole, getByText } = render(<GamesScreen />);
+    const { getByRole, getByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
     fireEvent.press(getByText("Following"));
@@ -480,7 +490,7 @@ describe("followedGames sport filter", () => {
       data: [],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText("Following"));
 
@@ -498,13 +508,13 @@ describe("sport-aware empty states", () => {
   // FlatList's ListEmptyComponent is always rendered.
 
   it("shows 'No games scheduled today.' when All Sports is active and offset is 0", () => {
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     expect(getByText("No games scheduled today.")).toBeTruthy();
   });
 
   it("shows 'No NBA games scheduled today.' when sport is nba and offset is 0", () => {
-    const { getByRole, getByText } = render(<GamesScreen />);
+    const { getByRole, getByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NBA" }));
 
@@ -512,7 +522,7 @@ describe("sport-aware empty states", () => {
   });
 
   it("shows 'No NCAA games scheduled today.' when sport is ncaam and offset is 0", () => {
-    const { getByRole, getByText } = render(<GamesScreen />);
+    const { getByRole, getByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "NCAA" }));
 
@@ -520,7 +530,7 @@ describe("sport-aware empty states", () => {
   });
 
   it("shows 'No MLB games scheduled today.' when sport is mlb and offset is 0", () => {
-    const { getByRole, getByText } = render(<GamesScreen />);
+    const { getByRole, getByText } = renderScreen();
 
     fireEvent.press(getByRole("button", { name: "MLB" }));
 
@@ -533,7 +543,7 @@ describe("sport-aware empty states", () => {
       data: [makeGame({ status: "scheduled" })],
     });
 
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText("Live"));
 
@@ -541,7 +551,7 @@ describe("sport-aware empty states", () => {
   });
 
   it("shows the following-tab empty state when there are no followed games for the date", () => {
-    const { getByText } = render(<GamesScreen />);
+    const { getByText } = renderScreen();
 
     fireEvent.press(getByText("Following"));
 

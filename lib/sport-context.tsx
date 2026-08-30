@@ -26,48 +26,47 @@ export const SPORT_DISPLAY_NAMES: Record<SportKey, string> = {
 };
 
 const STORAGE_KEY = "norma:selectedSport";
-const DEFAULT_SPORT: SportKey = "ncaam";
+const VALID_SPORTS: SportKey[] = ["ncaam", "nba", "mlb", "ncaaf", "nfl"];
 
 interface SportContextValue {
-  selectedSport: SportKey;
-  setSelectedSport: (sport: SportKey) => void;
+  /** undefined = "All Sports" (no filter) */
+  selectedSport: SportKey | undefined;
+  setSelectedSport: (sport: SportKey | undefined) => void;
   isLoaded: boolean;
 }
 
 const SportContext = createContext<SportContextValue>({
-  selectedSport: DEFAULT_SPORT,
+  selectedSport: undefined,
   setSelectedSport: () => {},
   isLoaded: false,
 });
 
 export function SportProvider({ children }: { children: React.ReactNode }) {
-  const [selectedSport, setSelectedSportState] = useState<SportKey>(DEFAULT_SPORT);
+  const [selectedSport, setSelectedSportState] = useState<SportKey | undefined>(undefined);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load persisted sport on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (
-          stored &&
-          (stored === "ncaam" ||
-            stored === "nba" ||
-            stored === "mlb" ||
-            stored === "ncaaf" ||
-            stored === "nfl")
-        ) {
+        if (stored && (VALID_SPORTS as string[]).includes(stored)) {
           setSelectedSportState(stored as SportKey);
         }
+        // null → "All Sports" (undefined) — already the default
       })
       .catch(() => {
-        // Ignore storage errors — default to ncaam
+        // Ignore storage errors — default to All Sports
       })
       .finally(() => setIsLoaded(true));
   }, []);
 
-  const setSelectedSport = (sport: SportKey) => {
+  const setSelectedSport = (sport: SportKey | undefined) => {
     setSelectedSportState(sport);
-    AsyncStorage.setItem(STORAGE_KEY, sport).catch(() => {});
+    if (sport) {
+      AsyncStorage.setItem(STORAGE_KEY, sport).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    }
   };
 
   return (
