@@ -7,6 +7,7 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "../lib/supabase";
 import { recordAppOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
+import { SportProvider } from "../lib/sport-context";
 import { TransitionOverlay } from "../components/TransitionOverlay";
 import type { StreamingProvider } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
@@ -230,11 +231,13 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <TapToStreamProvider>
-          <StatusBar style="light" />
-          <AuthGate />
-          <TransitionOverlay />
-        </TapToStreamProvider>
+        <SportProvider>
+          <TapToStreamProvider>
+            <StatusBar style="light" />
+            <AuthGate />
+            <TransitionOverlay />
+          </TapToStreamProvider>
+        </SportProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

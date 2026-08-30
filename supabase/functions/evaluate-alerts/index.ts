@@ -539,9 +539,9 @@ Deno.serve(async (req) => {
       // Use v1 candidate title/body if available, otherwise generate from WhyNow
       const title = v1Candidates.length > 0 ? v1Candidates[0].title : whyNow.headline;
       const body = v1Candidates.length > 0 ? v1Candidates[0].body : whyNow.bullets[0] ?? "";
-      const whyText = v1Candidates.length > 0
-        ? v1Candidates[0].why
-        : whyNow.bullets.join(" ");
+      // KL-1: alerts.why writes stopped (2026-08-29). Column is kept for pre-2026-08-20
+      // rows that carry it; AlertCard.tsx renders explanation first and falls back to why.
+      // The variable whyText was the sole write path; removing it.
 
       // --- Stage 3: Throttle + Dedup ---
       const dedupHash = computeDedupHash(userId, gameId, alertType, signals.margin, signals.period, signals.proximity_level ?? undefined);
@@ -672,7 +672,9 @@ Deno.serve(async (req) => {
           alert_type: alertType,
           title,
           body,
-          why: whyText,
+          // why column intentionally omitted (KL-1): stop writing legacy field.
+          // Column is kept in DB for backward-compat; AlertCard.tsx renders
+          // explanation first and falls back to why for pre-2026-08-29 rows.
           score,
           explanation: whyNow,
           suppressed_reason: suppressPush

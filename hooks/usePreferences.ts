@@ -74,9 +74,38 @@ export function useUpdatePreferences() {
         .eq("user_id", user.id);
 
       if (error) throw error;
+
+      // KL-2: Convert favorite_teams into follows rows so the UI promise
+      // ("drives your alerts") becomes real behavior. Each team in favorite_teams
+      // gets an upserted follows row with entity_type='team' and entity_id=team_id.
+      // Existing follows are preserved (ON CONFLICT DO NOTHING via upsert ignore).
+      if (updates.favorite_teams && Array.isArray(updates.favorite_teams)) {
+        const followRows = (updates.favorite_teams as Array<{ team_id: string }>)
+          .filter((t) => t?.team_id)
+          .map((t) => ({
+            user_id: user.id,
+            entity_type: "team",
+            entity_id: t.team_id,
+            // follow_type kept for backward-compat with 1.4.0 client
+            follow_type: "team",
+            team_id: t.team_id,
+          }));
+
+        if (followRows.length > 0) {
+          const { error: followsError } = await supabase
+            .from("follows")
+            .upsert(followRows, { onConflict: "user_id,entity_type,entity_id", ignoreDuplicates: true });
+
+          if (followsError) {
+            // Non-fatal: log and continue — preferences are saved, follows sync failed
+            console.warn("[useUpdatePreferences] follows upsert failed:", followsError.message);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-preferences"] });
+      queryClient.invalidateQueries({ queryKey: ["follows"] });
     },
   });
 }

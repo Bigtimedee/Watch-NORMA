@@ -11,9 +11,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAlerts } from "../../../hooks/useAlerts";
 import { AlertCard } from "../../../components/AlertCard";
+import { useSport } from "../../../lib/sport-context";
 
 export default function AlertsScreen() {
-  const { data: alerts, isLoading, error, refetch, isRefetching } = useAlerts();
+  const { selectedSport } = useSport();
+  const { data: alerts, isLoading, error, refetch, isRefetching } = useAlerts(selectedSport);
 
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
