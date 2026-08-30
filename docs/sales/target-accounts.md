@@ -109,6 +109,29 @@
 
 ---
 
+## DFS Pick'em Operators
+
+**Updated:** 2026-08-29 — added following PrizePicks and Underdog Tier C integration shipping in 1.5.0.
+
+**Buyer persona:** Head of Partnerships, VP of Product, or Director of User Acquisition
+
+**Value proposition:** NORMA now imports PrizePicks and Underdog pick'em entries as first-class follows. A user who pastes their Underdog entry into NORMA immediately begins receiving live alerts on those players — stat milestone proximity, player prop pace, and fourth-quarter moments. NORMA is a natural retention driver: users who are notified that their pick'em player is on pace for a big game are more likely to return to the platform to check their entry.
+
+**Current integration status (Tier C — import-only):**  
+PrizePicks and Underdog are in `FANTASY_PLATFORMS` (`components/ImportRosterSheet.tsx`), registered in `LSApplicationQueriesSchemes` (`app.json`), and seeded in `provider_registry` as `category = 'dfs_pickem'`. Both platforms have display names in `lib/constants.ts` `SPORTSBOOK_NAMES`. The `parse-bet-slip` Edge Function recognizes PrizePicks entry screenshots. This is import-only — no live API connection exists.
+
+**Partnership ask (Tier B / Tier A):**  
+A Tier B partnership would provide an email-parse or entry-export path to eliminate the manual paste step. A Tier A partnership would provide a read-only roster/entry API. NORMA's architecture supports both without structural changes (see `docs/partnerships/fantasy-partner-brief.md`).
+
+**Note:** Do not fabricate contact names, deal terms, or revenue commitments. All outreach should reference the shipped Tier C integration as proof of investment and the partnership brief as the technical roadmap.
+
+| # | Company | Notes |
+|---|---------|-------|
+| 1 | PrizePicks | Largest DFS pick'em operator; NFL and NCAAF are peak season for prop entries; Tier C shipped; Tier B/A partnership would add live sync |
+| 2 | Underdog Fantasy | Strong NFL best-ball and pick'em product; already in NORMA's platform list; Tier C shipped; overlapping bettor-adjacent audience |
+
+---
+
 ## Notes for Founder Outreach
 
 - **Pilot minimum**: $100 (or $250 credit-matched — see `pilot-offer.md`)

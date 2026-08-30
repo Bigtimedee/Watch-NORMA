@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View, Text, Pressable, Image, StyleSheet, Share, Modal } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { captureRef } from "react-native-view-shot";
@@ -29,6 +29,14 @@ import { useSubmitAlertFeedback } from "../hooks/useAlertFeedback";
 import { MomentShareCard } from "./MomentShareCard";
 import { formatAlertShareCard } from "../lib/formatShareCard";
 
+/** AsyncStorage key set after the user first sees (or dismisses) the football share nudge */
+export const FOOTBALL_SHARE_NUDGE_KEY = "norma:shared_first_football_alert";
+
+/** Sports that qualify as football for the post-alert share nudge */
+function isFootballSport(sport: string | undefined): boolean {
+  return sport === "ncaaf" || sport === "nfl";
+}
+
 interface AlertCardProps {
   alert: Alert;
 }
@@ -40,6 +48,8 @@ export function AlertCard({ alert }: AlertCardProps) {
   const [showReferralNudge, setShowReferralNudge] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [includeWagerLine, setIncludeWagerLine] = useState(false);
+  // Football first-alert share nudge state
+  const [showFootballShareNudge, setShowFootballShareNudge] = useState(false);
   const shareCardRef = useRef<View>(null);
   const submitFeedback = useSubmitAlertFeedback();
   const REFERRAL_NUDGE_KEY = "norma.referralNudgeShown";
@@ -49,6 +59,14 @@ export function AlertCard({ alert }: AlertCardProps) {
   const connectedKeys = useConnectedProviderKeys();
   const { data: allProviders } = useStreamingProviders();
   const { triggerStream } = useTapToStream();
+
+  // Football share nudge — show once on first football alert the user sees
+  useEffect(() => {
+    if (!isFootballSport(alert.sport)) return;
+    AsyncStorage.getItem(FOOTBALL_SHARE_NUDGE_KEY).then((val) => {
+      if (!val) setShowFootballShareNudge(true);
+    });
+  }, [alert.sport]);
 
   // Show Watch button for live games with urgent (non-resolved) alerts
   const isLive = alert.game
@@ -116,6 +134,40 @@ export function AlertCard({ alert }: AlertCardProps) {
   const dismissReferralNudge = async () => {
     await AsyncStorage.setItem(REFERRAL_NUDGE_KEY, "1");
     setShowReferralNudge(false);
+  };
+
+  /** Mark the football share nudge as seen — called on both share and dismiss */
+  const markFootballNudgeSeen = async () => {
+    await AsyncStorage.setItem(FOOTBALL_SHARE_NUDGE_KEY, "1");
+    setShowFootballShareNudge(false);
+  };
+
+  const handleFootballShareNudge = async () => {
+    const gameTitle = alert.game?.title ?? alert.title;
+    const headline = alert.explanation?.headline ?? alert.body;
+    const message = `I got a NORMA alert for ${gameTitle} — ${headline}. Download NORMA to get alerts for your games. ${NORMA_APP_STORE_URL}`;
+    try {
+      const result = await Share.share({ message });
+      if (result.action !== Share.dismissedAction) {
+        trackEvent("share_moment", { source: "football_nudge", sport: alert.sport, alert_type: alert.alert_type });
+        // Write share event to share_events table
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await supabase.from("share_events").insert({
+            user_id: session.user.id,
+            source: "alert",
+            alert_type: alert.alert_type,
+            game_id: alert.game_id,
+          });
+        }
+      }
+    } finally {
+      await markFootballNudgeSeen();
+    }
+  };
+
+  const dismissFootballShareNudge = async () => {
+    await markFootballNudgeSeen();
   };
 
   const handleShareCapture = async () => {
@@ -290,6 +342,32 @@ export function AlertCard({ alert }: AlertCardProps) {
                   <Ionicons name="close-outline" size={16} color="#64748b" />
                 </Pressable>
               </View>
+            </View>
+          )}
+
+          {/* One-time football share nudge — shown on first football alert */}
+          {showFootballShareNudge && (
+            <View style={s.footballShareNudge} testID="football-share-nudge">
+              <View style={s.footballShareNudgeRow}>
+                <Ionicons name="share-social-outline" size={16} color="#f97316" />
+                <Text style={s.footballShareNudgeText}>Share this moment</Text>
+                <Pressable
+                  onPress={dismissFootballShareNudge}
+                  accessibilityLabel="Dismiss share prompt"
+                  style={s.feedbackBtn}
+                  testID="football-share-nudge-dismiss"
+                >
+                  <Ionicons name="close-outline" size={16} color="#64748b" />
+                </Pressable>
+              </View>
+              <Pressable
+                style={s.footballShareNudgeBtn}
+                onPress={handleFootballShareNudge}
+                accessibilityLabel="Share this moment"
+                testID="football-share-nudge-btn"
+              >
+                <Text style={s.footballShareNudgeBtnText}>Share this moment</Text>
+              </Pressable>
             </View>
           )}
         </View>
@@ -539,5 +617,36 @@ const s = StyleSheet.create({
     color: "#93c5fd",
     fontSize: 10,
     fontWeight: "700",
+  },
+  footballShareNudge: {
+    marginTop: 8,
+    backgroundColor: "rgba(249, 115, 22, 0.08)",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.2)",
+  },
+  footballShareNudgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  footballShareNudgeText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    flex: 1,
+  },
+  footballShareNudgeBtn: {
+    backgroundColor: "#f97316",
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignSelf: "flex-start",
+  },
+  footballShareNudgeBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

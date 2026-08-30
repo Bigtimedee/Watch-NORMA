@@ -25,8 +25,10 @@ import {
   getImageVariant,
   getPostFormat,
   getDayOfYear,
+  getDailyPostCount,
   getTodayScenario,
   getTodayCharacterAngle,
+  resolveSubreddit,
   VISUAL_PLATFORMS,
   PLATFORM_SUBREDDITS,
   DEFAULT_SUBREDDIT,
@@ -59,11 +61,15 @@ Deno.serve(async (req) => {
     let reqPostType: string | null = null;
     let reqScenario: Scenario | null = null;
     let reqCatchUp = false;
+    // Optional sport filter — when set, games query is scoped to this sport so
+    // football games don't leak into NCAA Basketball posts and vice versa.
+    let reqSport: string | null = null;
     try {
       const body = await req.json();
       reqPostType = body?.post_type ?? null;
       reqScenario = body?.scenario ?? null;
       reqCatchUp  = body?.catch_up === true;
+      reqSport    = body?.sport ?? null;
     } catch {
       // No body — pg_cron sends empty body
     }
@@ -74,7 +80,7 @@ Deno.serve(async (req) => {
     );
 
     // -----------------------------------------------------------------------
-    // Cadence guard — 4 min / 8 max per day across X, Instagram, Facebook
+    // Cadence guard — day-of-week aware (item 7: Sat/Sun heavier for football)
     // -----------------------------------------------------------------------
     // Use ET midnight as the day boundary (consistent with the Postgres RPCs).
     // "America/New_York" handles EST/EDT automatically.
@@ -87,14 +93,21 @@ Deno.serve(async (req) => {
     _etWall.setHours(0, 0, 0, 0);
     const todayStart = new Date(_etWall.getTime() - _etOffsetMs);
 
+    // Compute today's post cap using sport-aware day-of-week weighting.
+    // During football season the cron passes sport=ncaaf on Saturday and
+    // sport=nfl on Sunday so the cap correctly escalates for those slates.
+    // Fall back to DAILY_MAX (8) when no sport context is available.
+    const effectiveActiveSports: string[] = reqSport ? [reqSport] : ["ncaaf", "nfl", "ncaam", "nba", "mlb"];
+    const dailyMax = getDailyPostCount(_now.getDay(), effectiveActiveSports);
+
     const queuedCount = await countQueuedToday(supabase, [...CADENCE_PLATFORMS]);
 
-    if (queuedCount >= DAILY_MAX) {
+    if (queuedCount >= dailyMax) {
       console.log(JSON.stringify({
         function:     "generate-social-content",
         event:        "skipped_at_daily_cap",
         queued_today: queuedCount,
-        daily_max:    DAILY_MAX,
+        daily_max:    dailyMax,
         timestamp:    new Date().toISOString(),
       }));
       return new Response(
@@ -114,7 +127,7 @@ Deno.serve(async (req) => {
     const platformsWithPostsToday = new Set(
       (todayPostRows ?? []).map((r: { platform: string }) => r.platform),
     );
-    let remainingCadenceSlots = DAILY_MAX - queuedCount;
+    let remainingCadenceSlots = dailyMax - queuedCount;
 
     // -----------------------------------------------------------------------
     // Fetch active social accounts
@@ -143,15 +156,25 @@ Deno.serve(async (req) => {
     const todayStr = todayStart.toISOString().split("T")[0];
     const tomorrowStr = new Date(todayStart.getTime() + 86_400_000).toISOString().split("T")[0];
 
-    const { data: gameRows } = await supabase
+    // Build the games query; filter by sport when provided so posts always
+    // reference the right league and never mix football into a basketball post.
+    let gamesQuery = supabase
       .from("games")
-      .select("*")
+      .select("id, home_team, away_team, scheduled_at, status, home_score, away_score, sport")
       .eq("status", "scheduled")
       .gte("scheduled_at", `${todayStr}T00:00:00.000Z`)
       .lt("scheduled_at", `${tomorrowStr}T00:00:00.000Z`)
       .limit(10);
 
+    if (reqSport) {
+      gamesQuery = gamesQuery.eq("sport", reqSport);
+    }
+
+    const { data: gameRows } = await gamesQuery;
     const games: GameData[] = gameRows ?? [];
+
+    // Derive the dominant sport for this run: explicit override → first game's sport → null
+    const activeSport: string | null = reqSport ?? games[0]?.sport ?? null;
 
     // -----------------------------------------------------------------------
     // Determine post type, scenario, character angle — feedback-biased
@@ -201,7 +224,7 @@ Deno.serve(async (req) => {
         // Fetch top-performing hashtags for this platform
         const topHashtags = await getTopHashtags(supabase, platform);
 
-        // Generate text + image prompt via Claude Sonnet
+        // Generate text + image prompt via Claude Sonnet (sport-aware)
         const generated = await generatePostContent(
           platform,
           games,
@@ -210,6 +233,7 @@ Deno.serve(async (req) => {
           characterAngle,
           postFormat,
           topHashtags,
+          activeSport,
         );
 
         // ----------------------------------------------------------------
