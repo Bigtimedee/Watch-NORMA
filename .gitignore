@@ -51,3 +51,4 @@ AGENTS.md
 # Claude Code worktrees (never commit — always gitlinked submodule accidents)
 .claude/
 *.xlsx#
+supabase/.temp/
