@@ -47,4 +47,7 @@ web/.next/
 coverage/
 hermes/
 AGENTS.md
+
+# Claude Code worktrees (never commit — always gitlinked submodule accidents)
+.claude/
 *.xlsx#
