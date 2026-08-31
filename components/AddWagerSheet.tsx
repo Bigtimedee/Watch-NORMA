@@ -48,7 +48,7 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
   const { data: connections } = useConnections();
 
   const connectedBooks = (connections ?? [])
-    .filter((c) => c.connected && c.provider_key !== "kalshi" && c.provider_key !== "polymarket")
+    .filter((c) => c.connected && c.provider_type === "sportsbook" && c.provider_key !== "kalshi" && c.provider_key !== "polymarket")
     .map((c) => c.provider_key);
 
   const [sportsbook, setSportsbook] = useState(connectedBooks[0] ?? "");
