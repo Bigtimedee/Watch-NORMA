@@ -11,11 +11,13 @@ import { isPickEmProvider } from "../../../lib/fantasy-platforms";
 
 export default function PickEmScreen() {
   const router = useRouter();
-  const { data: sportsbookProviders, isLoading: loadingBooks } =
-    useStreamingProviders("sportsbook");
+  const { data: catalog, isLoading: loadingBooks } =
+    useStreamingProviders("sportsbook", { category: "dfs_pickem" });
   const { data: connections } = useConnections();
 
-  const pickEmProviders = (sportsbookProviders ?? []).filter(
+  // category=dfs_pickem is the query (migration 092). Keep the key check so a
+  // mis-tagged row cannot leak a traditional sportsbook onto this screen.
+  const pickEmProviders = (catalog ?? []).filter(
     (p) => isPickEmProvider(p.key) || p.category === "dfs_pickem"
   );
 

@@ -389,3 +389,45 @@ export function isSportsbookUrl(url: string): string | null {
   }
   return null;
 }
+
+/** Detect PrizePicks / Underdog from a creative CTA URL. */
+export function detectPickEmProviderFromUrl(url: string): string | null {
+  const lower = url.toLowerCase();
+  if (lower.includes("prizepicks")) return "prizepicks";
+  if (lower.includes("underdog")) return "underdog";
+  return null;
+}
+
+export interface SponsorCtaContext {
+  sport?: string | null;
+  campaignId?: number | null;
+}
+
+/**
+ * Rewrite pick'em advertiser CTAs through `buildPickEmLink` so the
+ * auction/alert path opens a sport-scoped board with NORMA campaign
+ * attribution. Traditional sportsbook URLs are returned unchanged —
+ * those already go through advertiser-supplied creatives.
+ *
+ * Called from both auction-engine return paths (direct deal + winner).
+ */
+export function contextualizeSponsorCtaUrl(
+  rawUrl: string | null | undefined,
+  ctx: SponsorCtaContext = {},
+): string | null {
+  if (rawUrl == null) return null;
+  if (typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const provider = detectPickEmProviderFromUrl(trimmed);
+  if (!provider) return trimmed;
+
+  const campaignId = typeof ctx.campaignId === "number" ? ctx.campaignId : 0;
+  const built = buildPickEmLink(
+    provider,
+    { sport: ctx.sport ?? undefined },
+    campaignId,
+  );
+  return built.universal_link || trimmed;
+}

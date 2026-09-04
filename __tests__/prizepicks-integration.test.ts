@@ -60,6 +60,12 @@ describe("FANTASY_PLATFORMS", () => {
     expect(src).toContain("buildRosterFollowRows(playerNames, user.id, platform)");
   });
 
+  it("Pick'em screen queries category dfs_pickem, not the sportsbooks list", () => {
+    const src = readRepo("app/(tabs)/connections/pickem.tsx");
+    expect(src).toContain('category: "dfs_pickem"');
+    expect(src).toContain("useStreamingProviders");
+  });
+
   it("isPickEmProvider / isFantasyPlatform helpers", () => {
     expect(isPickEmProvider("prizepicks")).toBe(true);
     expect(isPickEmProvider("draftkings")).toBe(false);
@@ -135,5 +141,45 @@ describe("provider registry migration 092 + 20260904", () => {
     expect(fantasy).toContain("'yahoo_fantasy'");
     expect(fantasy).toContain("'espn_fantasy'");
     expect(fantasy).toContain("'fantasy'");
+  });
+
+  it("seeds sportsbook_restrictions for prizepicks and underdog", () => {
+    expect(fantasy).toContain("sportsbook_restrictions");
+    expect(fantasy).toMatch(/'prizepicks'[\s\S]*ARRAY\[/);
+    expect(fantasy).toMatch(/'underdog'[\s\S]*ARRAY\[/);
+    expect(fantasy).toContain("'TX'");
+    expect(fantasy).toContain("'NY'");
+  });
+});
+
+describe("client brand maps include pick'em", () => {
+  const brands = readRepo("lib/sportsbook-brands.ts");
+  const betNow = readRepo("components/BetNowButton.tsx");
+  const sponsor = readRepo("components/SponsorCTAButton.tsx");
+  const edgeLinks = readRepo("supabase/functions/_shared/sportsbook-links.ts");
+  const auction = readRepo("supabase/functions/_shared/auction-engine.ts");
+
+  it("lib/sportsbook-brands.ts lists prizepicks and underdog colors", () => {
+    expect(brands).toContain("prizepicks:");
+    expect(brands).toContain("underdog:");
+    expect(brands).toContain("#6C2BD9");
+    expect(brands).toContain("#E8F54A");
+  });
+
+  it("edge SPORTSBOOK_BRAND_COLORS uses the same pick'em hex values", () => {
+    expect(edgeLinks).toContain("prizepicks: { primary: \"#6C2BD9\"");
+    expect(edgeLinks).toContain("underdog: { primary: \"#E8F54A\"");
+  });
+
+  it("BetNowButton and SponsorCTAButton consume the shared brand module", () => {
+    expect(betNow).toContain("SPORTSBOOK_BRAND_COLORS");
+    expect(betNow).toContain("defaultCtaLabel");
+    expect(sponsor).toContain("SPORTSBOOK_BRAND_COLORS");
+    expect(sponsor).toContain('style: "open"');
+  });
+
+  it("auction-engine rewrites pick'em CTAs via contextualizeSponsorCtaUrl", () => {
+    expect(auction).toContain("contextualizeSponsorCtaUrl");
+    expect(auction).toContain('from "./sportsbook-links.ts"');
   });
 });

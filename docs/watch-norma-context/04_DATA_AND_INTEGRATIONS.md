@@ -196,9 +196,9 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 | Reddit API | Social publishing | **Scaffolded** | `_shared/social-publishers.ts` | Reference structure only. |
 | DraftKings API | Sportsbook wager sync | **Planned (no API exists)** | `_shared/bet-ingestor.ts` | Stub adapter. Depends on partnership. |
 | FanDuel API | Sportsbook wager sync | **Planned (no API exists)** | `_shared/bet-ingestor.ts` | Stub adapter. Depends on partnership. |
-| PrizePicks / Underdog | Pick'em roster import + slip/email parse | **Tier B/C** | `ImportRosterSheet`, `lib/roster-import.ts`, `parse-bet-slip`, `email-parser.ts`, migration 092 | No public consumer API. Platform is persisted on `follows.fantasy_source`. Player follows are alert candidates when the player is in the game. |
-| Sleeper / Yahoo Fantasy / ESPN Fantasy | Season-long roster paste | **Tier C** | `lib/fantasy-platforms.ts`, `ImportRosterSheet`, migration `20260904183000` | UI picker + provider_registry deep-link metadata. No live roster API. |
-| DraftKings DFS | DFS lineup paste | **Tier C** | `FANTASY_PLATFORMS` key `draftkings_dfs` | Distinct from DraftKings Sportsbook. Import-only. |
+| PrizePicks / Underdog | Pick'em roster import + slip/email parse + sponsor CTA | **Tier B/C** | `ImportRosterSheet`, `lib/roster-import.ts`, `parse-bet-slip`, `email-parser.ts`, `sportsbook-links.ts` (`buildPickEmLink` / `contextualizeSponsorCtaUrl`), `auction-engine.ts`, migrations 092 + `20260904183000` | No public consumer API. Platform persisted on `follows.fantasy_source`. Player follows are alert candidates when the player is in the game. Auction CTAs rewrite pick'em URLs to a sport-scoped board. `sportsbook_restrictions` seeds Player Picks (PrizePicks) and Pick'em-or-Champions (Underdog) so `useSportsbookGeo` is not fail-closed for those keys. |
+| Sleeper / Yahoo Fantasy / ESPN Fantasy | Season-long roster paste | **PARTIAL / Tier C** | `lib/fantasy-platforms.ts`, `ImportRosterSheet`, migration `20260904183000` | UI picker + provider_registry deep-link metadata. No live roster API. No sportsbook_restrictions (not a wagering CTA). |
+| DraftKings DFS | DFS lineup paste | **PARTIAL / Tier C** | `FANTASY_PLATFORMS` key `draftkings_dfs` | Distinct from DraftKings Sportsbook. Import-only. No provider_registry row. |
 | Streaming service APIs | Watch history | **Not possible** | — | No streaming service offers this API. |
 
 ## Data Quality Risks

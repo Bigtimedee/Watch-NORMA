@@ -100,3 +100,50 @@ ON CONFLICT (key) DO UPDATE SET
   fallback_store_url = EXCLUDED.fallback_store_url,
   auth_mode          = EXCLUDED.auth_mode,
   category           = EXCLUDED.category;
+
+-- ── 4. sportsbook_restrictions for PrizePicks / Underdog ─────────────────────
+-- useSportsbookGeo is fail-closed: a missing row means the CTA always reads
+-- "Not available in your region". Migration 058 only seeded DK/FD/MGM/Caesars/
+-- PointsBet. Pick'em legality is broader than sportsbook betting in many
+-- states, but it is NOT nationwide and it is product-specific. Age minimums
+-- (18/19/21) are NOT encoded here — this table is state-only.
+--
+-- PrizePicks: Player Picks footprint (the product NORMA deep-links to).
+-- Official: https://www.prizepicks.com/help-center/where-can-i-play
+--           https://www.prizepicks.com/help-center/eligibility
+-- Cross-check (2026-09): BettingUSA PrizePicks review Player Picks list.
+-- 36 states + DC. Age notes (not enforced here): 19+ AL/CO; 21+ AZ/IL/MA/VA.
+-- Legality changes — re-verify against the PrizePicks help center before
+-- expanding this list. Do not add Team Picks / Culture Picks-only states.
+--
+-- Underdog: states with classic Pick'em OR Champions (peer-to-peer pick'em).
+-- Exclude drafts-only (MD, MI, NJ, NY, OH, PA, DC) and fully unavailable
+-- (CT, HI, ID, IA, LA, ME, MT, NV, WA). Opening the picks board in a
+-- drafts-only state would send the user to a product they cannot use.
+-- Source: OddsAssist Underdog states table (updated 2026-08-31)
+--   https://oddsassist.com/dfs/underdog-states/
+-- Cross-check: TheGameHaus Underdog legal-states Pick'em + Champions lists.
+-- Re-verify before expanding. Prediction-market-only states are excluded.
+
+INSERT INTO public.sportsbook_restrictions (sportsbook_key, allowed_states) VALUES
+  (
+    'prizepicks',
+    ARRAY[
+      'AK','AL','AR','AZ','CA','CO','DC','DE','FL','GA',
+      'IL','IN','KS','KY','MA','ME','MN','MO','NC','ND',
+      'NE','NH','NM','NY','OK','OR','RI','SC','SD','TN',
+      'TX','UT','VA','VT','WI','WV','WY'
+    ]
+  ),
+  (
+    'underdog',
+    ARRAY[
+      'AK','AL','AR','AZ','CA','CO','DE','FL','GA','IL',
+      'IN','KS','KY','MA','MN','MO','MS','NC','ND','NE',
+      'NH','NM','OK','OR','RI','SC','SD','TN','TX','UT',
+      'VA','VT','WI','WV','WY'
+    ]
+  )
+ON CONFLICT (sportsbook_key) DO UPDATE SET
+  allowed_states = EXCLUDED.allowed_states,
+  updated_at     = NOW();

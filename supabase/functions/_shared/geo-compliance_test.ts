@@ -23,6 +23,10 @@ const SPORTSBOOK_RESTRICTIONS: Record<string, string[]> = {
   betmgm:     ["AZ","CO","DC","IL","IN","IA","KS","LA","MD","MA","MI","MS","NJ","NY","OH","OR","PA","TN","VA","WV","WY"],
   caesars:    ["AZ","CO","CT","IL","IN","IA","KS","LA","MD","MA","MI","NJ","NY","NC","OH","PA","TN","VA","WV","WY"],
   pointsbet:  ["CO","IL","IN","IA","MI","NJ","NY","PA","VA","WV"],
+  // Pick'em — mirrors migration 20260904183000. Broader than sportsbooks
+  // in TX/CA/FL; still fail-closed in drafts-only / unavailable states.
+  prizepicks: ["AK","AL","AR","AZ","CA","CO","DC","DE","FL","GA","IL","IN","KS","KY","MA","ME","MN","MO","NC","ND","NE","NH","NM","NY","OK","OR","RI","SC","SD","TN","TX","UT","VA","VT","WI","WV","WY"],
+  underdog:   ["AK","AL","AR","AZ","CA","CO","DE","FL","GA","IL","IN","KS","KY","MA","MN","MO","MS","NC","ND","NE","NH","NM","OK","OR","RI","SC","SD","TN","TX","UT","VA","VT","WI","WV","WY"],
 };
 
 // ---------------------------------------------------------------------------
@@ -212,4 +216,37 @@ Deno.test("parity: PointsBet has fewer states than DraftKings — eligible sets 
   const wyState = "WY";
   assert(isGeoEligible(wyState, SPORTSBOOK_RESTRICTIONS.draftkings));
   assertEquals(isGeoEligible(wyState, SPORTSBOOK_RESTRICTIONS.pointsbet), false);
+});
+
+Deno.test("pick'em: PrizePicks eligible in TX and NY; Underdog eligible in TX not NY", () => {
+  assert(isGeoEligible("TX", SPORTSBOOK_RESTRICTIONS.prizepicks));
+  assert(isGeoEligible("NY", SPORTSBOOK_RESTRICTIONS.prizepicks));
+  assert(isGeoEligible("TX", SPORTSBOOK_RESTRICTIONS.underdog));
+  assertEquals(isGeoEligible("NY", SPORTSBOOK_RESTRICTIONS.underdog), false);
+  assertEquals(isGeoEligible("NJ", SPORTSBOOK_RESTRICTIONS.prizepicks), false);
+  assertEquals(isGeoEligible("NJ", SPORTSBOOK_RESTRICTIONS.underdog), false);
+});
+
+Deno.test("pick'em restriction fixture matches migration 20260904183000", async () => {
+  const sql = await Deno.readTextFile(
+    new URL("../../migrations/20260904183000_dfs_fantasy_integration_fixes.sql", import.meta.url),
+  );
+  assert(sql.includes("'prizepicks'"), "migration must seed prizepicks restrictions");
+  assert(sql.includes("'underdog'"), "migration must seed underdog restrictions");
+  for (const state of SPORTSBOOK_RESTRICTIONS.prizepicks) {
+    assert(sql.includes(`'${state}'`), `prizepicks seed missing ${state}`);
+  }
+  for (const state of SPORTSBOOK_RESTRICTIONS.underdog) {
+    assert(sql.includes(`'${state}'`), `underdog seed missing ${state}`);
+  }
+  // Drafts-only / unavailable states must not appear in the Underdog ARRAY block.
+  // Narrow to the underdog INSERT so a comment mentioning NY does not false-pass.
+  const underdogBlock = sql.slice(sql.indexOf("'underdog'"));
+  for (const blocked of ["NY", "NJ", "MD", "MI", "OH", "PA", "DC", "WA", "NV"]) {
+    assertEquals(
+      underdogBlock.includes(`'${blocked}'`),
+      false,
+      `underdog seed must not include drafts-only/unavailable ${blocked}`,
+    );
+  }
 });
