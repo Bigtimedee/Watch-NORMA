@@ -1,0 +1,42 @@
+name: TMP EAS Status Check
+on:
+  push:
+    branches: [chore/tmp-eas-status-2c473912]
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Whoami
+        run: eas whoami
+      - name: Build view
+        run: eas build:view 2c473912-993f-4d18-849c-8495e967768a --json | tee /tmp/build.json
+      - name: Submission view
+        run: |
+          eas submission:view ce9be5d0-417b-40c0-94ba-356bf0978ac1 --json 2>&1 | tee /tmp/sub.json || true
+          # fallback list recent submissions if view unsupported
+          eas build:view 2c473912-993f-4d18-849c-8495e967768a --json
+      - name: Summarize
+        run: |
+          python3 - <<'PY'
+          import json
+          b=json.load(open('/tmp/build.json'))
+          keys=['id','status','platform','appVersion','appBuildVersion','sdkVersion','completedAt','createdAt','error','artifacts']
+          print('BUILD_SUMMARY')
+          for k in keys:
+            if k in b: print(f'{k}={b.get(k)}')
+          # nested common fields
+          for k,v in b.items():
+            if k.lower() in ('status','appversion','appbuildversion','buildversion','version','id'):
+              print(f'TOP {k}={v}')
+          print('BUILD_KEYS', sorted(b.keys())[:40])
+          PY
