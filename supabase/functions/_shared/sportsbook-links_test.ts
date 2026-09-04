@@ -3,6 +3,8 @@ import {
   buildSportsbookLink,
   buildPickEmLink,
   isSportsbookUrl,
+  contextualizeSponsorCtaUrl,
+  detectPickEmProviderFromUrl,
   type GameContext,
   type PickEmContext,
 } from "./sportsbook-links.ts";
@@ -185,4 +187,50 @@ Deno.test("buildPickEmLink: unknown provider returns empty link (safe fallback)"
   const link = buildPickEmLink("bogus_pickem", pickEmCtx("nfl"), 1);
   assertEquals(link.native_scheme, "");
   assertEquals(link.universal_link, "");
+});
+
+// ─── Auction CTA rewriter (dead-code fix: wire buildPickEmLink) ──────────────
+
+Deno.test("detectPickEmProviderFromUrl matches prizepicks and underdog hosts", () => {
+  assertEquals(detectPickEmProviderFromUrl("https://app.prizepicks.com"), "prizepicks");
+  assertEquals(detectPickEmProviderFromUrl("https://app.underdogfantasy.com/picks"), "underdog");
+  assertEquals(detectPickEmProviderFromUrl("https://sportsbook.draftkings.com/x"), null);
+});
+
+Deno.test("contextualizeSponsorCtaUrl: sportsbook URL is unchanged", () => {
+  const raw = "https://sportsbook.draftkings.com/leagues/nfl/event/foo";
+  assertEquals(contextualizeSponsorCtaUrl(raw, { sport: "nfl", campaignId: 9 }), raw);
+});
+
+Deno.test("contextualizeSponsorCtaUrl: prizepicks URL becomes sport-scoped board", () => {
+  const out = contextualizeSponsorCtaUrl("https://app.prizepicks.com", {
+    sport: "nfl",
+    campaignId: 42,
+  });
+  assertStringIncludes(out ?? "", "prizepicks.com");
+  assertStringIncludes(out ?? "", "NFL");
+  assertStringIncludes(out ?? "", "campaign=42");
+});
+
+Deno.test("contextualizeSponsorCtaUrl: underdog URL becomes sport-scoped board", () => {
+  const out = contextualizeSponsorCtaUrl("https://app.underdogfantasy.com", {
+    sport: "ncaaf",
+    campaignId: 7,
+  });
+  assertStringIncludes(out ?? "", "underdogfantasy.com");
+  assertStringIncludes(out ?? "", "college_football");
+});
+
+Deno.test("contextualizeSponsorCtaUrl: null/empty stays null", () => {
+  assertEquals(contextualizeSponsorCtaUrl(null), null);
+  assertEquals(contextualizeSponsorCtaUrl("   "), null);
+});
+
+Deno.test("auction-engine imports contextualizeSponsorCtaUrl on both return paths", async () => {
+  const src = await Deno.readTextFile(new URL("./auction-engine.ts", import.meta.url));
+  assertStringIncludes(src, 'from "./sportsbook-links.ts"');
+  assertStringIncludes(src, "contextualizeSponsorCtaUrl");
+  // Both the direct-deal return and the ranked-winner return must rewrite.
+  const occurrences = src.split("contextualizeSponsorCtaUrl(").length - 1;
+  assertEquals(occurrences >= 2, true, `expected ≥2 call sites, found ${occurrences}`);
 });

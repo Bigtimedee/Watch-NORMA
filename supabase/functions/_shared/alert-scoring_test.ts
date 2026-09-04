@@ -390,3 +390,37 @@ Deno.test("mustNotify basketball: period 3 still correctly triggers overtime (ba
   assertNotEquals(result, null);
   assertEquals(result!.alertType, "overtime");
 });
+
+Deno.test("scoring: fantasy player in game + close game = 40 (alert fires)", () => {
+  const summary = makeSummaryStats();
+  const signals = extractSignals(
+    makeGameState({ period: 2, clock: "8:00", home_score: 68, away_score: 65 }),
+    summary,
+    [],
+    ["donovan clingan"],
+    [],
+    false,
+  );
+  assertEquals(signals.follows_player_in_game, true);
+  const score = computeScore(signals);
+  // follows_player_in_game(20) + close_game(20) + on_court(5) = 45
+  assertEquals(score >= 40, true);
+  assertEquals(meetsThreshold(score), true);
+});
+
+Deno.test("scoring: fantasy player not in this game does not fire on close game alone", () => {
+  const summary = makeSummaryStats();
+  const signals = extractSignals(
+    makeGameState({ period: 2, clock: "8:00", home_score: 68, away_score: 65 }),
+    summary,
+    [],
+    ["justin jefferson"],
+    [],
+    false,
+  );
+  assertEquals(signals.follows_player_in_game, false);
+  assertEquals(signals.follows_player_on_court, false);
+  const score = computeScore(signals);
+  assertEquals(score, 20); // close_game only
+  assertEquals(meetsThreshold(score), false);
+});

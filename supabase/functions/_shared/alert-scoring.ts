@@ -6,6 +6,7 @@ import { parseClockMinutes } from "../evaluate-alerts/logic.ts";
 import { parseWagerTarget } from "./wager-target-parser.ts";
 import { computeProximity } from "./outcome-proximity.ts";
 import type { ProximityLevel } from "./outcome-proximity.ts";
+import { playerNameMatches } from "./player-follows.ts";
 
 // --- Signal Vector ---
 
@@ -31,6 +32,8 @@ export interface SignalVector {
   // User relevance
   follows_team: boolean;
   follows_player_on_court: boolean;
+  /** Followed player is in this game's boxscore/summary (not necessarily on court). */
+  follows_player_in_game: boolean;
   has_wager: boolean;
   wager_line_crossed: boolean;
   has_position: boolean;
@@ -55,6 +58,8 @@ const WEIGHTS = {
   bench_swing: 5,
   efg_divergence: 5,
   follows_player: 5,
+  // Fantasy roster / pick'em: player in this game + close game should fire.
+  follows_player_in_game: 20,
   // Phase 3 / F3 football alert weights (2026-08-29)
   // football_red_zone: +15 base (follows_team already adds 15; possession context adds another 15)
   football_red_zone: 15,
@@ -224,13 +229,16 @@ export function extractSignals(
   );
 
   let followsPlayerOnCourt = false;
+  let followsPlayerInGame = false;
   if (summary && userFollowsPlayerNames.length > 0) {
     const allPlayers = [...summary.home.players, ...summary.away.players];
     for (const name of userFollowsPlayerNames) {
-      const nameL = name.toLowerCase();
-      if (allPlayers.some((p) => p.on_court && p.full_name.toLowerCase().includes(nameL))) {
-        followsPlayerOnCourt = true;
-        break;
+      const matched = allPlayers.filter((p) => playerNameMatches(name, p.full_name));
+      if (matched.length > 0) {
+        followsPlayerInGame = true;
+        if (matched.some((p) => p.on_court)) {
+          followsPlayerOnCourt = true;
+        }
       }
     }
   }
@@ -296,6 +304,7 @@ export function extractSignals(
 
     follows_team: followsTeam,
     follows_player_on_court: followsPlayerOnCourt,
+    follows_player_in_game: followsPlayerInGame,
     has_wager: userWagers.length > 0,
     wager_line_crossed: wagerLineCrossed,
     has_position: hasPosition,
@@ -332,6 +341,7 @@ export function computeScore(signals: SignalVector): number {
   if (signals.bench_points_delta >= 10) score += WEIGHTS.bench_swing;
   if (signals.efg_delta >= 10) score += WEIGHTS.efg_divergence;
   if (signals.follows_player_on_court) score += WEIGHTS.follows_player;
+  if (signals.follows_player_in_game) score += WEIGHTS.follows_player_in_game;
 
   return score;
 }
@@ -381,6 +391,8 @@ export function buildWhyNow(
     headline = "Close Game Alert";
   } else if (signals.follows_team) {
     headline = "Your Team Is Playing";
+  } else if (signals.follows_player_in_game) {
+    headline = "Your Player Is In This Game";
   } else {
     headline = "Tune In Now";
   }

@@ -2,6 +2,11 @@ import { Pressable, Text, StyleSheet, Linking, Image, Alert } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import { useSportsbookGeo } from "../hooks/useSportsbookGeo";
 import { supabase } from "../lib/supabase";
+import {
+  SPORTSBOOK_BRAND_COLORS,
+  detectSportsbookProvider,
+  defaultCtaLabel,
+} from "../lib/sportsbook-brands";
 
 interface BetNowButtonProps {
   ctaUrl: string;
@@ -11,30 +16,6 @@ interface BetNowButtonProps {
   providerKey?: string;
 }
 
-// Brand colors for sportsbook providers
-const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
-  draftkings: { bg: "#53D337", text: "#000000" },
-  fanduel: { bg: "#1493FF", text: "#FFFFFF" },
-  betmgm: { bg: "#BFA15C", text: "#000000" },
-  caesars: { bg: "#1B4D3E", text: "#FFFFFF" },
-  espnbet: { bg: "#FF4438", text: "#FFFFFF" },
-};
-
-const DISPLAY_NAMES: Record<string, string> = {
-  draftkings: "DraftKings",
-  fanduel: "FanDuel",
-  betmgm: "BetMGM",
-  caesars: "Caesars",
-  espnbet: "ESPN BET",
-};
-
-function detectProvider(url: string): string | null {
-  for (const key of Object.keys(BRAND_COLORS)) {
-    if (url.toLowerCase().includes(key)) return key;
-  }
-  return null;
-}
-
 export function BetNowButton({
   ctaUrl,
   ctaText,
@@ -42,13 +23,13 @@ export function BetNowButton({
   alertId,
   providerKey,
 }: BetNowButtonProps) {
-  const provider = providerKey ?? detectProvider(ctaUrl);
+  const provider = detectSportsbookProvider(ctaUrl, providerKey);
   const geo = useSportsbookGeo(provider);
-  const colors = provider ? BRAND_COLORS[provider] : { bg: "#f97316", text: "#fff" };
-  const displayName = provider ? DISPLAY_NAMES[provider] : null;
-  const label = geo.eligible
-    ? ctaText ?? (displayName ? `Bet Now on ${displayName}` : "Bet Now")
-    : "Not available in your region";
+  const colors = (provider && SPORTSBOOK_BRAND_COLORS[provider]) || {
+    bg: "#f97316",
+    text: "#fff",
+  };
+  const label = defaultCtaLabel(provider, geo.eligible, { ctaText });
 
   const handlePress = async () => {
     if (!geo.eligible) return;

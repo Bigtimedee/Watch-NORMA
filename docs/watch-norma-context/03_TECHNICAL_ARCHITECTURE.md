@@ -189,6 +189,8 @@ Recent migrations (058–066):
 - `064_morning_briefing_cron.sql` — schedules `morning-briefing` Edge Function at 11 PM UTC (6 PM CT) daily
 - `065_campaign_approval.sql` — adds `approval_status`, `approval_note`, `reviewed_at`, `reviewed_by` to `campaigns` (admin approval gate before auction eligibility)
 - `066_referrals.sql` — `referrals` table (referrer/referred/code) for the invite-friends deep-link flow
+- `092_prizepicks_underdog_dfs_pickem.sql` — PrizePicks / Underdog in `streaming_providers` (`category=dfs_pickem`, `provider_type=sportsbook`)
+- `20260904183000_dfs_fantasy_integration_fixes.sql` — `follows.fantasy_source`, unique `(user_id, entity_type, entity_id)`, season-long fantasy providers, pick'em `sportsbook_restrictions`
 
 **Shared utilities** (`supabase/functions/_shared/`): `alert-scoring.ts` (signal extraction, scoring, "Why Now" generation), `auction-engine.ts` (Vickrey auction), `ai-ad-engine.ts` (Thompson Sampling creative selection), `pricing-engine.ts` (floor prices, dynamic premiums), `fatigue-model.ts` (ad fatigue), `outcome-proximity.ts` (wager proximity scoring), `sportradar.ts` (multi-sport API client with rate budgeting), `team-matching.ts` (fuzzy team name matching with alias map), `polling-state.ts` (game status state machine), `utils.ts` (hash, status mapping), `kalshi-crypto.ts` (RSA-PSS signing), `sportsbook-links.ts` (deep link URLs), `bet-ingestor.ts` (partner API interface), `email-parser.ts`, `social-content-engine.ts`, `social-publishers.ts`, `x-oauth.ts`, `daily-cadence.ts`, `template-vars.ts`, `cors.ts`.
 

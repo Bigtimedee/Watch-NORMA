@@ -57,6 +57,10 @@ import {
   buildPersonalizationContext,
 } from "../_shared/template-vars.ts";
 import { isInQuietHours } from "../_shared/quiet-hours.ts";
+import {
+  collectGamePlayerNames,
+  followMatchesGamePlayers,
+} from "../_shared/player-follows.ts";
 
 // Cooldown: minimum 5 minutes between same alert_type for same game per user
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -166,6 +170,59 @@ Deno.serve(async (req) => {
 
     if (gameFollows) followUsers.push(...gameFollows);
 
+    // Fantasy roster / pick'em player follows. entity_id is a lowercased
+    // player name (lib/roster-import.ts). Only users whose followed player
+    // appears in this game's summary or ESPN boxscore become candidates —
+    // we do not fan out every roster import to every live game.
+    let summaryStats: SummaryStats | null = null;
+    const { data: summarySnapshotsEarly } = await supabase
+      .from("game_snapshots")
+      .select("payload")
+      .eq("game_id", gameId)
+      .eq("snapshot_type", "sportradar_summary")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (summarySnapshotsEarly && summarySnapshotsEarly.length > 0) {
+      const payload = summarySnapshotsEarly[0].payload as any;
+      if (payload?.source === "sportradar" && payload?.home && payload?.away) {
+        summaryStats = payload as SummaryStats;
+      }
+    }
+
+    let espnPayloadForPlayers: unknown = null;
+    try {
+      const { data: espnNameSnaps } = await supabase
+        .from("game_snapshots")
+        .select("payload")
+        .eq("game_id", gameId)
+        .eq("snapshot_type", "espn_boxscore")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      espnPayloadForPlayers = espnNameSnaps?.[0]?.payload ?? null;
+    } catch {
+      // Non-critical — player matching degrades to summary-only
+    }
+
+    const gamePlayerNames = collectGamePlayerNames(summaryStats, espnPayloadForPlayers);
+    const userFollowPlayerMap = new Map<string, string[]>();
+    if (gamePlayerNames.length > 0) {
+      const { data: playerFollows } = await supabase
+        .from("follows")
+        .select("user_id, entity_type, entity_id")
+        .eq("entity_type", "player");
+
+      for (const f of playerFollows ?? []) {
+        if (!f.entity_id) continue;
+        if (followMatchesGamePlayers(f.entity_id, gamePlayerNames)) {
+          followUsers.push(f);
+          const list = userFollowPlayerMap.get(f.user_id) ?? [];
+          list.push(f.entity_id);
+          userFollowPlayerMap.set(f.user_id, list);
+        }
+      }
+    }
+
     // Collect all unique user IDs
     const userWagerMap = new Map<string, UserWager[]>();
     for (const w of (wagers ?? []) as UserWager[]) {
@@ -228,23 +285,7 @@ Deno.serve(async (req) => {
       (userPrefs ?? []).map((p: any) => [p.user_id, p])
     );
 
-    // Fetch latest Sportradar summary
-    let summaryStats: SummaryStats | null = null;
-    const { data: summarySnapshots } = await supabase
-      .from("game_snapshots")
-      .select("payload")
-      .eq("game_id", gameId)
-      .eq("snapshot_type", "sportradar_summary")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (summarySnapshots && summarySnapshots.length > 0) {
-      const payload = summarySnapshots[0].payload as any;
-      if (payload?.source === "sportradar" && payload?.home && payload?.away) {
-        summaryStats = payload as SummaryStats;
-      }
-    }
-
+    // Sportradar summary is loaded during Stage 0 (player-follow matching).
     // Fetch latest ESPN boxscore snapshot for red-zone + rank data (Phase 3 / F3).
     // ESPN stores possession, yardLine, and team rank on the scoreboard competitor objects.
     // We extract these opportunistically; if absent the evaluators no-op gracefully.
@@ -363,6 +404,10 @@ Deno.serve(async (req) => {
       const prefs = prefsMap.get(userId);
       const notifSettings = prefs?.notification_settings ?? {};
       const favPlayers: Array<{ player_name: string }> = prefs?.favorite_players ?? [];
+      const followedPlayerNames = [
+        ...favPlayers.map((p) => p.player_name),
+        ...(userFollowPlayerMap.get(userId) ?? []),
+      ];
       const maxAlertsPerGame = notifSettings.max_alerts_per_game ?? 5;
       const maxAlertsPerHour = notifSettings.max_alerts_per_hour ?? 10;
 
@@ -403,7 +448,7 @@ Deno.serve(async (req) => {
         gameState,
         summaryStats,
         userFollowTeams,
-        favPlayers.map((p) => p.player_name),
+        followedPlayerNames,
         userWagers,
         userPositions.length > 0,
         leadChangesRecent,

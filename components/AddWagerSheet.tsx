@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAddWager } from "../hooks/useWagers";
 import { useConnections } from "../hooks/useConnections";
 import { SPORTSBOOK_NAMES } from "../lib/constants";
+import { PICKEM_PROVIDER_KEYS } from "../lib/fantasy-platforms";
 import type { WagerType, Game } from "../lib/types";
 import type { WagerTarget } from "../lib/wager-target-parser";
 
@@ -176,7 +177,15 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
   };
 
   const allBooks = [
-    ...new Set([...connectedBooks, "draftkings", "fanduel", "betmgm", "espnbet", "caesars"]),
+    ...new Set([
+      ...connectedBooks,
+      "draftkings",
+      "fanduel",
+      "betmgm",
+      "espnbet",
+      "caesars",
+      ...PICKEM_PROVIDER_KEYS,
+    ]),
   ];
 
   return (

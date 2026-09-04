@@ -175,7 +175,9 @@ This is the core loop. Everything else in the product is a modifier on it.
 | Signal | Where | Writes |
 |---|---|---|
 | Follow a team or game | game detail heart control, `hooks/useFollows.ts` | `follows` |
-| Import a fantasy roster | `components/ImportRosterSheet.tsx`, `lib/roster-import.ts` | `follows` with `source: "fantasy"` |
+| Import a fantasy roster | `components/ImportRosterSheet.tsx`, `lib/roster-import.ts`, `lib/fantasy-platforms.ts` | `follows` with `source: "fantasy"` and `fantasy_source` = platform key |
+| Connect PrizePicks / Underdog | `app/(tabs)/connections/pickem.tsx` | `connections` row, `provider_registry.category = dfs_pickem` |
+| Scan a pick'em entry slip | `parse-bet-slip`, `ReviewScannedWagersSheet` | `wagers` with `market_type = player_prop`, `provider_key` prizepicks/underdog |
 | Connect a streaming service | `app/(tabs)/connections/streaming.tsx` | `connections` |
 | Log a wager or position | see A4, A5 | `wagers`, `prediction_positions` |
 

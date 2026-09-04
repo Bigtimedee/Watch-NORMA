@@ -56,7 +56,9 @@ jobs:
           deno check supabase/functions/intent-api/index.ts
           deno check supabase/functions/_shared/quiet-hours.ts
       - name: Run tests
-        run: deno test --allow-env --allow-net=none supabase/functions/
+        # --allow-read: parse-bet-slip_test.ts and geo/migration source tests
+        # read live files. No network; --allow-net=none stays.
+        run: deno test --allow-env --allow-read --allow-net=none supabase/functions/
 
   migrations:
     name: Migrations

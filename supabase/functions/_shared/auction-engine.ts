@@ -13,6 +13,7 @@ import {
 import { selectCreativeVariant } from "./ai-ad-engine.ts";
 import { computeFatigueScore } from "./fatigue-model.ts";
 import { inferStateFromTimezone } from "./geo-compliance.ts";
+import { contextualizeSponsorCtaUrl } from "./sportsbook-links.ts";
 
 // --- Types ---
 
@@ -187,7 +188,10 @@ export async function runAuction(
       creative_id: deal.creative_id,
       clearing_price_cents: contractedRate,
       sponsor_text: deal.creative_sponsor_text,
-      sponsor_cta_url: deal.creative_cta_url,
+      sponsor_cta_url: contextualizeSponsorCtaUrl(deal.creative_cta_url, {
+        sport: input.sport,
+        campaignId: deal.campaign_id,
+      }),
       sponsor_logo_url: deal.creative_logo_url,
     };
   }
@@ -273,7 +277,13 @@ export async function runAuction(
     creative_id: creativeId,
     clearing_price_cents: clearingPrice,
     sponsor_text: creative?.sponsor_text ?? winner.bid.creative_sponsor_text,
-    sponsor_cta_url: creative?.cta_url ?? winner.bid.creative_cta_url,
+    sponsor_cta_url: contextualizeSponsorCtaUrl(
+      creative?.cta_url ?? winner.bid.creative_cta_url,
+      {
+        sport: input.sport,
+        campaignId: winner.bid.campaign_id,
+      },
+    ),
     sponsor_logo_url: creative?.logo_url ?? winner.bid.creative_logo_url,
   };
 }

@@ -4,9 +4,12 @@ import { supabase } from "../lib/supabase";
 import type { Connection, StreamingProvider, ProviderType } from "../lib/types";
 
 /** Fetch all available streaming providers from the catalog */
-export function useStreamingProviders(type?: ProviderType) {
+export function useStreamingProviders(
+  type?: ProviderType,
+  opts?: { category?: string },
+) {
   return useQuery<StreamingProvider[]>({
-    queryKey: ["streaming-providers", type],
+    queryKey: ["streaming-providers", type, opts?.category],
     queryFn: async () => {
       let query = supabase
         .from("streaming_providers")
@@ -16,6 +19,9 @@ export function useStreamingProviders(type?: ProviderType) {
 
       if (type) {
         query = query.eq("provider_type", type);
+      }
+      if (opts?.category) {
+        query = query.eq("category", opts.category);
       }
 
       const { data, error } = await query;

@@ -215,3 +215,14 @@ Every one of those 20 jobs is therefore either fixed or intentionally retired. N
 **Why the files were not edited.** All 17 were applied to production before this session. The non negotiable rule against editing shipped migrations applies, so they are left byte for byte as they were. Their scheduling logic has been superseded at runtime by `20260729000001` and `20260729000002`. **Anyone reading those 17 files should treat them as a historical record, not as documentation of what runs today.** `cron.job` is the source of truth for cron state; this table is the summary of it.
 
 **Post rewrite verification.** `20260729000002` rewrote 16 live jobs, including `game-watcher-orchestrator` and `poll-boxscore`, which run every minute and carry the live game ingestion pipeline. Checked 25 minutes after the change: `game-watcher-orchestrator` 25 runs succeeded / 0 failed, `poll-boxscore` 25/0, `poll-markets` 5/0, `ad-budget-pacer` 5/0, `monitor-health` 5/0, `deep-link-health-check` 1/0, `refresh-ad-metrics` 1/0. No regression.
+
+## 8. DFS / pick'em follow-up (2026-09-04) — production apply unknown
+
+Migration `092_prizepicks_underdog_dfs_pickem.sql` landed on `main` via Phase 3 F1. Whether it has been applied to production project `shijrazlzawjpobrpmnt` is **unknown** — the audit session could not authenticate the Supabase MCP, and this file's July 2026 lesson still holds: do not trust `schema_migrations` alone. Before treating PrizePicks/Underdog as live in production:
+
+1. Check `SELECT key, category, provider_type FROM streaming_providers WHERE key IN ('prizepicks','underdog');`
+2. Check `SELECT sportsbook_key FROM sportsbook_restrictions WHERE sportsbook_key IN ('prizepicks','underdog');` (seeded in `20260904183000`, not 092)
+3. Check `follows.fantasy_source` and constraint `follows_user_entity_unique`
+4. Deploy the updated `evaluate-alerts` bundle (auction CTA rewriter + player-follow candidates + pick'em email parser)
+
+`app.json` on `main` remains 1.5.0 / build 23. A claimed 1.6.0 / build 33 Waiting for Review is not in this repo.

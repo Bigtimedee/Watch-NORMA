@@ -30,6 +30,7 @@ interface SignalVector {
   bench_points_delta: number;
   efg_delta: number;
   follows_player_on_court: boolean;
+  follows_player_in_game?: boolean;
   has_position: boolean;
   mustNotify: { alertType: string; headline: string; bullets: string[] } | null;
   userWagers: any[];
@@ -60,6 +61,7 @@ const WEIGHTS = {
   bench_swing: 5,
   efg_divergence: 5,
   follows_player: 5,
+  follows_player_in_game: 20,
 };
 
 const SCORE_THRESHOLD = 40;
@@ -80,6 +82,7 @@ function computeScore(signals: SignalVector): number {
   if (signals.bench_points_delta >= 10) score += WEIGHTS.bench_swing;
   if (signals.efg_delta >= 10) score += WEIGHTS.efg_divergence;
   if (signals.follows_player_on_court) score += WEIGHTS.follows_player;
+  if (signals.follows_player_in_game) score += WEIGHTS.follows_player_in_game;
   return score;
 }
 
@@ -361,6 +364,12 @@ describe("computeScore", () => {
 
   it("follows_player_on_court adds 5", () => {
     expect(computeScore(baseSignals({ follows_player_on_court: true }))).toBe(5);
+  });
+
+  it("follows_player_in_game + close game reaches threshold", () => {
+    expect(
+      computeScore(baseSignals({ follows_player_in_game: true, is_close_game: true })),
+    ).toBe(40);
   });
 
   it("lead_changes_recent > 0 adds 10", () => {

@@ -263,7 +263,7 @@ Geographic enforcement for sportsbook advertising is implemented at the foundati
 ### Data Model
 
 - **`profiles.timezone`** — captured from the user's device at signup/login via the runtime `Intl.DateTimeFormat().resolvedOptions().timeZone` API. This is the authoritative jurisdiction signal.
-- **`sportsbook_restrictions` table** — maps each sportsbook key (e.g., `draftkings`, `fanduel`, `betmgm`, `caesars`, `pointsbet`) to an array of US state codes where that sportsbook is legally permitted to advertise (e.g., `['AZ', 'CO', 'IL', 'NJ', ...]`). Seeded via migration 058.
+- **`sportsbook_restrictions` table** — maps each sportsbook or pick'em key to an array of US state codes where that operator is legally permitted to advertise. Seeded via migration 058 (DraftKings, FanDuel, BetMGM, Caesars, PointsBet) and `20260904183000` (PrizePicks Player Picks; Underdog classic Pick'em or Champions — not drafts-only). Age minimums are not encoded; the table is state-only. Sources are cited in the migration comments and must be re-verified before expanding lists.
 - **`advertisers.allowed_jurisdictions`** — advertiser-level override for jurisdiction allowlists, used when an advertiser's legal footprint differs from the default sportsbook restriction list.
 
 ### Auction Engine Enforcement
@@ -286,7 +286,9 @@ Two canonical geo-compliance modules exist — one per runtime:
 
 Both files must remain in sync. `supabase/functions/_shared/geo-compliance_test.ts` enforces parity: it verifies that `isGeoEligible(state, allowedJurisdictions)` (auction path) and `allowedStates.includes(state)` (CTA path) produce identical results for every mapped (timezone → state) × sportsbook combination in the `sportsbook_restrictions` seed data. 20 tests; all pass.
 
-The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` renders disabled with "Not available in your region" when the user's derived state is not in the sportsbook's allowed list. Optimistic-renders as enabled while the check loads to avoid blocking UX.
+The `useSportsbookGeo` hook reads `profiles.timezone` and checks `sportsbook_restrictions` at component mount. `BetNowButton` and `SponsorCTAButton` render disabled with "Not available in your region" when the user's derived state is not in the operator's allowed list, or when no restriction row exists (fail-closed). The loading state is also ineligible so the CTA is not shown before the check completes.
+
+When a winning creative CTA URL points at PrizePicks or Underdog, `runAuction` rewrites it through `contextualizeSponsorCtaUrl` → `buildPickEmLink` so the alert card opens a sport-scoped board with campaign attribution instead of a bare lobby URL. Traditional sportsbook creative URLs are left unchanged.
 
 ## Post-Outcome Commerce Moment (P2-07)
 

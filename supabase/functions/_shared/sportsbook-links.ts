@@ -336,6 +336,8 @@ export const SPORTSBOOK_BRAND_COLORS: Record<
   betmgm: { primary: "#BFA15C", text: "#000000" },
   caesars: { primary: "#1B4D3E", text: "#FFFFFF" },
   espnbet: { primary: "#FF4438", text: "#FFFFFF" },
+  prizepicks: { primary: "#6C2BD9", text: "#FFFFFF" },
+  underdog: { primary: "#E8F54A", text: "#000000" },
 };
 
 // --- Sportsbook Display Names ---
@@ -346,6 +348,11 @@ export const SPORTSBOOK_DISPLAY_NAMES: Record<string, string> = {
   betmgm: "BetMGM",
   caesars: "Caesars",
   espnbet: "ESPN BET",
+  prizepicks: "PrizePicks",
+  underdog: "Underdog",
+  sleeper: "Sleeper",
+  yahoo_fantasy: "Yahoo Fantasy",
+  espn_fantasy: "ESPN Fantasy",
 };
 
 // --- Extract affiliate config from campaign targeting_rules ---
@@ -375,5 +382,52 @@ export function isSportsbookUrl(url: string): string | null {
       return key;
     }
   }
+  for (const [key, template] of Object.entries(PICKEM_TEMPLATES)) {
+    if (url.includes(key) || url.includes(template.web_fallback)) {
+      return key;
+    }
+  }
   return null;
+}
+
+/** Detect PrizePicks / Underdog from a creative CTA URL. */
+export function detectPickEmProviderFromUrl(url: string): string | null {
+  const lower = url.toLowerCase();
+  if (lower.includes("prizepicks")) return "prizepicks";
+  if (lower.includes("underdog")) return "underdog";
+  return null;
+}
+
+export interface SponsorCtaContext {
+  sport?: string | null;
+  campaignId?: number | null;
+}
+
+/**
+ * Rewrite pick'em advertiser CTAs through `buildPickEmLink` so the
+ * auction/alert path opens a sport-scoped board with NORMA campaign
+ * attribution. Traditional sportsbook URLs are returned unchanged —
+ * those already go through advertiser-supplied creatives.
+ *
+ * Called from both auction-engine return paths (direct deal + winner).
+ */
+export function contextualizeSponsorCtaUrl(
+  rawUrl: string | null | undefined,
+  ctx: SponsorCtaContext = {},
+): string | null {
+  if (rawUrl == null) return null;
+  if (typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const provider = detectPickEmProviderFromUrl(trimmed);
+  if (!provider) return trimmed;
+
+  const campaignId = typeof ctx.campaignId === "number" ? ctx.campaignId : 0;
+  const built = buildPickEmLink(
+    provider,
+    { sport: ctx.sport ?? undefined },
+    campaignId,
+  );
+  return built.universal_link || trimmed;
 }

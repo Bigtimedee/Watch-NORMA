@@ -7,6 +7,7 @@ import {
   useConnections,
 } from "../../../hooks/useConnections";
 import { ConnectionToggle } from "../../../components/ConnectionToggle";
+import { isPickEmProvider } from "../../../lib/fantasy-platforms";
 
 const FORWARDING_ADDRESS = "bets@getnorma.app";
 
@@ -48,7 +49,12 @@ export default function SportsbooksScreen() {
   const { data: connections } = useConnections();
 
   const sportsbookProviders = (providers ?? []).filter(
-    (p) => p.key !== "kalshi" && p.key !== "polymarket"
+    (p) =>
+      p.key !== "kalshi" &&
+      p.key !== "polymarket" &&
+      !isPickEmProvider(p.key) &&
+      p.category !== "dfs_pickem" &&
+      p.category !== "fantasy"
   );
 
   return (
