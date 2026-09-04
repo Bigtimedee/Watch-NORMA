@@ -80,19 +80,7 @@
         "READ_MEDIA_IMAGES"
       ]
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-apple-authentication",
-      "expo-notifications",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "NORMA needs access to your photo library to scan bet slip screenshots.",
-          "cameraPermission": "NORMA needs access to your camera to scan bet slips."
-        }
-      ]
-    ],
+    "plugins": [],
     "experiments": {
       "typedRoutes": true
     },
