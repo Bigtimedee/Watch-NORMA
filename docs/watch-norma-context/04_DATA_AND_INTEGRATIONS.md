@@ -196,6 +196,9 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 | Reddit API | Social publishing | **Scaffolded** | `_shared/social-publishers.ts` | Reference structure only. |
 | DraftKings API | Sportsbook wager sync | **Planned (no API exists)** | `_shared/bet-ingestor.ts` | Stub adapter. Depends on partnership. |
 | FanDuel API | Sportsbook wager sync | **Planned (no API exists)** | `_shared/bet-ingestor.ts` | Stub adapter. Depends on partnership. |
+| PrizePicks / Underdog | Pick'em roster import + slip/email parse | **Tier B/C** | `ImportRosterSheet`, `lib/roster-import.ts`, `parse-bet-slip`, `email-parser.ts`, migration 092 | No public consumer API. Platform is persisted on `follows.fantasy_source`. Player follows are alert candidates when the player is in the game. |
+| Sleeper / Yahoo Fantasy / ESPN Fantasy | Season-long roster paste | **Tier C** | `lib/fantasy-platforms.ts`, `ImportRosterSheet`, migration `20260904183000` | UI picker + provider_registry deep-link metadata. No live roster API. |
+| DraftKings DFS | DFS lineup paste | **Tier C** | `FANTASY_PLATFORMS` key `draftkings_dfs` | Distinct from DraftKings Sportsbook. Import-only. |
 | Streaming service APIs | Watch history | **Not possible** | — | No streaming service offers this API. |
 
 ## Data Quality Risks

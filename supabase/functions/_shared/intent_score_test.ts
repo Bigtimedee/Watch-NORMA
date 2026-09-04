@@ -28,6 +28,7 @@ function makeSignals(overrides: Partial<SignalVector> = {}): SignalVector {
     lead_changes_recent: 0,
     follows_team: false,
     follows_player_on_court: false,
+    follows_player_in_game: false,
     has_wager: false,
     wager_line_crossed: false,
     has_position: false,

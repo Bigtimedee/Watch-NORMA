@@ -29,7 +29,15 @@ const WAGER_TYPES: { value: WagerType; label: string }[] = [
   { value: "prop", label: "Prop" },
 ];
 
-const ALL_BOOKS = ["draftkings", "fanduel", "betmgm", "espnbet", "caesars"];
+const ALL_BOOKS = [
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "espnbet",
+  "caesars",
+  "prizepicks",
+  "underdog",
+];
 
 export function ReviewScannedWagersSheet({
   game,
@@ -82,14 +90,29 @@ export function ReviewScannedWagersSheet({
     setIsSaving(true);
     try {
       for (const w of wagers) {
+        const isPickEm =
+          w.sportsbook === "prizepicks" || w.sportsbook === "underdog";
         await addWager.mutateAsync({
           game_id: game.id,
           sportsbook: w.sportsbook,
-          wager_type: w.wager_type,
+          wager_type: isPickEm ? "prop" : w.wager_type,
           description: w.description,
           team_id: resolveTeamId(w.team_name),
           line: w.line ?? undefined,
           odds: w.odds ?? undefined,
+          market_type: isPickEm ? "player_prop" : undefined,
+          source: "bet_slip_scan",
+          stake: w.entry_fee ?? undefined,
+          legs: w.legs?.map((leg) => ({
+            game_id: game.id,
+            market_type: "player_prop",
+            line: leg.line,
+            description:
+              leg.description ??
+              [leg.player_name, leg.direction, leg.line, leg.stat]
+                .filter((part) => part != null && String(part).length > 0)
+                .join(" "),
+          })),
         });
       }
       onClose();

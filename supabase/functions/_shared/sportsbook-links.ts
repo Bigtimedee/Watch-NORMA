@@ -336,6 +336,8 @@ export const SPORTSBOOK_BRAND_COLORS: Record<
   betmgm: { primary: "#BFA15C", text: "#000000" },
   caesars: { primary: "#1B4D3E", text: "#FFFFFF" },
   espnbet: { primary: "#FF4438", text: "#FFFFFF" },
+  prizepicks: { primary: "#6C2BD9", text: "#FFFFFF" },
+  underdog: { primary: "#E8F54A", text: "#000000" },
 };
 
 // --- Sportsbook Display Names ---
@@ -346,6 +348,11 @@ export const SPORTSBOOK_DISPLAY_NAMES: Record<string, string> = {
   betmgm: "BetMGM",
   caesars: "Caesars",
   espnbet: "ESPN BET",
+  prizepicks: "PrizePicks",
+  underdog: "Underdog",
+  sleeper: "Sleeper",
+  yahoo_fantasy: "Yahoo Fantasy",
+  espn_fantasy: "ESPN Fantasy",
 };
 
 // --- Extract affiliate config from campaign targeting_rules ---
@@ -371,6 +378,11 @@ export function extractAffiliateConfig(
 
 export function isSportsbookUrl(url: string): string | null {
   for (const [key, template] of Object.entries(PROVIDER_TEMPLATES)) {
+    if (url.includes(key) || url.includes(template.web_fallback)) {
+      return key;
+    }
+  }
+  for (const [key, template] of Object.entries(PICKEM_TEMPLATES)) {
     if (url.includes(key) || url.includes(template.web_fallback)) {
       return key;
     }

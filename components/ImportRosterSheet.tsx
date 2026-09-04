@@ -12,18 +12,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { parseRosterInput, buildRosterFollowRows } from "../lib/roster-import";
-
-const FANTASY_PLATFORMS = [
-  { value: "draftkings_dfs", label: "DraftKings DFS" },
-  { value: "yahoo_fantasy", label: "Yahoo Fantasy" },
-  { value: "sleeper", label: "Sleeper" },
-  { value: "espn_fantasy", label: "ESPN Fantasy" },
-  { value: "prizepicks", label: "PrizePicks" },
-  { value: "underdog", label: "Underdog" },
-  { value: "other", label: "Other" },
-] as const;
-
-type FantasyPlatform = (typeof FANTASY_PLATFORMS)[number]["value"];
+import {
+  FANTASY_PLATFORMS,
+  type FantasyPlatform,
+} from "../lib/fantasy-platforms";
 
 interface ImportRosterSheetProps {
   onClose: () => void;
@@ -57,7 +49,7 @@ export function ImportRosterSheet({ onClose }: ImportRosterSheetProps) {
         return;
       }
 
-      const rows = buildRosterFollowRows(playerNames, user.id);
+      const rows = buildRosterFollowRows(playerNames, user.id, platform);
 
       const { error } = await supabase
         .from("follows")

@@ -11,6 +11,15 @@ export interface ScannedWager {
   team_name: string | null;
   line: number | null;
   odds: string | null;
+  entry_fee?: number | null;
+  payout_multiplier?: number | null;
+  legs?: Array<{
+    player_name?: string;
+    stat?: string;
+    line?: number;
+    direction?: string;
+    description?: string;
+  }>;
 }
 
 export interface ScanResult {

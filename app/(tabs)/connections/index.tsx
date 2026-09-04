@@ -70,7 +70,7 @@ export default function ConnectionsScreen() {
       subtitle: "PrizePicks, Underdog, and daily fantasy",
       icon: "football-outline" as const,
       count: pickEmCount,
-      route: "/(tabs)/connections/sportsbooks" as const,
+      route: "/(tabs)/connections/pickem" as const,
     },
     {
       title: "Prediction Markets",

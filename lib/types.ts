@@ -12,9 +12,9 @@ export type GameStatus =
 /** Sport discriminator — matches the sport_key Postgres enum */
 export type SportKey = "ncaam" | "nba" | "mlb" | "ncaaf" | "nfl";
 
-export type FollowType = "game" | "team";
+export type FollowType = "game" | "team" | "player" | "league";
 
-export type ProviderType = "streaming" | "tv" | "sportsbook";
+export type ProviderType = "streaming" | "tv" | "sportsbook" | "fantasy";
 
 export type AlertType =
   | "spread_alert"
@@ -156,6 +156,10 @@ export interface Follow {
   team_id: string | null;
   follow_type: FollowType;
   created_at: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  source?: string | null;
+  fantasy_source?: string | null;
 }
 
 export interface Connection {
@@ -189,7 +193,13 @@ export interface StreamingProvider {
   affiliate_tag?: string | null;
 }
 
-export type ProviderCategory = "streaming" | "tv" | "sportsbook" | "prediction_market";
+export type ProviderCategory =
+  | "streaming"
+  | "tv"
+  | "sportsbook"
+  | "prediction_market"
+  | "dfs_pickem"
+  | "fantasy";
 
 export interface UserPreferences {
   user_id: string;

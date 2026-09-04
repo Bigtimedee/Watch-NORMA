@@ -55,7 +55,7 @@ describe("buildRosterFollowRows (roster import follow shapes)", () => {
     const names = parseRosterInput(
       "Jaylen Brown\nDerrick White\nJayson Tatum\nAl Horford\nPayton Pritchard"
     );
-    const rows = buildRosterFollowRows(names, USER_ID);
+    const rows = buildRosterFollowRows(names, USER_ID, "prizepicks");
     expect(rows).toHaveLength(5);
   });
 
@@ -96,5 +96,36 @@ describe("buildRosterFollowRows (roster import follow shapes)", () => {
     const names = parseRosterInput("Jaylen Brown");
     const rows = buildRosterFollowRows(names, USER_ID);
     expect(rows[0].user_id).toBe(USER_ID);
+  });
+
+  it("persists fantasy_source from the selected platform", () => {
+    const rows = buildRosterFollowRows(["Justin Jefferson"], USER_ID, "prizepicks");
+    expect(rows[0].fantasy_source).toBe("prizepicks");
+    expect(rows[0].source).toBe("fantasy");
+  });
+
+  it("stores underdog as fantasy_source", () => {
+    const rows = buildRosterFollowRows(["CeeDee Lamb"], USER_ID, "underdog");
+    expect(rows[0].fantasy_source).toBe("underdog");
+  });
+
+  it("stores sleeper / espn_fantasy / yahoo_fantasy platform keys", () => {
+    expect(buildRosterFollowRows(["A"], USER_ID, "sleeper")[0].fantasy_source).toBe("sleeper");
+    expect(buildRosterFollowRows(["A"], USER_ID, "espn_fantasy")[0].fantasy_source).toBe(
+      "espn_fantasy",
+    );
+    expect(buildRosterFollowRows(["A"], USER_ID, "yahoo_fantasy")[0].fantasy_source).toBe(
+      "yahoo_fantasy",
+    );
+  });
+
+  it("sets fantasy_source to other when Other is selected", () => {
+    const rows = buildRosterFollowRows(["A"], USER_ID, "other");
+    expect(rows[0].fantasy_source).toBe("other");
+  });
+
+  it("leaves fantasy_source null when platform is omitted", () => {
+    const rows = buildRosterFollowRows(["A"], USER_ID);
+    expect(rows[0].fantasy_source).toBeNull();
   });
 });

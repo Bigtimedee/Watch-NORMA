@@ -121,7 +121,7 @@ PrizePicks and Underdog are now included in NORMA's fantasy roster import flow. 
 
 **What works today:**
 
-1. **Roster/entry import:** `components/ImportRosterSheet.tsx` includes `{ value: "prizepicks", label: "PrizePicks" }` and `{ value: "underdog", label: "Underdog" }` in `FANTASY_PLATFORMS`. Users select their platform, paste player names (one per line), and tap "Import Roster." NORMA creates `follows` rows with `entity_type = 'player'` for each name and records the platform as `fantasy_source = 'prizepicks'` or `fantasy_source = 'underdog'`. Migration `088_follows_fantasy_source.sql` supports the `fantasy_source` column.
+1. **Roster/entry import:** `lib/fantasy-platforms.ts` `FANTASY_PLATFORMS` includes PrizePicks and Underdog (also DraftKings DFS, Yahoo Fantasy, Sleeper, ESPN Fantasy). Users select their platform, paste player names (one per line), and tap "Import Roster." NORMA creates `follows` rows with `entity_type = 'player'`, `source = 'fantasy'`, and `fantasy_source` set to the selected platform. Migration `088` added `source`; migration `20260904183000_dfs_fantasy_integration_fixes.sql` added `fantasy_source` and the unique constraint required for upsert. `evaluate-alerts` treats those player follows as candidates when the player is in the current game.
 
 2. **Deep-link scheme registration:** Both `"prizepicks"` and `"underdog"` are registered in `app.json` under `LSApplicationQueriesSchemes`. This allows iOS `Linking.canOpenURL` to correctly detect whether the PrizePicks or Underdog app is installed on the device, enabling the deep-link fallback chain to route to the native app instead of the web fallback.
 

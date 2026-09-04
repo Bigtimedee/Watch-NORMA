@@ -14,6 +14,8 @@ export interface FollowEntity {
   team_id: string | null;
   /** Origin of this follow. 'fantasy' = imported from a fantasy roster. */
   source: string | null;
+  /** Platform key when source=fantasy (prizepicks, underdog, sleeper, …). */
+  fantasy_source: string | null;
   created_at: string;
 }
 

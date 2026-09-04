@@ -99,12 +99,16 @@ export const ODDS_BOOKMAKERS = [
 // category distinction lives in provider_registry.category = 'dfs_pickem')
 export const SPORTSBOOK_NAMES: Record<string, string> = {
   draftkings: "DraftKings",
+  draftkings_dfs: "DraftKings DFS",
   fanduel: "FanDuel",
   betmgm: "BetMGM",
   espnbet: "ESPN BET",
   caesars: "Caesars",
   prizepicks: "PrizePicks",
   underdog: "Underdog",
+  sleeper: "Sleeper",
+  yahoo_fantasy: "Yahoo Fantasy",
+  espn_fantasy: "ESPN Fantasy",
 };
 
 // Kalshi API

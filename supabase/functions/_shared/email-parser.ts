@@ -28,6 +28,7 @@ const SPORTSBOOK_DOMAINS: Record<string, string> = {
   // DFS pick'em platforms — entries are multi-leg projections (player prop style)
   "prizepicks.com":  "prizepicks",
   "underdogfantasy.com": "underdog",
+  "underdog.com": "underdog",
 };
 
 export function detectSportsbook(fromAddress: string): string | null {
@@ -227,6 +228,56 @@ function parseCaesars(subject: string, body: string): EmailParseResult | null {
   };
 }
 
+// ---- PrizePicks / Underdog pick'em ----
+// Confirmation emails list player + More/Less + projection line.
+// Example body:
+//   Justin Jefferson  More  89.5  Receiving Yards
+//   CeeDee Lamb       Less  6.5   Receptions
+//   Entry: $20   Payout: 6x / $52
+
+const PICKEM_LEG_RE =
+  /([A-Z][A-Za-z.'-]+(?:[ \t]+[A-Z][A-Za-z.'-]+)+)[ \t]+(More|Less|Over|Under)[ \t]+(\d+(?:\.\d+)?)[ \t]+([A-Za-z][A-Za-z/ ]+)/gi;
+
+function parsePickEmEntry(subject: string, body: string): EmailParseResult | null {
+  const text = `${subject}\n${body}`;
+  const legs: ParsedLeg[] = [];
+  let m: RegExpExecArray | null;
+  const re = new RegExp(PICKEM_LEG_RE.source, PICKEM_LEG_RE.flags);
+  while ((m = re.exec(text)) !== null) {
+    const player = m[1].trim();
+    const direction = m[2].toLowerCase();
+    const line = parseFloat(m[3]);
+    const stat = m[4].trim().replace(/\s+/g, " ");
+    legs.push({
+      description: `${player} ${direction} ${line} ${stat}`,
+      market_type: "player_prop",
+      team_name: undefined,
+      line,
+    });
+  }
+
+  if (legs.length === 0) return null;
+
+  const stakeMatch = text.match(/(?:Entry|Wager|Stake)[:\s]+\$?([\d,]+\.?\d*)/i);
+  const stake = stakeMatch ? parseFloat(stakeMatch[1].replace(",", "")) : undefined;
+  const payoutMatch = text.match(/(?:Payout|To\s+Win|Potential)[:\s]+\$?([\d,]+\.?\d*)/i);
+  const potential_payout = payoutMatch
+    ? parseFloat(payoutMatch[1].replace(",", ""))
+    : undefined;
+
+  return {
+    wager_type: "prop",
+    market_type: "player_prop",
+    description:
+      legs.length === 1
+        ? legs[0].description
+        : `Pick'em (${legs.length} legs): ${legs.map((l) => l.description).join("; ")}`,
+    stake,
+    potential_payout,
+    legs,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -273,10 +324,12 @@ async function parseWithClaude(
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!anthropicKey) return [];
 
-  const prompt = `You are parsing a sportsbook bet confirmation email.
+  const prompt = `You are parsing a sportsbook or DFS pick'em entry confirmation email.
 Sportsbook (if known): ${sportsbook ?? "unknown"}
 Subject: ${subject}
 Body (first 1500 chars): ${body.slice(0, 1500)}
+
+PrizePicks and Underdog emails list player projections (More/Less + a stat line), not spreads. Treat those as player_prop legs.
 
 Extract all bets from this email. Return a JSON array where each element has:
 {
@@ -342,6 +395,8 @@ export async function parseEmailWagers(
         case "fanduel":    return parseFanDuel(subject, body);
         case "betmgm":     return parseBetMGM(subject, body);
         case "caesars":    return parseCaesars(subject, body);
+        case "prizepicks":
+        case "underdog":   return parsePickEmEntry(subject, body);
         default:           return null;
       }
     })();
