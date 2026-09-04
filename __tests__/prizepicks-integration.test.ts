@@ -183,3 +183,27 @@ describe("client brand maps include pick'em", () => {
     expect(auction).toContain('from "./sportsbook-links.ts"');
   });
 });
+
+describe("wager sheets + types + alert candidates", () => {
+  it("AddWagerSheet default picker includes prizepicks and underdog", () => {
+    const src = readRepo("components/AddWagerSheet.tsx");
+    expect(src).toContain("...PICKEM_PROVIDER_KEYS");
+  });
+
+  it("ReviewScannedWagersSheet ALL_BOOKS includes prizepicks and underdog", () => {
+    const src = readRepo("components/ReviewScannedWagersSheet.tsx");
+    expect(src).toMatch(/ALL_BOOKS[\s\S]*prizepicks[\s\S]*underdog/);
+  });
+
+  it("ProviderCategory includes dfs_pickem", () => {
+    const src = readRepo("lib/types.ts");
+    expect(src).toMatch(/export type ProviderCategory[\s\S]*dfs_pickem/);
+  });
+
+  it("evaluate-alerts Stage 0 loads entity_type=player follows", () => {
+    const src = readRepo("supabase/functions/evaluate-alerts/index.ts");
+    expect(src).toContain('.eq("entity_type", "player")');
+    expect(src).toContain("userFollowPlayerMap");
+    expect(src).toContain("followMatchesGamePlayers");
+  });
+});

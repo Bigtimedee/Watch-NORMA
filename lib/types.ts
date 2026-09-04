@@ -189,7 +189,7 @@ export interface StreamingProvider {
   universal_link?: string | null;
   fallback_store_url?: string | null;
   auth_mode?: string | null;
-  category?: string | null;
+  category?: ProviderCategory | null;
   affiliate_tag?: string | null;
 }
 

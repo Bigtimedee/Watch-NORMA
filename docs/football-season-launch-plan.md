@@ -20,9 +20,12 @@ orchestrator prompt that runs the whole campaign. Every claim below was verified
   `football_two_minute`, `football_close_game`), and `ALERTABLE_SPORTS` includes both football
   keys (`evaluate-alerts/index.ts:105`). Floor prices for football ad moments are seeded
   (migration `20260706000004_football_floor_prices.sql`).
-- Fantasy roster import exists (`components/ImportRosterSheet.tsx`, `lib/roster-import.ts`,
-  migration `088_follows_fantasy_source.sql`) with platforms: DraftKings DFS, Yahoo, Sleeper,
-  ESPN Fantasy, Underdog, Other.
+- Fantasy roster import exists (`components/ImportRosterSheet.tsx`, `lib/roster-import.ts`).
+  Migration `088_follows_fantasy_source.sql` added `follows.source` (`'fantasy'` | NULL) only —
+  it did **not** add a platform column. Migration `20260904183000_dfs_fantasy_integration_fixes.sql`
+  added `follows.fantasy_source` (prizepicks, underdog, sleeper, …) and the unique constraint
+  the upsert requires. Platforms: DraftKings DFS, Yahoo, Sleeper, ESPN Fantasy, PrizePicks,
+  Underdog, Other.
 - A full marketing/ads backend exists: `cmo-generate`, `cmo-publish`, `generate-social-content`,
   `publish-social-posts`, `growth-weekly-report`, `advertiser-weekly-report`, `morning-briefing`,
   referral codes, share events, partner referral codes, direct-deal campaigns.
@@ -238,7 +241,8 @@ PrizePicks has **no public consumer API** (same as DraftKings/FanDuel — see CL
 The buildable-now integration is three-tier, reusing existing rails:
 1. **Roster/entry import (Tier C):** add `{ value: "prizepicks", label: "PrizePicks" }` to
    `FANTASY_PLATFORMS` (`ImportRosterSheet.tsx:17-24`) — players from PrizePicks entries become
-   follows with `fantasy_source='prizepicks'` (migration 088 already supports the column).
+   follows with `source='fantasy'` and `fantasy_source='prizepicks'`
+   (088 = `source`; `20260904183000` = `fantasy_source` + upsert constraint).
 2. **Entry-slip scan (Tier B):** extend `parse-bet-slip` prompt/schema to recognize PrizePicks
    entry screenshots (player + stat projection + more/less + entry fee + payout multiplier) and
    map to a wager with `market_type='player_prop'`, `provider_key='prizepicks'`, legs jsonb.
