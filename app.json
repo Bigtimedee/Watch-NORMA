@@ -81,7 +81,6 @@
       ]
     },
     "plugins": [
-      "./plugins/withRCTAppDelegateModularHeaders",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
