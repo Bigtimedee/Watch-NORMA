@@ -1,4 +1,5 @@
 name: TMP EAS Status Check
+# poll-stamp: 2026-09-05T02:03:01Z
 on:
   push:
     branches: [chore/tmp-eas-status-2c473912]
