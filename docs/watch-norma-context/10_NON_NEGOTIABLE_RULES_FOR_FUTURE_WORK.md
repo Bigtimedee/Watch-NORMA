@@ -73,6 +73,9 @@ The brand is established in the App Store and all marketing materials. Do not su
 **21. Do not use AI image generation (DALL-E, Midjourney, etc.) for social media assets.**
 Social media posts use real NORMA app screenshots from Supabase Storage. AI-generated images are prohibited for brand authenticity. A test (`no-ai-image-generation.test.ts`) enforces this.
 
+**22. Do not insert `demo-%` games or `DEMO SCREENSHOT` alerts into production.**
+On 2026-09-05, screenshot-seeded rows (`demo-ncaaf-clem-lsu-20260905`, titles like `DEMO SCREENSHOT — …`) were written to production (`shijrazlzawjpobrpmnt`) and appeared as live games/alerts to users. Real ESPN ids such as `espn-ncaaf-401856660` are not demo. Client queries filter these rows. Games/Alerts React Query keys include `DEMO_FILTER_VERSION` (`games-v2` / `alerts-v2`) so an OTA plus the existing 30s Games poll clears stale cached lists without a force-quit. Seeding screenshot fixtures requires `ALLOW_DEMO_SEED=1` and a non-prod project; `scripts/seed-demo-screenshot.ts` fails hard against production and does not insert rows. Migration `20260905215500_reject_demo_consumer_seed.sql` adds BEFORE INSERT/UPDATE triggers and hides leftover demo rows from consumer SELECT policies. Never apply `supabase/seed.sql` to production. Never add delete SQL for this incident.
+
 ---
 
 ## Required Closing Checklist for Future Claude Code Sessions

@@ -61,6 +61,7 @@ import {
   collectGamePlayerNames,
   followMatchesGamePlayers,
 } from "../_shared/player-follows.ts";
+import { isDemoGameId } from "../_shared/demo-guard.ts";
 
 // Cooldown: minimum 5 minutes between same alert_type for same game per user
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -76,6 +77,13 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "gameId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (isDemoGameId(gameId)) {
+      return new Response(
+        JSON.stringify({ success: true, skipped_reason: "demo_game" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

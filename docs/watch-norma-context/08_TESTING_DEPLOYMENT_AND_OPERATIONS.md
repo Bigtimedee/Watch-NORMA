@@ -79,6 +79,10 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `lib/__tests__/sport-multi-sport.test.ts` — multi-sport support
 - `lib/__tests__/mapStatus.test.ts` — ESPN/SportsDataIO status mapping
 - `lib/__tests__/no-ai-image-generation.test.ts` — ensures no DALL-E/AI image generation in social content
+- `lib/__tests__/demo-guard.test.ts` — `demo-%` / `DEMO SCREENSHOT` consumer filters; ESPN ids stay visible
+- `lib/__tests__/demo-seed-guard.test.ts` — production project ref `shijrazlzawjpobrpmnt` cannot be demo-seeded
+- `lib/__tests__/no-unguarded-demo-seed.test.ts` — no committed SQL/cron/script re-inserts demo rows
+- `hooks/__tests__/useGames-demo-filter.test.ts` / `useAlerts-demo-filter.test.ts` — Games/Alerts queries apply the exclusion
 - `hooks/__tests__/useConnections.test.ts` — connection hook behavior
 - `__tests__/DatePicker.test.tsx` — date picker component
 - `__tests__/GamesScreen.test.tsx` — games screen rendering
@@ -329,6 +333,18 @@ The `verify-provider-links` Edge Function *proactively* fetches each streaming/T
 **Slack secret:** Set `SLACK_WEBHOOK_URL` via `supabase secrets set SLACK_WEBHOOK_URL=https://hooks.slack.com/...`. If the secret is absent, thresholds are still evaluated and logged but no Slack message is sent.
 
 ## Operations
+
+### Screenshot fixtures (never production)
+
+Expo / social captures must use **local Supabase or a dedicated staging project**. Production project ref is `shijrazlzawjpobrpmnt`.
+
+1. Point `SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_URL` at local or staging — never the production URL.
+2. Set `ALLOW_DEMO_SEED=1`.
+3. Run `npx ts-node scripts/seed-demo-screenshot.ts` as a preflight. It **does not insert rows**; it fails hard if the target is production or the flag is missing.
+4. Consumer Games/Alerts queries exclude `games.id` ILIKE `demo-%` and alerts whose `game_id` is `demo-%` or whose title contains `DEMO SCREENSHOT`. Real ESPN ids (e.g. `espn-ncaaf-401856660`) are kept.
+5. React Query keys are versioned (`games-v2` / `alerts-v2` + `DEMO_FILTER_VERSION`). After OTA, stale in-memory lists from the incident are discarded; the Games tab refetches on the existing 30s poll (or immediately on the new key). Users do not need to force-quit.
+6. After merge, apply `20260905215500_reject_demo_consumer_seed.sql` (trigger + consumer SELECT policies). It blocks new `demo-%` / `DEMO SCREENSHOT` writes unless `SET LOCAL app.allow_demo_seed = '1'` on a non-prod DB. It does **not** delete rows — prod was already clean.
+7. Do not add delete/cleanup migrations for leftover demo rows — purge is an operational step already completed (2026-09-05).
 
 ### Daily QA Checklist
 

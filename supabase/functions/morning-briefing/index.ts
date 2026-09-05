@@ -29,6 +29,7 @@ import {
   type Game,
   type DayContext,
 } from "./logic.ts";
+import { isDemoGameId } from "../_shared/demo-guard.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -83,7 +84,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!todayGames || todayGames.length === 0) {
+    const games = ((todayGames ?? []) as Game[]).filter(
+      (g) => !isDemoGameId(g.id)
+    );
+
+    if (games.length === 0) {
       console.log(JSON.stringify({
         function: "morning-briefing",
         event: "no_games_today",
@@ -96,7 +101,6 @@ Deno.serve(async (req) => {
     }
 
     // 2. Compute day context once (sport availability + UTC day-of-week).
-    const games = todayGames as Game[];
     const dayCtx: DayContext = {
       hasNcaaf: games.some((g) => g.sport === "ncaaf"),
       hasNfl: games.some((g) => g.sport === "nfl"),

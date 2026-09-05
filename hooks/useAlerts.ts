@@ -3,6 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Alert, SportKey } from "../lib/types";
 import { sortAlerts } from "../lib/alert-helpers";
+import {
+  ALERTS_QUERY_ROOT,
+  alertsQueryKey,
+  applyConsumerAlertFilter,
+  excludeDemoAlerts,
+} from "../lib/demo-guard";
 
 /** Fetch user's alerts with realtime subscription for new alerts.
  *  Pass sport to filter to a specific sport; omit for all alerts. */
@@ -10,7 +16,7 @@ export function useAlerts(sport?: SportKey) {
   const queryClient = useQueryClient();
 
   const query = useQuery<Alert[]>({
-    queryKey: ["alerts", sport ?? "all"],
+    queryKey: alertsQueryKey(sport ?? "all"),
     queryFn: async () => {
       const {
         data: { user },
@@ -37,9 +43,11 @@ export function useAlerts(sport?: SportKey) {
         q = q.eq("sport", sport);
       }
 
+      q = applyConsumerAlertFilter(q);
+
       const { data, error } = await q;
       if (error) throw error;
-      return sortAlerts((data ?? []) as Alert[]);
+      return sortAlerts(excludeDemoAlerts((data ?? []) as Alert[]));
     },
   });
 
@@ -62,13 +70,13 @@ export function useAlerts(sport?: SportKey) {
             filter: `user_id=eq.${userId}`,
           },
           () => {
-            queryClient.invalidateQueries({ queryKey: ["alerts"] });
+            queryClient.invalidateQueries({ queryKey: [ALERTS_QUERY_ROOT] });
           }
         )
         .on("system", {}, (payload) => {
           if (payload.status === "CLOSED") {
             console.warn("[useAlerts] Realtime connection closed");
-            queryClient.invalidateQueries({ queryKey: ["alerts"] });
+            queryClient.invalidateQueries({ queryKey: [ALERTS_QUERY_ROOT] });
           }
         })
         .subscribe();
@@ -95,7 +103,7 @@ export function useMarkAlertRead() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      queryClient.invalidateQueries({ queryKey: [ALERTS_QUERY_ROOT] });
     },
   });
 }
@@ -103,18 +111,20 @@ export function useMarkAlertRead() {
 /** Get unread alert count */
 export function useUnreadAlertCount() {
   return useQuery<number>({
-    queryKey: ["alerts", "unread-count"],
+    queryKey: alertsQueryKey("unread-count"),
     queryFn: async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return 0;
 
-      const { count, error } = await supabase
-        .from("alerts")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("read", false);
+      const { count, error } = await applyConsumerAlertFilter(
+        supabase
+          .from("alerts")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("read", false)
+      );
 
       if (error) throw error;
       return count ?? 0;

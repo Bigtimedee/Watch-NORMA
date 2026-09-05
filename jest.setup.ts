@@ -83,6 +83,10 @@ jest.mock("@/lib/supabase", () => {
     eq: jest.fn().mockReturnThis(),
     neq: jest.fn().mockReturnThis(),
     in: jest.fn().mockReturnThis(),
+    not: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     single: jest.fn().mockResolvedValue({ data: null, error: null }),
@@ -114,6 +118,7 @@ jest.mock("@/lib/supabase", () => {
         subscribe: jest.fn(),
         unsubscribe: jest.fn(),
       })),
+      removeChannel: jest.fn(),
     },
   };
 });

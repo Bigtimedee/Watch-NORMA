@@ -12,6 +12,8 @@ Based on repository inspection and the outage report:
 
 4. ~~**Consumer social auto-posts attached Tier C sportsbook settings screenshots.**~~ **Closed (September 2026).** `selectScreenshotUrl` `app_promo` mapped `connections` → `sportsbooks-manual.png`, and `themeToTag("sportsbooks"|"wager_tracking")` queried that tag. Shared denylist in `_shared/social-media-select.ts` now bans settings/connections/Tier-C chrome. Remaining gap: no dedicated red-zone / Why Now alert screenshot in `media_assets` beyond `game-detail-watch.png` — Design should upload one tagged `alerts` / `why_now` / `red_zone`.
 
+5. ~~**Demo screenshot seed visible in production Games/Alerts.**~~ **Closed (2026-09-05).** Ad-hoc `demo-%` games and `DEMO SCREENSHOT` alerts were inserted into production (`shijrazlzawjpobrpmnt`) and shown as live. Data was purged operationally (no cleanup migration). Client queries now exclude those rows; React Query keys are `games-v2` / `alerts-v2` (`DEMO_FILTER_VERSION`) so OTA + the 30s Games poll drop stale cached lists without a force-quit. `assertDemoSeedAllowed()` refuses the production project ref.
+
 ## Known Gaps
 
 ### Data and Integrations

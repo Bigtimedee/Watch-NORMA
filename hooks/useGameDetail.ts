@@ -2,14 +2,21 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Game, Follow } from "../lib/types";
+import {
+  followedGamesQueryKey,
+  gameDetailQueryKey,
+  isDemoGameId,
+} from "../lib/demo-guard";
 
 /** Fetch a single game with team data, with realtime subscription */
 export function useGameDetail(gameId: string) {
   const queryClient = useQueryClient();
 
   const query = useQuery<Game | null>({
-    queryKey: ["game", gameId],
+    queryKey: gameDetailQueryKey(gameId),
     queryFn: async () => {
+      if (isDemoGameId(gameId)) return null;
+
       const { data, error } = await supabase
         .from("games")
         .select(
@@ -23,14 +30,14 @@ export function useGameDetail(gameId: string) {
         .single();
 
       if (error) throw error;
-      return data as Game;
+      return isDemoGameId(data?.id) ? null : (data as Game);
     },
-    enabled: !!gameId,
+    enabled: !!gameId && !isDemoGameId(gameId),
   });
 
   // Realtime subscription for this specific game
   useEffect(() => {
-    if (!gameId) return;
+    if (!gameId || isDemoGameId(gameId)) return;
 
     const channel = supabase
       .channel(`game-${gameId}`)
@@ -43,7 +50,7 @@ export function useGameDetail(gameId: string) {
           filter: `id=eq.${gameId}`,
         },
         (payload) => {
-          queryClient.setQueryData<Game | null>(["game", gameId], (old) =>
+          queryClient.setQueryData<Game | null>(gameDetailQueryKey(gameId), (old) =>
             old ? { ...old, ...payload.new } : old
           );
         }
@@ -110,7 +117,7 @@ export function useGameFollow(gameId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["follow", "game", gameId] });
-      queryClient.invalidateQueries({ queryKey: ["followed-games"] });
+      queryClient.invalidateQueries({ queryKey: followedGamesQueryKey() });
     },
   });
 
