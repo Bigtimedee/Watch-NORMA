@@ -1,0 +1,28 @@
+name: TMP EAS Sub Check
+on:
+  push:
+    branches: [chore/tmp-eas-status-2c473912]
+    paths:
+      - 'scripts/trigger-subcheck.txt'
+jobs:
+  sub:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Query submission
+        run: |
+          curl -sS -X POST https://api.expo.dev/graphql \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${EXPO_TOKEN}" \
+            --data-binary @- <<'JSON'
+          {"query":"query { submission { byId(submissionId: \"ce9be5d0-417b-40c0-94ba-356bf0978ac1\") { id status platform createdAt updatedAt completedAt error { errorCode message } } } }"}
+          JSON
+          echo
+          curl -sS -X POST https://api.expo.dev/graphql \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${EXPO_TOKEN}" \
+            --data-binary @- <<'JSON'
+          {"query":"query { builds { byId(buildId: \"2c473912-993f-4d18-849c-8495e967768a\") { id status appVersion appBuildVersion submittingStatus } } }"}
+          JSON
+          echo
