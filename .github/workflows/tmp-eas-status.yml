@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      BUILD_ID: 80ede717-0dd7-476f-a60f-1f5c974e20c6
+      SUB_ID: 32e591ec-9631-4106-8f22-4b4f14b782cb
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,24 +21,50 @@ jobs:
       - name: Whoami
         run: eas whoami
       - name: Build view
-        run: eas build:view 2c473912-993f-4d18-849c-8495e967768a --json | tee /tmp/build.json
+        run: eas build:view "$BUILD_ID" --json | tee /tmp/build.json
       - name: Submission view
         run: |
-          eas submission:view ce9be5d0-417b-40c0-94ba-356bf0978ac1 --json 2>&1 | tee /tmp/sub.json || true
-          # fallback list recent submissions if view unsupported
-          eas build:view 2c473912-993f-4d18-849c-8495e967768a --json
+          eas submission:view "$SUB_ID" --json 2>&1 | tee /tmp/sub.json || true
+          echo '==== submit:list ===='
+          eas submit:list --platform ios --limit 5 --non-interactive 2>&1 || true
+      - name: GraphQL status
+        run: |
+          curl -sS -X POST https://api.expo.dev/graphql \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${EXPO_TOKEN}" \
+            -d "{\"query\":\"query { builds(limit:1, filter:{ id: \\\"$BUILD_ID\\\" }) { id status platform appVersion appBuildVersion createdAt completedAt error { message errorCode } } submissions(limit:1, filter:{ id: \\\"$SUB_ID\\\" }) { id status platform createdAt updatedAt completedAt error { message errorCode } } }\"}" \
+            | tee /tmp/gql.json
+          echo
       - name: Summarize
         run: |
           python3 - <<'PY'
           import json
           b=json.load(open('/tmp/build.json'))
-          keys=['id','status','platform','appVersion','appBuildVersion','sdkVersion','completedAt','createdAt','error','artifacts']
           print('BUILD_SUMMARY')
-          for k in keys:
+          for k in ['id','status','platform','appVersion','appBuildVersion','sdkVersion','completedAt','createdAt']:
             if k in b: print(f'{k}={b.get(k)}')
-          # nested common fields
-          for k,v in b.items():
-            if k.lower() in ('status','appversion','appbuildversion','buildversion','version','id'):
-              print(f'TOP {k}={v}')
-          print('BUILD_KEYS', sorted(b.keys())[:40])
+          err=b.get('error')
+          if err: print('error=', err)
+          print('BUILD_KEYS', sorted(b.keys())[:50])
+          try:
+            s=json.load(open('/tmp/sub.json'))
+            print('SUB_SUMMARY')
+            if isinstance(s, dict):
+              for k in ['id','status','platform','createdAt','updatedAt','completedAt']:
+                if k in s: print(f'{k}={s.get(k)}')
+              if s.get('error'): print('sub_error=', s.get('error'))
+            else:
+              print(s)
+          except Exception as e:
+            print('sub_parse_err', e)
+          try:
+            g=json.load(open('/tmp/gql.json'))
+            print('GQL', json.dumps(g, indent=2)[:2000])
+          except Exception as e:
+            print('gql_err', e)
+          # HARD GATE
+          av=str(b.get('appVersion') or '')
+          print('APP_VERSION_CHECK', av)
+          if av and not av.startswith('1.7'):
+            raise SystemExit(f'REFUSE: appVersion {av} is not 1.7.x — never submit 1.5/1.6')
           PY
