@@ -1,0 +1,41 @@
+name: TMP EAS Resubmit 1.6.0
+on:
+  workflow_dispatch:
+  push:
+    branches: [chore/tmp-eas-status-2c473912]
+    paths:
+      - 'scripts/trigger-resubmit.txt'
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Confirm build is 1.6.0 then submit
+        run: |
+          set -euo pipefail
+          eas build:view 2c473912-993f-4d18-849c-8495e967768a --json | tee /tmp/build.json
+          python3 - <<'PY'
+          import json,sys
+          b=json.load(open('/tmp/build.json'))
+          ver=str(b.get('appVersion') or '')
+          num=str(b.get('appBuildVersion') or '')
+          st=str(b.get('status') or '')
+          print(f'CONFIRM version={ver} build={num} status={st}')
+          if ver != '1.6.0':
+            print('REFUSING: appVersion is not 1.6.0')
+            sys.exit(2)
+          if not ver.startswith('1.6') and not (ver.split('.')[0]=='1' and int(ver.split('.')[1])>=6):
+            print('REFUSING: version below 1.6.0')
+            sys.exit(2)
+          if st != 'FINISHED':
+            print('REFUSING: build not FINISHED')
+            sys.exit(3)
+          PY
+          echo 'Submitting 1.6.0(35) only...'
+          eas submit --platform ios --id 2c473912-993f-4d18-849c-8495e967768a --profile production --non-interactive
