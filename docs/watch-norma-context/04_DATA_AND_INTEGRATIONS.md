@@ -169,6 +169,10 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 - `delivery_log` — push delivery attempts with status, provider_message_id
 - `alert_throttle` — dedup hashes for throttling
 
+### Social Content Media
+
+- `media_assets` — real NORMA app screenshots in the `social-images` bucket. Consumer auto-posts (`generate-social-content`, `cmo-generate`, `generate-recap-content`) select via `_shared/social-media-select.ts`. Settings / connections / Tier-C chrome (`sportsbooks-manual.png`, `sportsbooks-email.png`, `tv-providers.png`, `prediction-markets.png`, `streaming-services.png`) is denylisted and `eligible_for_consumer_auto_post = false` (migration `20260905160000`). Preferred tags: `alerts`, `why_now`, `red_zone`, `never_miss`. The watch/alert fallback is `game-detail-watch.png`. Dedicated red-zone / Why Now alert screenshots still need a Design upload.
+
 ### Advertising Data
 
 - `impressions` — ad impressions with clearing price, tap status, conversion tracking

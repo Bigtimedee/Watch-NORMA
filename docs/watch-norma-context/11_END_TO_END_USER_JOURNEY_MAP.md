@@ -390,7 +390,7 @@ campaigns:read   campaigns:write   reporting:read   inventory:read
 
 ### C2. Content operator
 
-`web/src/app/cmo/page.tsx` is the content calendar and approval surface. `cmo-generate` drafts brand social content with Claude, `generate-social-content` and `generate-recap-content` produce post and recap variants, `publish-social-posts` and `cmo-publish` distribute, and `fetch-social-metrics` reads performance back into `social_posts` and `social_hashtag_performance`. X and Twitter publishing is connected; Instagram, Facebook, TikTok, and Reddit are built but not fully wired to their platform APIs.
+`web/src/app/cmo/page.tsx` is the content calendar and approval surface. `cmo-generate` drafts brand social content with Claude, `generate-social-content` and `generate-recap-content` produce post and recap variants, `publish-social-posts` and `cmo-publish` distribute, and `fetch-social-metrics` reads performance back into `social_posts` and `social_hashtag_performance`. Consumer auto-post images are chosen by `_shared/social-media-select.ts` — settings / Tier-C sportsbook chrome is denylisted; alert / Why Now / red-zone screenshots are preferred. X and Twitter publishing is connected; Instagram, Facebook, TikTok, and Reddit are built but not fully wired to their platform APIs.
 
 `lib/__tests__/no-ai-image-generation.test.ts` enforces a standing prohibition on AI generated imagery in published content. Do not weaken that test.
 

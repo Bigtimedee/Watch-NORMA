@@ -92,7 +92,9 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `evaluate-alerts/logic_test.ts` — alert evaluation rules (unit)
 - `evaluate-alerts/integration_test.ts` — **E2E pipeline integration tests (36 tests, added P1-01)**: wires extractSignals → computeScore/checkMustNotify → determineAlertType → buildWhyNow → computeDedupHash. Covers: (1) follower + close/blowout threshold, (2) wager line crossed + wager_impact status, (3) all four must-notify rules, (4) dedup margin-bucket hash correctness, (5) per-game/hour cap gate logic, (6) quiet-hours push suppression with in-app record preserved, (7) no-stake user never becomes candidate. DB-dependent stages (candidate generation, throttle table, push dispatch) are documented as staging smoke-test scope.
 - `resolve-wagers/logic_test.ts` — wager resolution logic
-- `cmo-generate/media-selection_test.ts` — media asset selection
+- `cmo-generate/media-selection_test.ts` — consumer auto-post media + theme pool (sportsbooks-manual banned; football themes remain)
+- `_shared/social-media-select_test.ts` — allowlist/denylist for consumer auto-post screenshots
+- `_shared/social-content-engine_test.ts` — Football M1 prompts + `selectScreenshotUrl` denylist
 - `cmo-publish/media-upload_test.ts` — media upload logic
 - `creative-prescreen/rubric_test.ts` — 18 tests for buildPrescreenPrompt (rubric coverage, demand type rules, JSON format) and parsePrescreenResponse (valid/malformed/unknown verdict, non-string reasons)
 - `growth-weekly-report/logic_test.ts` — 18 tests for buildHtmlEmail (period dates, delta colors, retention block presence, moment breakdown, fill rate formatting, null handling, Watch NORMA branding)

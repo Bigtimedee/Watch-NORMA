@@ -16,10 +16,12 @@ import {
   resolveSubreddit,
   buildSystemPrompt,
   getDailyPostCount,
+  selectScreenshotUrl,
   SPORT_SUBREDDITS,
   DEFAULT_SUBREDDIT,
   type GameData,
 } from "./social-content-engine.ts";
+import { isBannedConsumerFilename } from "./social-media-select.ts";
 
 // ---------------------------------------------------------------------------
 // 1. resolveSubreddit
@@ -197,5 +199,31 @@ Deno.test("SPORT_SUBREDDITS has all five sport keys", () => {
       "string",
       `Missing subreddit entry for sport: ${key}`,
     );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 6. selectScreenshotUrl — consumer auto-post denylist (2026-09-05)
+// ---------------------------------------------------------------------------
+
+Deno.test("selectScreenshotUrl: app_promo never returns sportsbooks-manual.png", () => {
+  const url = selectScreenshotUrl("https://example.supabase.co", "app_promo", 0);
+  assertEquals(url.includes("sportsbooks-manual.png"), false);
+  assertEquals(isBannedConsumerFilename(url), false);
+  assertStringIncludes(url, "game-detail-watch.png");
+});
+
+Deno.test("selectScreenshotUrl: football game_preview prefers alert/watch asset", () => {
+  const url = selectScreenshotUrl("https://example.supabase.co", "game_preview", 0, {
+    sport: "ncaaf",
+  });
+  assertStringIncludes(url, "/storage/v1/object/public/social-images/");
+  assertStringIncludes(url, "game-detail-watch.png");
+});
+
+Deno.test("selectScreenshotUrl: carousel slides stay off settings chrome", () => {
+  for (let i = 0; i < 4; i++) {
+    const url = selectScreenshotUrl("https://example.supabase.co", "app_promo", i);
+    assertEquals(isBannedConsumerFilename(url), false, `slide ${i}: ${url}`);
   }
 });
