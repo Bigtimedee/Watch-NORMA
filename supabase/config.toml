@@ -16,6 +16,10 @@ port = 54323
 [auth]
 enabled = true
 site_url = "norma://auth-callback"
+# Mobile recovery / magic-link return path. Custom scheme only — no
+# associated-domain / App Store Connect change required. Production
+# dashboard Redirect URLs must keep this allowlisted.
+additional_redirect_urls = ["norma://auth-callback"]
 
 [auth.external.apple]
 enabled = true

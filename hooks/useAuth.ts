@@ -3,6 +3,7 @@ import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../lib/supabase";
+import { getAuthCallbackUrl } from "../lib/auth-callback";
 import { trackEvent } from "../lib/analytics";
 import type { Profile } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
@@ -116,6 +117,35 @@ export function useAuth() {
     }
   }, []);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: getAuthCallbackUrl(),
+    });
+    setLoading(false);
+    if (error) throw error;
+  }, []);
+
+  const requestMagicLink = useCallback(async (email: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: getAuthCallbackUrl(),
+        shouldCreateUser: false,
+      },
+    });
+    setLoading(false);
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) throw error;
+  }, []);
+
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -159,6 +189,9 @@ export function useAuth() {
     signUp,
     signIn,
     signInWithApple,
+    requestPasswordReset,
+    requestMagicLink,
+    updatePassword,
     signOut,
     deleteAccount,
     updateProfile,

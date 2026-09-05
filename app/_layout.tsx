@@ -4,7 +4,14 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 import { supabase } from "../lib/supabase";
+import { applyAuthCallback, isAuthCallbackUrl } from "../lib/auth-callback";
+import {
+  isPasswordRecoveryPending,
+  setPasswordRecoveryPending,
+  subscribePasswordRecovery,
+} from "../lib/auth-recovery-state";
 import { recordAppOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
 import { SportProvider } from "../lib/sport-context";
@@ -35,8 +42,13 @@ const queryClient = new QueryClient({
 function AuthGate() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryPending, setRecoveryPending] = useState(
+    isPasswordRecoveryPending()
+  );
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => subscribePasswordRecovery(setRecoveryPending), []);
 
   useEffect(() => {
     recordAppOpen();
@@ -47,25 +59,59 @@ function AuthGate() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecoveryPending(true);
+        router.replace("/(auth)/reset-password");
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function handleAuthUrl(url: string | null) {
+      if (!url || cancelled || !isAuthCallbackUrl(url)) return;
+      try {
+        const result = await applyAuthCallback(url);
+        if (cancelled || !result.applied) return;
+        if (result.type === "recovery") {
+          setPasswordRecoveryPending(true);
+          router.replace("/(auth)/reset-password");
+        }
+      } catch (error) {
+        console.warn("Auth callback deep link failed:", error);
+      }
+    }
+
+    Linking.getInitialURL().then(handleAuthUrl);
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      void handleAuthUrl(url);
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const isAuthCallback = segments[0] === "auth-callback";
+    const onResetPassword = segments.includes("reset-password");
     const isAuthenticated = !!session;
 
-    if (!isAuthenticated && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup && !isAuthCallback) {
       router.replace("/(auth)/welcome");
     } else if (isAuthenticated && inAuthGroup) {
+      if (recoveryPending || onResetPassword) return;
       router.replace("/(tabs)/games");
     }
-  }, [session, segments, loading]);
+  }, [session, segments, loading, recoveryPending, router]);
 
   // Clear badge count when app comes to foreground
   const appState = useRef(AppState.currentState);

@@ -49,6 +49,20 @@ jest.mock("expo-constants", () => ({
 jest.mock("expo-linking", () => ({
   createURL: jest.fn((path: string) => `norma://${path}`),
   openURL: jest.fn(),
+  getInitialURL: jest.fn().mockResolvedValue(null),
+  addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  parse: jest.fn((url: string) => {
+    try {
+      const urlObj = new URL(url);
+      const params: Record<string, string> = {};
+      urlObj.searchParams.forEach((v, k) => {
+        params[k] = v;
+      });
+      return { queryParams: params };
+    } catch {
+      return { queryParams: {} };
+    }
+  }),
 }));
 
 jest.mock("expo-apple-authentication", () => ({
@@ -81,6 +95,13 @@ jest.mock("@/lib/supabase", () => {
         getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
         getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
         signInWithOAuth: jest.fn(),
+        signInWithPassword: jest.fn(),
+        signInWithIdToken: jest.fn(),
+        signInWithOtp: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        resetPasswordForEmail: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        exchangeCodeForSession: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        setSession: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        updateUser: jest.fn().mockResolvedValue({ data: {}, error: null }),
         signOut: jest.fn(),
         onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
       },
