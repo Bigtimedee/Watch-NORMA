@@ -10,19 +10,30 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
       - name: Query submission
         run: |
+          echo '====INTROSPECT===='
           curl -sS -X POST https://api.expo.dev/graphql \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${EXPO_TOKEN}" \
-            --data-binary @- <<'JSON'
-          {"query":"query { submission { byId(submissionId: \"ce9be5d0-417b-40c0-94ba-356bf0978ac1\") { id status platform createdAt updatedAt completedAt error { errorCode message } } } }"}
-          JSON
+            -d '{"query":"{ __type(name: \"RootQuery\") { fields { name } } }"}' | head -c 5000
           echo
+          echo '====APP_SUBS===='
           curl -sS -X POST https://api.expo.dev/graphql \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${EXPO_TOKEN}" \
-            --data-binary @- <<'JSON'
-          {"query":"query { builds { byId(buildId: \"2c473912-993f-4d18-849c-8495e967768a\") { id status appVersion appBuildVersion submittingStatus } } }"}
-          JSON
+            -d '{"query":"query { app { byId(appId: \"3a418868-5bb5-4852-b565-3282ee4fe91e\") { id fullName submissions(limit:5, offset:0) { id status platform createdAt updatedAt completedAt errorMessage } } } }"}'
           echo
+          echo '====SUBMIT_LIST===='
+          eas submit:list --platform ios --limit 5 --non-interactive 2>&1 || eas build:list --platform ios --limit 3 --non-interactive --json 2>&1 | head -c 3000
+          echo
+          echo '====HELP===='
+          eas submit --help 2>&1 | head -80
