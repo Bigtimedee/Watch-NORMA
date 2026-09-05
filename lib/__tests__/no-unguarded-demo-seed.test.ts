@@ -71,6 +71,18 @@ describe("no committed demo seed / cron re-insert path", () => {
     expect(src).not.toMatch(/'DEMO SCREENSHOT/i);
     expect(src).toMatch(/game-1/);
   });
+
+  it("migration trigger rejects demo inserts and does not delete rows", () => {
+    const rel = "supabase/migrations/20260905215500_reject_demo_consumer_seed.sql";
+    const src = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    expect(src).toContain("reject_demo_consumer_seed");
+    expect(src).toContain("trg_reject_demo_games");
+    expect(src).toContain("trg_reject_demo_alerts");
+    expect(src).toMatch(/ILIKE 'demo-%'/);
+    expect(src).toMatch(/DEMO SCREENSHOT/);
+    expect(src).not.toMatch(/DELETE\s+FROM\s+(?:public\.)?(games|alerts)/i);
+    expect(src).toMatch(/Does NOT delete/i);
+  });
 });
 
 describe("consumer hooks apply demo exclusion", () => {

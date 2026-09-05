@@ -343,7 +343,8 @@ Expo / social captures must use **local Supabase or a dedicated staging project*
 3. Run `npx ts-node scripts/seed-demo-screenshot.ts` as a preflight. It **does not insert rows**; it fails hard if the target is production or the flag is missing.
 4. Consumer Games/Alerts queries exclude `games.id` ILIKE `demo-%` and alerts whose `game_id` is `demo-%` or whose title contains `DEMO SCREENSHOT`. Real ESPN ids (e.g. `espn-ncaaf-401856660`) are kept.
 5. React Query keys are versioned (`games-v2` / `alerts-v2` + `DEMO_FILTER_VERSION`). After OTA, stale in-memory lists from the incident are discarded; the Games tab refetches on the existing 30s poll (or immediately on the new key). Users do not need to force-quit.
-6. Do not add delete/cleanup migrations for leftover demo rows — purge is an operational step already completed (2026-09-05).
+6. After merge, apply `20260905215500_reject_demo_consumer_seed.sql` (trigger + consumer SELECT policies). It blocks new `demo-%` / `DEMO SCREENSHOT` writes unless `SET LOCAL app.allow_demo_seed = '1'` on a non-prod DB. It does **not** delete rows — prod was already clean.
+7. Do not add delete/cleanup migrations for leftover demo rows — purge is an operational step already completed (2026-09-05).
 
 ### Daily QA Checklist
 
