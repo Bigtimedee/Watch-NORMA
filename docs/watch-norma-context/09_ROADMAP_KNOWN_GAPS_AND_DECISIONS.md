@@ -10,6 +10,8 @@ Based on repository inspection and the outage report:
 
 3. **Team matching edge cases.** The fuzzy team matching system (`team-matching.ts`) handles 50+ aliases and includes multi-word validation, but edge cases remain — especially for teams with similar names across conferences (e.g., "Purdue" vs "Purdue Fort Wayne"). False positive matching can cause incorrect odds mapping.
 
+4. ~~**Consumer social auto-posts attached Tier C sportsbook settings screenshots.**~~ **Closed (September 2026).** `selectScreenshotUrl` `app_promo` mapped `connections` → `sportsbooks-manual.png`, and `themeToTag("sportsbooks"|"wager_tracking")` queried that tag. Shared denylist in `_shared/social-media-select.ts` now bans settings/connections/Tier-C chrome. Remaining gap: no dedicated red-zone / Why Now alert screenshot in `media_assets` beyond `game-detail-watch.png` — Design should upload one tagged `alerts` / `why_now` / `red_zone`.
+
 ## Known Gaps
 
 ### Data and Integrations
@@ -49,6 +51,10 @@ Based on repository inspection and the outage report:
 - **No integration tests.** Tests are unit-level (Jest for client, Deno test for Edge Functions). There are no end-to-end tests that verify the full pipeline (game state change → alert → push → deep link).
 - **No load tests.** The system has not been tested under high-concurrency scenarios (e.g., 50+ simultaneous live games during March Madness).
 - **No visual regression tests.** No screenshot or snapshot tests for UI components.
+
+### Social
+
+- **No dedicated red-zone / Why Now alert screenshot in `media_assets`.** Consumer auto-posts now prefer `game-detail-watch.png` (tagged `alerts` / `why_now` / `red_zone`). Design should upload a real alert-card / Why Now screenshot so football posts do not reuse the watch-button screen as a stand-in.
 
 ### Operations
 

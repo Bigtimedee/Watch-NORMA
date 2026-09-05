@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
           const slidesWithImages = generated.slides.map((slide, i) => ({
             caption:      slide.caption,
             image_prompt: null,
-            image_url:    selectScreenshotUrl(supabaseUrl, postType, i),
+            image_url:    selectScreenshotUrl(supabaseUrl, postType, i, { sport: activeSport }),
           }));
           finalImageUrl = slidesWithImages[0]?.image_url ?? null;
           formatMetadata = { slides: slidesWithImages };
@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
             duration_minutes: 1440,
           };
           if (VISUAL_PLATFORMS.has(platform)) {
-            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
+            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType, 0, { sport: activeSport });
           }
 
         } else if (postFormat === "link") {
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         } else {
           // Standard post: use real app screenshot
           if (VISUAL_PLATFORMS.has(platform)) {
-            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType);
+            finalImageUrl = selectScreenshotUrl(Deno.env.get("SUPABASE_URL")!, postType, 0, { sport: activeSport });
           }
         }
 

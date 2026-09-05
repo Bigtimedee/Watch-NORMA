@@ -9,6 +9,8 @@
 //   - Hashtag injection from social_hashtag_performance
 //   - Updated system prompt includes format instructions + top hashtags
 
+import { pickConsumerScreenshotFilename } from "./social-media-select.ts";
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -491,40 +493,27 @@ Create content that feels completely native to ${platform}. The scenario sets th
 
 const SCREENSHOT_BASE = "norma-screenshots";
 
-const SCREENSHOTS = {
-  games_list:         "games-list.png",
-  alerts:             "game-detail-watch.png",
-  game_detail:        "game-detail-watch.png",
-  connections:        "sportsbooks-manual.png",
-  sportsbooks:        "sportsbooks-manual.png",
-  prediction_markets: "prediction-markets.png",
-  profile:            "prediction-markets.png",
-  tv_providers:       "tv-providers.png",
-  streaming:          "streaming-services.png",
-} as const;
-
-type ScreenshotKey = keyof typeof SCREENSHOTS;
-
-const POST_TYPE_SCREENSHOTS: Record<string, ScreenshotKey[]> = {
-  game_preview: ["game_detail", "games_list", "alerts"],
-  norma_knew:   ["alerts", "game_detail", "games_list"],
-  recap:        ["game_detail", "alerts", "games_list"],
-  app_promo:    ["connections", "profile", "games_list"],
-};
-
 /**
  * Returns a public Supabase Storage URL for the screenshot that best fits
  * the post type. slideIndex allows carousel slides to get different images.
+ *
+ * Consumer auto-posts never receive settings / connections / Tier-C chrome
+ * (sportsbooks-manual.png, sportsbooks-email.png, tv-providers.png, etc.).
+ * Football-aware callers should pass `{ sport }` so alert / Why Now / red-zone
+ * assets stay first.
  *
  * ENFORCEMENT: This is the ONLY function permitted to provide image URLs for
  * social posts. It exclusively returns real NORMA app screenshots stored in
  * Supabase Storage. No AI image generation (DALL-E, Stable Diffusion, etc.)
  * is used anywhere in the social publishing pipeline.
  */
-export function selectScreenshotUrl(supabaseUrl: string, postType: string, slideIndex = 0): string {
-  const preferred = POST_TYPE_SCREENSHOTS[postType] ?? POST_TYPE_SCREENSHOTS.app_promo;
-  const key = preferred[slideIndex % preferred.length];
-  const filename = SCREENSHOTS[key];
+export function selectScreenshotUrl(
+  supabaseUrl: string,
+  postType: string,
+  slideIndex = 0,
+  options?: { sport?: string | null },
+): string {
+  const filename = pickConsumerScreenshotFilename(postType, slideIndex, options);
   return `${supabaseUrl}/storage/v1/object/public/social-images/${SCREENSHOT_BASE}/${filename}`;
 }
 

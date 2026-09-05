@@ -20,6 +20,7 @@ import {
   type GameData,
   type Scenario,
 } from "../_shared/social-content-engine.ts";
+import { selectConsumerMediaUrl } from "../_shared/social-media-select.ts";
 
 // Game status values that indicate a completed game
 const COMPLETED_STATUSES = ["final", "closed", "complete", "F", "STATUS_FINAL"];
@@ -265,12 +266,11 @@ async function queryRecapMediaAsset(
     // Use PostgREST array overlap (&&) to match rows tagged with either theme
     const { data, error } = await supabase
       .from("media_assets")
-      .select("public_url")
+      .select("public_url, filename, theme_tags")
       .eq("is_active", true)
       .not("public_url", "is", null)
-      .overlaps("theme_tags", ["never_miss", "user_benefit"])
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(25);
 
     if (error) {
       console.warn("media_assets query error:", error.message);
@@ -279,8 +279,8 @@ async function queryRecapMediaAsset(
 
     if (!data || data.length === 0) return null;
 
-    const pick = data[Math.floor(Math.random() * data.length)];
-    return pick.public_url as string;
+    // Recap = "NORMA called it" — prefer Why Now / alert assets, never settings chrome.
+    return selectConsumerMediaUrl(data, "alert_called_it");
   } catch (err) {
     console.warn("queryRecapMediaAsset failed:", (err as Error).message);
     return null;

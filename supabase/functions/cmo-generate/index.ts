@@ -6,6 +6,8 @@
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { selectConsumerMediaUrl } from "../_shared/social-media-select.ts";
+import { selectThemes, type ContentTheme } from "./themes.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,32 +55,7 @@ const MAX_TWEET_LENGTH = 280;
 // DST-aware: CDT = UTC-5 (Mar 2nd Sun → Nov 1st Sun), CST = UTC-6 otherwise
 const CT_POSTING_HOURS = [7, 11, 15, 19]; // 7 AM, 11 AM, 3 PM, 7 PM CT
 
-// Content theme rotation — we pick themes based on the day of week + hour
-// so content stays varied across the week.
-const CONTENT_THEMES = [
-  "user_benefit_never_miss",
-  "user_benefit_bet_resolved",
-  "advertiser_highest_intent",
-  "advertiser_viewability",
-  "tech_vickrey_auction",
-  "tech_thompson_sampling",
-  "cultural_sports_moment",
-  "app_launch_hype",
-  "referral_growth",
-  "moment_types_showcase",
-  "social_proof_engagement",
-  // Football ad moment themes (item 8) — weighted higher on Sat/Sun during football season
-  "football_kickoff_moment",
-  "football_red_zone_moment",
-  "football_two_minute_warning",
-  "football_overtime_moment",
-  "football_fourth_quarter_comeback",
-  // SM-02 additions — generated separately, not via Claude theme rotation
-  "alert_called_it",
-  "norma_in_numbers",
-] as const;
-
-type ContentTheme = typeof CONTENT_THEMES[number];
+// Theme rotation lives in ./themes.ts (consumer pool excludes sportsbooks / wager_tracking).
 
 // ---------------------------------------------------------------------------
 // Brand voice system prompt
@@ -224,123 +201,6 @@ Rules:
 }
 
 // ---------------------------------------------------------------------------
-// Select themes to generate based on time of day / day of week
-// ---------------------------------------------------------------------------
-
-function selectThemes(now: Date, count: number): ContentTheme[] {
-  const dayOfWeek = now.getUTCDay(); // 0=Sun, 6=Sat
-  const hourUTC = now.getUTCHours();
-
-  // Weight themes by context
-  // Weekends: heavier sports culture and user benefit
-  // Weekdays morning: advertiser-focused (brand planners read Twitter AM)
-  // Evenings: user-facing / launch hype (bettors are active)
-
-  let weights: Partial<Record<ContentTheme, number>> = {};
-
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    // Weekend: heavy user and cultural content + football ad moments (highest weight during football season)
-    weights = {
-      cultural_sports_moment: 5,
-      user_benefit_never_miss: 4,
-      user_benefit_bet_resolved: 4,
-      // Football ad moments — peak on Sat (NCAAF) and Sun (NFL)
-      football_kickoff_moment: dayOfWeek === 6 ? 5 : 4,     // Sat = NCAAF; Sun = NFL
-      football_red_zone_moment: 4,
-      football_fourth_quarter_comeback: 4,
-      football_two_minute_warning: 3,
-      football_overtime_moment: 3,
-      moment_types_showcase: 3,
-      app_launch_hype: 3,
-      social_proof_engagement: 3,
-      referral_growth: 2,
-      advertiser_highest_intent: 1,
-      advertiser_viewability: 1,
-      tech_vickrey_auction: 1,
-      tech_thompson_sampling: 1,
-    };
-  } else if (hourUTC >= 12 && hourUTC <= 16) {
-    // Weekday business hours: advertiser-forward; include football moments as high-intent pitch
-    weights = {
-      advertiser_highest_intent: 5,
-      advertiser_viewability: 4,
-      tech_vickrey_auction: 4,
-      tech_thompson_sampling: 3,
-      // Football ad moments as advertiser pitch — "peak intent at kickoff/red zone/2-min warning"
-      football_kickoff_moment: 3,
-      football_red_zone_moment: 2,
-      football_two_minute_warning: 2,
-      app_launch_hype: 2,
-      user_benefit_never_miss: 2,
-      moment_types_showcase: 2,
-      cultural_sports_moment: 1,
-      referral_growth: 1,
-      user_benefit_bet_resolved: 1,
-      social_proof_engagement: 1,
-      football_fourth_quarter_comeback: 1,
-      football_overtime_moment: 1,
-    };
-  } else {
-    // Weekday evenings/nights: mixed, slightly user-forward; football moments for Thur/Mon night games
-    weights = {
-      user_benefit_never_miss: 4,
-      user_benefit_bet_resolved: 4,
-      moment_types_showcase: 3,
-      app_launch_hype: 3,
-      cultural_sports_moment: 3,
-      // Thursday Night Football / Monday Night Football evenings
-      football_kickoff_moment: (dayOfWeek === 4 || dayOfWeek === 1) ? 4 : 2,
-      football_fourth_quarter_comeback: (dayOfWeek === 4 || dayOfWeek === 1) ? 3 : 1,
-      football_two_minute_warning: (dayOfWeek === 4 || dayOfWeek === 1) ? 3 : 1,
-      football_red_zone_moment: 2,
-      football_overtime_moment: 2,
-      referral_growth: 2,
-      social_proof_engagement: 2,
-      advertiser_highest_intent: 2,
-      tech_vickrey_auction: 2,
-      advertiser_viewability: 1,
-      tech_thompson_sampling: 1,
-    };
-  }
-
-  // Weighted random selection without replacement
-  const pool: ContentTheme[] = [];
-  for (const [theme, weight] of Object.entries(weights)) {
-    for (let i = 0; i < (weight as number); i++) {
-      pool.push(theme as ContentTheme);
-    }
-  }
-
-  // Fisher-Yates shuffle then pick `count` unique themes
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-
-  const selected: ContentTheme[] = [];
-  const seen = new Set<ContentTheme>();
-  for (const theme of shuffled) {
-    if (!seen.has(theme)) {
-      selected.push(theme);
-      seen.add(theme);
-    }
-    if (selected.length >= count) break;
-  }
-
-  // Fallback if somehow we don't have enough unique themes
-  for (const theme of CONTENT_THEMES) {
-    if (selected.length >= count) break;
-    if (!seen.has(theme)) {
-      selected.push(theme);
-      seen.add(theme);
-    }
-  }
-
-  return selected;
-}
-
-// ---------------------------------------------------------------------------
 // Calculate next optimal posting windows in Central Time (DST-aware)
 // Returns an array of ISO timestamp strings for the next `count` windows.
 // ---------------------------------------------------------------------------
@@ -480,20 +340,8 @@ async function generatePostsWithClaude(
 }
 
 // ---------------------------------------------------------------------------
-// Map a content theme to a media_assets theme_tag
-// ---------------------------------------------------------------------------
-
-function themeToTag(theme: string): string {
-  if (theme === "user_benefit_never_miss") return "never_miss";
-  if (theme === "streaming") return "streaming";
-  if (theme === "prediction_markets") return "prediction_markets";
-  if (theme === "sportsbooks" || theme === "wager_tracking") return "sportsbooks";
-  return "user_benefit";
-}
-
-// ---------------------------------------------------------------------------
-// Query media_assets for a matching screenshot URL
-// Returns null if none found or if the table does not exist yet
+// Query media_assets for a consumer auto-post screenshot.
+// Uses the shared denylist so settings / Tier-C chrome can never win.
 // ---------------------------------------------------------------------------
 
 async function queryMediaAsset(
@@ -501,23 +349,20 @@ async function queryMediaAsset(
   theme: string,
 ): Promise<string | null> {
   try {
-    const tag = themeToTag(theme);
     const { data, error } = await supabase
       .from("media_assets")
-      .select("public_url")
+      .select("public_url, filename, theme_tags")
       .eq("is_active", true)
-      .contains("theme_tags", [tag])
       .not("public_url", "is", null)
-      .order("id") // deterministic fallback; random() not available via JS client filter
-      .limit(1)
-      .maybeSingle();
+      .order("id")
+      .limit(25);
 
     if (error) {
-      console.warn(`[cmo-generate] media_assets query failed for tag "${tag}": ${error.message}`);
+      console.warn(`[cmo-generate] media_assets query failed: ${error.message}`);
       return null;
     }
 
-    return data?.public_url ?? null;
+    return selectConsumerMediaUrl(data ?? [], theme);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[cmo-generate] media_assets lookup threw: ${msg}`);
