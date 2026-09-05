@@ -10,6 +10,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { prioritize } from "./priority.ts";
+import { isDemoGameId } from "../_shared/demo-guard.ts";
 
 // Concurrency limits per orchestrator cycle
 const MAX_PBP_DISPATCHES = 5;
@@ -116,9 +117,13 @@ Deno.serve(async (req) => {
 
     if (gamesErr) throw gamesErr;
 
-    const activeGameIds = (activeGames ?? []).map((g: GameInfo) => g.id);
+    const liveGames = (activeGames ?? []).filter(
+      (g: GameInfo) => !isDemoGameId(g.id)
+    );
+
+    const activeGameIds = liveGames.map((g: GameInfo) => g.id);
     const activeGamesMap = new Map(
-      (activeGames ?? []).map((g: GameInfo) => [g.id, g])
+      liveGames.map((g: GameInfo) => [g.id, g])
     );
 
     // Create watcher_state rows for games that don't have one yet

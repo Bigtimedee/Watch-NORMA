@@ -96,6 +96,7 @@ Core principles:
 | **Excessive data polling** | Sportradar rate budget tracked in `api_rate_log`. Orchestrator throttles when nearing limits. |
 | **Rate-limit violations** | Per-API rate tracking. Backoff on errors. Concurrency limits in orchestrator (max 5 PBP, max 3 summary). |
 | **Scraping** | No web-facing API exposes bulk game data. All client queries go through RLS-scoped Supabase. |
+| **Demo / screenshot seed in production** | Client queries exclude `games.id` ILIKE `demo-%` and alerts with `game_id` ILIKE `demo-%` or title ILIKE `%DEMO SCREENSHOT%`. `assertDemoSeedAllowed()` requires `ALLOW_DEMO_SEED=1` and refuses project ref `shijrazlzawjpobrpmnt`. `scripts/seed-demo-screenshot.ts` is a preflight only (no inserts). Pollers emit `espn-*` / `sdio-*` ids, never `demo-%`. Incident 2026-09-05; data purge was operational, not a migration. |
 
 ## Required Safeguards
 

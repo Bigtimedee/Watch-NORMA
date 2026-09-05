@@ -106,7 +106,7 @@ All items verified from repository files.
 
 **Key components:** `GameCard` (game list item), `AlertCard` (rich alert with explanation, sponsor, actions), `ScoreHeader` (large scoreboard), `WatchNowButton` (tap-to-stream with animation), `OddsDisplay` (multi-sportsbook odds), `WagerCard` (single wager), `PositionCard` (prediction market position), `AddWagerSheet` (manual entry form with parlay support), `KalshiWizard` / `PolymarketWizard` (connection flows), `PreferencesSheet` (settings modal), `TransitionOverlay` + `NormaLine` (tap-to-stream animation), `BetNowButton` (sportsbook deep link CTA).
 
-**State management:** React Query manages all server state (games, alerts, wagers, odds, connections, preferences, positions). Query keys are well-structured. Real-time updates via Supabase Realtime subscriptions that invalidate/update query cache. Local UI state via React useState/Context. TapToStreamContext provides global animation state for the watch flow.
+**State management:** React Query manages all server state (games, alerts, wagers, odds, connections, preferences, positions). Games/Alerts keys are versioned (`games-v2` / `alerts-v2` plus `DEMO_FILTER_VERSION` in `lib/demo-guard.ts`) so an OTA discards lists that predate the demo-row filter. Real-time updates via Supabase Realtime subscriptions that invalidate/update query cache. Local UI state via React useState/Context. TapToStreamContext provides global animation state for the watch flow.
 
 **API client:** Supabase JS client (`lib/supabase.ts`) initialized with `expo-secure-store` adapter for token persistence. All data fetching goes through Supabase's auto-generated REST API (PostgREST) with RLS enforcement, or direct Edge Function invocations.
 

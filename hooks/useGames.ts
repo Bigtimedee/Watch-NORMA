@@ -2,6 +2,13 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { Game, SportKey } from "../lib/types";
+import {
+  applyConsumerGameIdFilter,
+  excludeDemoGames,
+  followedGamesQueryKey,
+  gamesQueryKey,
+  isDemoGameId,
+} from "../lib/demo-guard";
 
 /** Get the Eastern-timezone calendar date as YYYY-MM-DD (matches DatePicker's Eastern-based today) */
 function localDateStr(date?: string): string {
@@ -70,7 +77,7 @@ export function useGames(date?: string, sport?: SportKey) {
   const today = localDateStr(date);
 
   const query = useQuery<Game[]>({
-    queryKey: ["games", today, sport ?? "all"],
+    queryKey: gamesQueryKey(today, sport ?? "all"),
     queryFn: async () => {
       // Anchor boundaries to Eastern timezone so the query always matches
       // the Eastern calendar day regardless of the user's device timezone.
@@ -98,10 +105,12 @@ export function useGames(date?: string, sport?: SportKey) {
         query = query.eq("sport", sport);
       }
 
+      query = applyConsumerGameIdFilter(query);
+
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data ?? []) as Game[];
+      return excludeDemoGames((data ?? []) as Game[]);
     },
     // Poll frequently for today's live games; future dates only need occasional refreshes
     refetchInterval: date === todayStr ? 30_000 : 5 * 60 * 1000,
@@ -116,8 +125,9 @@ export function useGames(date?: string, sport?: SportKey) {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "games" },
           (payload) => {
-            queryClient.setQueryData<Game[]>(["games", today, sport ?? "all"], (old) => {
+            queryClient.setQueryData<Game[]>(gamesQueryKey(today, sport ?? "all"), (old) => {
               if (!old) return old;
+              if (isDemoGameId(payload.new.id)) return old;
               // Only update games that match the current sport filter
               if (sport && payload.new.sport && payload.new.sport !== sport) return old;
               return old.map((g) =>
@@ -140,7 +150,7 @@ export function useGames(date?: string, sport?: SportKey) {
 /** Fetch only followed games for the current user */
 export function useFollowedGames() {
   return useQuery<Game[]>({
-    queryKey: ["followed-games"],
+    queryKey: followedGamesQueryKey(),
     queryFn: async () => {
       const {
         data: { user },
@@ -158,7 +168,9 @@ export function useFollowedGames() {
       if (followsError) throw followsError;
       if (!follows || follows.length === 0) return [];
 
-      const gameIds = follows.map((f) => f.game_id).filter(Boolean);
+      const gameIds = follows
+        .map((f) => f.game_id)
+        .filter((id): id is string => Boolean(id) && !isDemoGameId(id));
 
       // Get followed team IDs
       const { data: teamFollows } = await supabase
@@ -190,9 +202,11 @@ export function useFollowedGames() {
         query = query.in("id", gameIds);
       }
 
+      query = applyConsumerGameIdFilter(query);
+
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as Game[];
+      return excludeDemoGames((data ?? []) as Game[]);
     },
     refetchInterval: 30_000,
   });

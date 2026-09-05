@@ -1,6 +1,13 @@
 -- NORMA Test Seed Data
 -- Idempotent — safe to run on every `supabase db reset`
 -- Provides a realistic game-day scenario for E2E testing
+--
+-- Do NOT use game ids prefixed `demo-` or alert titles containing
+-- `DEMO SCREENSHOT`. Those patterns are filtered from the consumer app
+-- after a production pollution incident (2026-09-05). Local fixtures
+-- here use `game-1` … `game-4`. Never apply this file to production
+-- (`shijrazlzawjpobrpmnt`). Screenshot captures must use local/staging
+-- with ALLOW_DEMO_SEED=1 — see scripts/seed-demo-screenshot.ts.
 
 -- ─── Test User ───
 -- Must exist in auth.users first (Supabase trigger creates profile)
