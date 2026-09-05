@@ -61,13 +61,16 @@ deno test --allow-env --allow-net=none supabase/functions/
 - DB on port 54322
 - Studio on port 54323
 - Auth: Apple Sign-In enabled
-- Deep link callback: `norma://auth-callback`
+- Deep link callback: `norma://auth-callback` (password reset + magic link; custom scheme, no App Store Connect associated-domains change)
 
 ## Testing Strategy
 
 ### Existing Tests
 
 **Client-side (Jest + jest-expo):**
+- `lib/__tests__/auth-signin-errors.test.ts` — invalid-credentials → Sign in with Apple / forgot-password CTA mapping
+- `lib/__tests__/auth-callback.test.ts` — `norma://auth-callback` parse + URL helper
+- `lib/__tests__/auth-recovery-state.test.ts` — password-recovery flag for AuthGate
 - `lib/__tests__/deep-links.test.ts` — deep link URL resolution and fallback chain
 - `lib/__tests__/watch-provider-selection.test.ts` — best watch provider selection logic
 - `lib/__tests__/alert-helpers.test.ts` — alert type labels, colors, icons, urgency, time formatting
@@ -244,6 +247,8 @@ Previously noted risks that have been resolved:
 5. **OTA Update job:** (main branch push only) `eas update --auto --channel production --non-interactive`. Now depends on `deploy-functions` so the client bundle never ships to devices before the backend it depends on.
 
 Database migrations remain a deliberate manual step (see `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.6). Adding `supabase db push` to CI today would immediately apply parked cron migrations that fail without corresponding `app.*` settings; do not add it until those settings are seeded.
+
+**Optional future secret (name only):** `OWNER_AUTH_PASSWORD` — GitHub Actions secret for a possible owner-account sign-in health check. Not implemented in CI today. Do not commit the value or add a vault file.
 
 ## Observability
 

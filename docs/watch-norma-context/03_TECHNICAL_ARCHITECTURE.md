@@ -5,7 +5,8 @@
 ```
 Watch-NORMA/
 ├── app/                              # Expo Router screens
-│   ├── (auth)/                       # Auth flows (welcome, sign-in, sign-up)
+│   ├── (auth)/                       # Auth flows (welcome, sign-in, sign-up, forgot/reset password)
+│   ├── auth-callback.tsx             # norma://auth-callback (recovery / magic link)
 │   ├── (tabs)/                       # Authenticated tab navigator
 │   │   ├── games/                    # Game list + game detail
 │   │   ├── alerts/                   # Alert feed
@@ -99,7 +100,7 @@ All items verified from repository files.
 
 **App entry point:** `app/_layout.tsx` is the root layout. It wraps the app in ErrorBoundary, QueryClientProvider (React Query), TapToStreamProvider (global streaming animation context), and AuthGate (redirects unauthenticated users to welcome screen). It also registers for push notifications and handles `gameId` deep links from push payloads.
 
-**Routing:** Expo Router 6 (file-based). Routes map to filesystem under `app/`. Auth routes under `(auth)/`, authenticated routes under `(tabs)/`. Deep link scheme: `norma://`.
+**Routing:** Expo Router 6 (file-based). Routes map to filesystem under `app/`. Auth routes under `(auth)/`, authenticated routes under `(tabs)/`. Deep link scheme: `norma://`. Auth recovery / magic-link emails use the existing `norma://auth-callback` site URL (`supabase/config.toml`). `AuthGate` leaves `/auth-callback` and `/(auth)/reset-password` alone during `PASSWORD_RECOVERY` so a recovery session is not bounced to Games before the user sets a password.
 
 **Major screens:** Games list (date + sport filter, live/following tabs), Game detail (scores, odds, wagers, positions, watch button), Alerts feed (real-time insertion), Connections hub (4 categories), Profile (settings, preferences, account management).
 
@@ -271,6 +272,7 @@ All steps above are **implemented and running in production** except:
 | Variable | Purpose |
 |----------|---------|
 | `EXPO_TOKEN` | EAS OTA update publishing (GitHub Actions secret) |
+| `OWNER_AUTH_PASSWORD` | Optional future owner-account auth health-check (documented name only; not wired) |
 
 **Production warnings:** Never commit actual secret values. All Edge Function secrets are set via `supabase secrets set`. The `.env.example` file contains only the three mobile-side variables. The `.gitignore` excludes `.env` files.
 

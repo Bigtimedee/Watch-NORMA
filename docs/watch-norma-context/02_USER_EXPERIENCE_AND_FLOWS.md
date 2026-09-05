@@ -8,6 +8,8 @@ The onboarding flow starts at `/(auth)/welcome` and guides the user through acco
 
 **Step 2: Account creation.** The user can sign up with email/password (providing name, email, password) or Apple Sign-In on iOS. Email sign-up requires email verification. After successful auth, the user is redirected to the authenticated tab navigator.
 
+**Step 2b: Returning sign-in (Apple-first).** On iOS, Sign in with Apple is the recommended path and is shown first / equally prominent to email. If email/password fails with "Invalid login credentials" (or similar), the screen does not dead-end on a toast: it shows a recovery card plus an alert with a Sign in with Apple CTA and Forgot password / "Email me a login link". Historical Apple-linked accounts may have had an empty `encrypted_password`; product UX treats that the same as a failed password. Recovery emails open `norma://auth-callback` (existing custom scheme — not an App Store Connect universal link).
+
 **Step 3: Connect services.** From the Connections tab (route segment `connections`, but labelled **Watch** in the tab bar), the user can connect streaming services (ESPN+, YouTube TV, Peacock, etc.), TV providers, sportsbooks (DraftKings, FanDuel, BetMGM), and prediction markets (Kalshi, Polymarket). Connecting a streaming service or sportsbook means the user indicates "I use this" — there is no OAuth flow for streaming or sportsbooks. Kalshi requires API key + private key (.pem) via a multi-step wizard. Polymarket requires a wallet address.
 
 **Step 4: Set preferences.** From the Profile tab, the user opens the Preferences sheet to select favorite teams, set quiet hours (start/end times), configure per-game and per-hour alert limits, and choose notification channels (push and/or in-app).
@@ -109,8 +111,11 @@ Based on the repository, the app has the following screens and components:
 
 **Authentication:**
 - `/(auth)/welcome` — onboarding landing page
-- `/(auth)/sign-in` — email/password + Apple Sign-In
+- `/(auth)/sign-in` — Apple Sign-In (recommended on iOS) + email/password, with recovery CTAs on invalid credentials
 - `/(auth)/sign-up` — registration form
+- `/(auth)/forgot-password` — magic link + password reset email
+- `/(auth)/reset-password` — set a new password after a recovery deep link
+- `/auth-callback` — handles `norma://auth-callback` from recovery / magic-link emails
 
 **Games Tab:**
 - `/(tabs)/games/index` — game list with date picker, sport filter, tab switcher (All/Live/Following)
