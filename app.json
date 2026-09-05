@@ -2,7 +2,7 @@
   "expo": {
     "name": "NORMA",
     "slug": "norma",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -22,7 +22,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.norma.app",
-      "buildNumber": "35",
+      "buildNumber": "36",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
