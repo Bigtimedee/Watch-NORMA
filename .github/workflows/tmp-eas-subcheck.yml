@@ -11,29 +11,16 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Query submission
+      - name: Submission list
         run: |
-          echo '====INTROSPECT===='
+          eas submit:list --platform ios --limit 3 --non-interactive
+          echo '====GQL===='
           curl -sS -X POST https://api.expo.dev/graphql \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${EXPO_TOKEN}" \
-            -d '{"query":"{ __type(name: \"RootQuery\") { fields { name } } }"}' | head -c 5000
+            -d '{"query":"query { submissions(limit:3, offset:0, filter:{ platform: IOS }) { id status platform createdAt updatedAt completedAt } }"}'
           echo
-          echo '====APP_SUBS===='
-          curl -sS -X POST https://api.expo.dev/graphql \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${EXPO_TOKEN}" \
-            -d '{"query":"query { app { byId(appId: \"3a418868-5bb5-4852-b565-3282ee4fe91e\") { id fullName submissions(limit:5, offset:0) { id status platform createdAt updatedAt completedAt errorMessage } } } }"}'
-          echo
-          echo '====SUBMIT_LIST===='
-          eas submit:list --platform ios --limit 5 --non-interactive 2>&1 || eas build:list --platform ios --limit 3 --non-interactive --json 2>&1 | head -c 3000
-          echo
-          echo '====HELP===='
-          eas submit --help 2>&1 | head -80
