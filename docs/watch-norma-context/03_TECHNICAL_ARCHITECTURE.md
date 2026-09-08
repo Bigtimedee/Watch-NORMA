@@ -268,8 +268,8 @@ All steps above are **implemented and running in production** except:
 | `INSTAGRAM_ACCOUNT_ID` | Instagram account ID |
 | `FACEBOOK_ACCESS_TOKEN` | Facebook Graph API |
 | `FACEBOOK_PAGE_ID` | Facebook page ID |
-| `LINKEDIN_ACCESS_TOKEN` | LinkedIn OAuth 2.0 token with `w_organization_social` (company-page posting). **Required** secret — never hardcoded. |
-| `LINKEDIN_ORGANIZATION_ID` | Optional. NORMA company page id or `urn:li:organization:…` (never a person URN). Defaults to `146336141` (`https://www.linkedin.com/company/watch-norma/`) when unset. |
+| `LINKEDIN_ACCESS_TOKEN` | LinkedIn OAuth 2.0 token with `w_organization_social` (company-page posting). **Required** secret — never hardcoded. Optional `workflow_dispatch` input on `.github/workflows/set-linkedin-secrets.yml`. |
+| `LINKEDIN_ORGANIZATION_ID` | Optional. NORMA company page id or `urn:li:organization:…` (never a person URN). Defaults to `146336141` (`https://www.linkedin.com/company/watch-norma/`) when unset. The dispatch-only workflow can pin this secret explicitly. |
 | `LINKEDIN_CLIENT_ID` | Optional LinkedIn app client id (token refresh) |
 | `LINKEDIN_CLIENT_SECRET` | Optional LinkedIn app client secret (token refresh) |
 | `LINKEDIN_REFRESH_TOKEN` | Optional refresh token used on HTTP 401 |
@@ -280,6 +280,8 @@ All steps above are **implemented and running in production** except:
 | Variable | Purpose |
 |----------|---------|
 | `EXPO_TOKEN` | EAS OTA update publishing (GitHub Actions secret) |
+| `SUPABASE_ACCESS_TOKEN` | Supabase personal access token (Edge Function deploy + one-off `supabase secrets set`) |
+| `SUPABASE_PROJECT_REF` | Production project ref for CLI `--project-ref` |
 | `OWNER_AUTH_PASSWORD` | Optional future owner-account auth health-check (documented name only; not wired) |
 
 **Production warnings:** Never commit actual secret values. All Edge Function secrets are set via `supabase secrets set`. `.env.example` lists client placeholders plus commented Edge Function secret names (including optional `LINKEDIN_ORGANIZATION_ID`, which defaults to NORMA org `146336141`). The `.gitignore` excludes `.env` files.
