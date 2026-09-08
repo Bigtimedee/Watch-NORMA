@@ -104,8 +104,8 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `_shared/social-content-engine_test.ts` — Football M1 prompts + `selectScreenshotUrl` denylist
 - `cmo-publish/media-upload_test.ts` — media upload logic
 - `cmo-publish/platform-filter_test.ts` — LinkedIn/non-X calendar rows are not posted to X; due query is twitter-only
-- `cmo-publish-linkedin/platform-filter_test.ts` — LinkedIn due query is linkedin-only; twitter rows are skipped; PR #32 twitter-only guard still present in `cmo-publish`
-- `cmo-publish-linkedin/publish_test.ts` — mock LinkedIn Posts/Images API (text, image, 401 refresh, missing secrets)
+- `cmo-publish-linkedin/platform-filter_test.ts` — LinkedIn due query is linkedin-only; twitter rows are skipped; PR #32 twitter-only guard still present in `cmo-publish`; missing org env falls back to NORMA `146336141`
+- `cmo-publish-linkedin/publish_test.ts` — mock LinkedIn Posts/Images API (text, image, 401 refresh, missing token, org-id default)
 - `creative-prescreen/rubric_test.ts` — 18 tests for buildPrescreenPrompt (rubric coverage, demand type rules, JSON format) and parsePrescreenResponse (valid/malformed/unknown verdict, non-string reasons)
 - `growth-weekly-report/logic_test.ts` — 18 tests for buildHtmlEmail (period dates, delta colors, retention block presence, moment breakdown, fill rate formatting, null handling, Watch NORMA branding)
 
@@ -334,6 +334,18 @@ The `verify-provider-links` Edge Function *proactively* fetches each streaming/T
 **Dedup:** Repeated identical alerts are suppressed within a 30-minute cooldown window tracked in the `ops_alert_state` table (service-role-only RLS). Healthy responses produce no Slack noise.
 
 **Slack secret:** Set `SLACK_WEBHOOK_URL` via `supabase secrets set SLACK_WEBHOOK_URL=https://hooks.slack.com/...`. If the secret is absent, thresholds are still evaluated and logged but no Slack message is sent.
+
+### LinkedIn company-page publishing (ops)
+
+`cmo-publish-linkedin` posts `content_calendar` rows (`platform = 'linkedin'`) to the NORMA company page.
+
+| Item | Value |
+|------|--------|
+| Company page | https://www.linkedin.com/company/watch-norma/ |
+| Organization id | `146336141` |
+| URN | `urn:li:organization:146336141` |
+
+**Secrets:** `LINKEDIN_ACCESS_TOKEN` is required (`supabase secrets set`). Do not commit or hardcode it. `LINKEDIN_ORGANIZATION_ID` is optional: env (bare id or URN) → `social_accounts.account_id` where `platform = 'linkedin'` → hardcoded NORMA default `146336141`. Production auto-publish does not depend on the org-id secret being set. `cmo-publish` remains twitter-only.
 
 ## Operations
 

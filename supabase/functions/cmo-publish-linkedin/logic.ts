@@ -5,11 +5,27 @@
 // tweet LinkedIn rows. This function is linkedin-only and must never post
 // twitter rows to LinkedIn, and must never call the X API.
 //
+// NORMA LinkedIn company page (public, not a secret):
+//   https://www.linkedin.com/company/watch-norma/
+//   organization id 146336141
+//   URN urn:li:organization:146336141
+// LINKEDIN_ORGANIZATION_ID env is optional; when unset, fall back to this org.
+// LINKEDIN_ACCESS_TOKEN remains required and is never hardcoded.
+//
 // content_calendar.platform CHECK: twitter | instagram | linkedin | tiktok | facebook
 // =============================================================================
 
 /** Canonical content_calendar value for LinkedIn. */
 export const CONTENT_CALENDAR_LINKEDIN_PLATFORM = "linkedin";
+
+/** Public NORMA company page. Org id is not a secret; access tokens are. */
+export const NORMA_LINKEDIN_COMPANY_URL =
+  "https://www.linkedin.com/company/watch-norma/";
+export const NORMA_LINKEDIN_ORGANIZATION_ID = "146336141";
+export const NORMA_LINKEDIN_ORGANIZATION_URN =
+  `urn:li:organization:${NORMA_LINKEDIN_ORGANIZATION_ID}`;
+
+export type LinkedInOrgIdSource = "env" | "social_accounts" | "norma_default";
 
 /** Statuses the publisher is allowed to pick up. */
 export const PUBLISHABLE_STATUSES = ["draft", "scheduled"] as const;
@@ -61,6 +77,23 @@ export function isLinkedInPlatform(platform: string | null | undefined): boolean
 export function isPublishableStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   return (PUBLISHABLE_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Resolve the company-page org id.
+ * Preference: LINKEDIN_ORGANIZATION_ID env → social_accounts.account_id
+ * (platform=linkedin) → hardcoded NORMA default 146336141.
+ * Accepts a bare numeric id or a full URN; empty/whitespace is treated as unset.
+ */
+export function resolveLinkedInOrganizationId(opts: {
+  envValue?: string | null;
+  socialAccountId?: string | null;
+}): { idOrUrn: string; source: LinkedInOrgIdSource } {
+  const fromEnv = opts.envValue?.trim();
+  if (fromEnv) return { idOrUrn: fromEnv, source: "env" };
+  const fromAccount = opts.socialAccountId?.trim();
+  if (fromAccount) return { idOrUrn: fromAccount, source: "social_accounts" };
+  return { idOrUrn: NORMA_LINKEDIN_ORGANIZATION_ID, source: "norma_default" };
 }
 
 /**
