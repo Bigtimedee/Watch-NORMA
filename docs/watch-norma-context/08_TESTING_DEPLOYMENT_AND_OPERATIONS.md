@@ -103,6 +103,7 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `_shared/social-media-select_test.ts` — allowlist/denylist for consumer auto-post screenshots
 - `_shared/social-content-engine_test.ts` — Football M1 prompts + `selectScreenshotUrl` denylist
 - `cmo-publish/media-upload_test.ts` — media upload logic
+- `cmo-publish/platform-filter_test.ts` — LinkedIn/non-X calendar rows are not posted to X; due query is twitter-only
 - `creative-prescreen/rubric_test.ts` — 18 tests for buildPrescreenPrompt (rubric coverage, demand type rules, JSON format) and parsePrescreenResponse (valid/malformed/unknown verdict, non-string reasons)
 - `growth-weekly-report/logic_test.ts` — 18 tests for buildHtmlEmail (period dates, delta colors, retention block presence, moment breakdown, fill rate formatting, null handling, Watch NORMA branding)
 

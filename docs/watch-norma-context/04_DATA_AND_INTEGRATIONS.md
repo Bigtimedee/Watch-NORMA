@@ -193,7 +193,7 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 | Anthropic Claude API | Bet slip OCR, email parsing, social content | **Implemented** | `parse-bet-slip`, `ingest-email-wagers`, `cmo-generate`, `generate-social-content` | Claude Sonnet (vision), Claude Opus (content). |
 | Gmail API | Email wager ingestion | **Implemented** | `ingest-email-wagers`, `renew-gmail-watch` | Pub/Sub push, service account JWT. |
 | Stripe | Advertiser billing | **Implemented** | `stripe-checkout`, `stripe-webhook` | Checkout Sessions + Webhooks. |
-| X/Twitter API | Social publishing | **Implemented** | `cmo-publish`, `publish-social-posts`, `fetch-social-metrics` | OAuth 1.0a, v2 API + v1.1 media upload. |
+| X/Twitter API | Social publishing | **Implemented** | `cmo-publish`, `publish-social-posts`, `fetch-social-metrics` | OAuth 1.0a, v2 API + v1.1 media upload. `cmo-publish` is twitter-only on `content_calendar` (`platform = 'twitter'`); it must not tweet LinkedIn/Instagram/TikTok/Facebook drafts. |
 | Instagram Graph API | Social publishing + metrics | **Partial** | `publish-social-posts`, `fetch-social-metrics`, `_shared/social-publishers.ts` | Publisher code exists. Needs verification. |
 | Facebook Graph API | Social publishing + metrics | **Partial** | `publish-social-posts`, `fetch-social-metrics`, `_shared/social-publishers.ts` | Publisher code exists. |
 | TikTok API | Social publishing | **Scaffolded** | `_shared/social-publishers.ts` | Reference structure only. |

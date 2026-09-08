@@ -1,6 +1,8 @@
 // =============================================================================
 // NORMA CMO Agent — cmo-publish Edge Function
-// Queries draft posts due for publishing and posts them to X (Twitter) v2 API.
+// Queries twitter-only draft/scheduled posts due for publishing and posts them
+// to X (Twitter) v2 API. Non-X content_calendar rows (linkedin, instagram,
+// tiktok, facebook) are never selected and must never be tweeted.
 // Invoked by pg_cron every 30 minutes and optionally via HTTP.
 // =============================================================================
 
@@ -8,6 +10,12 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { crypto } from "https://deno.land/std@0.208.0/crypto/mod.ts";
 import { encodeHex } from "https://deno.land/std@0.208.0/encoding/hex.ts";
+import {
+  CONTENT_CALENDAR_TWITTER_PLATFORM,
+  DUE_POSTS_QUERY,
+  TWITTER_STATUS_MUTATION_FILTER,
+  classifyPublishCandidate,
+} from "./logic.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +54,7 @@ interface TwitterMediaUploadResponse {
 interface PublishResult {
   id: string;
   success: boolean;
+  skipped?: boolean;
   tweet_id?: string;
   error?: string;
 }
@@ -56,7 +65,7 @@ interface PublishResult {
 
 const MAX_POSTS_PER_DAY = 10;
 const TWITTER_API_BASE = "https://api.twitter.com/2";
-const PLATFORM = "twitter";
+const PLATFORM = CONTENT_CALENDAR_TWITTER_PLATFORM;
 
 // ---------------------------------------------------------------------------
 // OAuth 1.0a Implementation for Twitter Bot Account
@@ -355,10 +364,10 @@ async function countPublishedToday(
 }
 
 // ---------------------------------------------------------------------------
-// Fetch posts ready to publish
+// Fetch posts ready to publish to X.
 // A post is publishable when:
-//   status = 'draft' AND scheduled_for <= now()
-// We also return posts with status = 'scheduled' for forward compatibility.
+//   platform = 'twitter' AND status IN ('draft','scheduled') AND scheduled_for <= now()
+// Non-X platforms (linkedin, instagram, tiktok, facebook) are never selected.
 // ---------------------------------------------------------------------------
 
 async function fetchDuePosts(
@@ -368,9 +377,10 @@ async function fetchDuePosts(
   const now = new Date().toISOString();
 
   const { data, error } = await supabase
-    .from("content_calendar")
+    .from(DUE_POSTS_QUERY.table)
     .select("*")
-    .in("status", ["draft", "scheduled"])
+    .eq("platform", DUE_POSTS_QUERY.platform)
+    .in("status", [...DUE_POSTS_QUERY.statuses])
     .lte("scheduled_for", now)
     .order("scheduled_for", { ascending: true })
     .limit(limit);
@@ -391,17 +401,26 @@ async function markPublished(
   postId: string,
   tweetId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("content_calendar")
     .update({
       status: "published",
       published_at: new Date().toISOString(),
       platform_post_id: tweetId,
     })
-    .eq("id", postId);
+    .eq("id", postId)
+    .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
+    .in("status", [...TWITTER_STATUS_MUTATION_FILTER.statuses])
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Failed to mark post ${postId} as published: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error(
+      `Failed to mark post ${postId} as published: no matching twitter draft/scheduled row`,
+    );
   }
 }
 
@@ -416,7 +435,9 @@ async function markFailed(
       status: "failed",
       human_notes: `[AUTO-FAIL ${new Date().toISOString()}] ${reason.slice(0, 500)}`,
     })
-    .eq("id", postId);
+    .eq("id", postId)
+    .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
+    .in("status", [...TWITTER_STATUS_MUTATION_FILTER.statuses]);
 
   if (error) {
     console.error(`[cmo-publish] Failed to mark post ${postId} as failed: ${error.message}`);
@@ -549,37 +570,40 @@ serve(async (req: Request): Promise<Response> => {
   for (let i = 0; i < duePosts.length; i++) {
     const post = duePosts[i];
 
-    // Double-check status hasn't changed (race condition guard)
-    if (!["draft", "scheduled"].includes(post.status)) {
+    // Defense in depth: never tweet (or mutate) a non-X calendar row even if
+    // the due-posts query regresses and drops the platform filter.
+    const disposition = classifyPublishCandidate(post);
+
+    if (disposition.kind === "skip") {
       console.log(
-        `[cmo-publish] Post ${post.id} has status '${post.status}', skipping.`,
+        `[cmo-publish] Post ${post.id} skipped (${disposition.reason}). Leaving status '${post.status}' unchanged.`,
       );
       results.push({
         id: post.id,
         success: false,
-        error: `Skipped: unexpected status '${post.status}'`,
+        skipped: true,
+        error: disposition.reason,
       });
       continue;
     }
 
-    // Validate body
-    if (!post.body || post.body.trim().length === 0) {
-      console.error(`[cmo-publish] Post ${post.id} has empty body, marking failed.`);
-      await markFailed(supabase, post.id, "Empty tweet body");
-      results.push({ id: post.id, success: false, error: "Empty body" });
+    if (disposition.kind === "fail") {
+      console.error(`[cmo-publish] Post ${post.id} ${disposition.reason}, marking failed.`);
+      await markFailed(supabase, post.id, disposition.reason);
+      results.push({ id: post.id, success: false, error: disposition.reason });
       continue;
     }
 
+    const tweetBody = disposition.tweetBody;
     if (post.body.length > 280) {
       console.warn(
         `[cmo-publish] Post ${post.id} exceeds 280 chars (${post.body.length}), truncating.`,
       );
-      post.body = post.body.slice(0, 280);
     }
 
     try {
       console.log(
-        `[cmo-publish] Publishing post ${post.id}: "${post.body.slice(0, 60)}..."`,
+        `[cmo-publish] Publishing post ${post.id}: "${tweetBody.slice(0, 60)}..."`,
       );
 
       // Attempt to upload the first media attachment if present
@@ -591,7 +615,7 @@ serve(async (req: Request): Promise<Response> => {
         }
       }
 
-      const { tweetId } = await postTweet(post.body, credentials, mediaIds.length > 0 ? mediaIds : undefined);
+      const { tweetId } = await postTweet(tweetBody, credentials, mediaIds.length > 0 ? mediaIds : undefined);
 
       await markPublished(supabase, post.id, tweetId);
 
@@ -620,10 +644,11 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const publishedCount = results.filter((r) => r.success).length;
-  const failedCount = results.filter((r) => !r.success).length;
+  const skippedCount = results.filter((r) => r.skipped).length;
+  const failedCount = results.filter((r) => !r.success && !r.skipped).length;
 
   console.log(
-    `[cmo-publish] Run complete. Published: ${publishedCount}, Failed: ${failedCount}`,
+    `[cmo-publish] Run complete. Published: ${publishedCount}, Failed: ${failedCount}, Skipped: ${skippedCount}`,
   );
 
   return new Response(
@@ -631,6 +656,7 @@ serve(async (req: Request): Promise<Response> => {
       success: true,
       published: publishedCount,
       failed: failedCount,
+      skipped: skippedCount,
       total_today: publishedTodayCount + publishedCount,
       results,
     }),

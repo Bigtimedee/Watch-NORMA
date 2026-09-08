@@ -161,7 +161,7 @@ All items verified from repository files.
 
 *Social Content:*
 - `cmo-generate` (6 hours) — Claude-generated brand tweets
-- `cmo-publish` (30 min) — publishes to X with OAuth 1.0a
+- `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are left unpublished (not tweeted, not marked published).
 - `generate-social-content` (daily 6 AM UTC) — multi-platform content
 - `publish-social-posts` (hourly) — routes posts to platform publishers
 - `generate-recap-content` (daily 11 PM UTC) — post-game recap posts
@@ -312,7 +312,7 @@ All client queries go through the Supabase JS client which auto-generates REST c
 | `floor-price-optimizer` | Daily 3 AM ET | Optimize floor prices |
 | `forecast-supply` | Daily 2 AM | Supply forecasting |
 | `cmo-generate` | Every 6 hours | Generate social content |
-| `cmo-publish` | Every 30 min | Publish to X |
+| `cmo-publish` | Every 30 min | Publish twitter-only calendar rows to X |
 | `generate-social-content` | Daily 6 AM UTC | Multi-platform content |
 | `publish-social-posts` | Hourly | Route to platform publishers |
 | `generate-recap-content` | Daily 11 PM UTC | Post-game recaps |
