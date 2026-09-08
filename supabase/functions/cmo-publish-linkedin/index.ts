@@ -5,6 +5,11 @@
 // Twitter/X content_calendar rows are never selected and must never be posted
 // here (cmo-publish owns X; PR #32 twitter-only guard stays intact).
 // Invoked by pg_cron every 30 minutes and optionally via HTTP.
+//
+// Company page: https://www.linkedin.com/company/watch-norma/
+// Org id: 146336141  URN: urn:li:organization:146336141
+// Org id resolution: LINKEDIN_ORGANIZATION_ID env → social_accounts.account_id
+// (platform=linkedin) → this NORMA default. LINKEDIN_ACCESS_TOKEN is required.
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -104,6 +109,29 @@ async function markPublished(
   }
 }
 
+/**
+ * Best-effort org id from social_accounts. Never reads access_token —
+ * LINKEDIN_ACCESS_TOKEN remains the only token source.
+ */
+async function lookupLinkedInSocialAccountId(
+  supabase: ReturnType<typeof createClient>,
+): Promise<string | undefined> {
+  const { data, error } = await supabase
+    .from("social_accounts")
+    .select("account_id")
+    .eq("platform", "linkedin")
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      `[cmo-publish-linkedin] social_accounts linkedin lookup skipped: ${error.message}`,
+    );
+    return undefined;
+  }
+  const accountId = typeof data?.account_id === "string" ? data.account_id.trim() : "";
+  return accountId || undefined;
+}
+
 async function markFailed(
   supabase: ReturnType<typeof createClient>,
   postId: string,
@@ -154,14 +182,23 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  const linkedInLoaded = loadLinkedInConfig({
-    LINKEDIN_ACCESS_TOKEN: Deno.env.get("LINKEDIN_ACCESS_TOKEN"),
-    LINKEDIN_ORGANIZATION_ID: Deno.env.get("LINKEDIN_ORGANIZATION_ID"),
-    LINKEDIN_CLIENT_ID: Deno.env.get("LINKEDIN_CLIENT_ID"),
-    LINKEDIN_CLIENT_SECRET: Deno.env.get("LINKEDIN_CLIENT_SECRET"),
-    LINKEDIN_REFRESH_TOKEN: Deno.env.get("LINKEDIN_REFRESH_TOKEN"),
-    LINKEDIN_API_VERSION: Deno.env.get("LINKEDIN_API_VERSION"),
-  });
+  const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+  const envOrgId = Deno.env.get("LINKEDIN_ORGANIZATION_ID");
+  const socialAccountId = envOrgId?.trim()
+    ? undefined
+    : await lookupLinkedInSocialAccountId(supabase);
+
+  const linkedInLoaded = loadLinkedInConfig(
+    {
+      LINKEDIN_ACCESS_TOKEN: Deno.env.get("LINKEDIN_ACCESS_TOKEN"),
+      LINKEDIN_ORGANIZATION_ID: Deno.env.get("LINKEDIN_ORGANIZATION_ID"),
+      LINKEDIN_CLIENT_ID: Deno.env.get("LINKEDIN_CLIENT_ID"),
+      LINKEDIN_CLIENT_SECRET: Deno.env.get("LINKEDIN_CLIENT_SECRET"),
+      LINKEDIN_REFRESH_TOKEN: Deno.env.get("LINKEDIN_REFRESH_TOKEN"),
+      LINKEDIN_API_VERSION: Deno.env.get("LINKEDIN_API_VERSION"),
+    },
+    { socialAccountId },
+  );
 
   if (!linkedInLoaded.ok) {
     const missing = linkedInLoaded.missing.join(", ");
@@ -169,7 +206,7 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({
         error: `Missing LinkedIn secrets: ${missing}`,
-        hint: "Set LINKEDIN_ACCESS_TOKEN and LINKEDIN_ORGANIZATION_ID via `supabase secrets set`. Do not post LinkedIn drafts to X.",
+        hint: "Set LINKEDIN_ACCESS_TOKEN via `supabase secrets set`. LINKEDIN_ORGANIZATION_ID is optional and defaults to the NORMA company page (146336141 / https://www.linkedin.com/company/watch-norma/). Do not post LinkedIn drafts to X.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
@@ -190,8 +227,10 @@ serve(async (req: Request): Promise<Response> => {
     `[cmo-publish-linkedin] Run started at ${now.toISOString()}, source=${requestPayload.source ?? "direct"}`,
   );
 
-  const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
   const linkedInConfig = linkedInLoaded.config;
+  console.log(
+    `[cmo-publish-linkedin] Organization ${linkedInConfig.organizationUrn} (source=${linkedInConfig.organizationIdSource})`,
+  );
 
   const publishedTodayCount = await countPublishedToday(
     supabase,

@@ -162,7 +162,7 @@ All items verified from repository files.
 *Social Content:*
 - `cmo-generate` (6 hours) — Claude-generated brand tweets
 - `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are never tweeted (PR #32).
-- `cmo-publish-linkedin` (30 min) — publishes **linkedin-only** `content_calendar` rows to the NORMA LinkedIn company page (organization Posts / UGC API). Twitter rows are never selected.
+- `cmo-publish-linkedin` (30 min) — publishes **linkedin-only** `content_calendar` rows to the NORMA LinkedIn company page (`https://www.linkedin.com/company/watch-norma/`, org `146336141`). Twitter rows are never selected. `LINKEDIN_ORGANIZATION_ID` is optional.
 - `generate-social-content` (daily 6 AM UTC) — multi-platform content
 - `publish-social-posts` (hourly) — routes posts to platform publishers
 - `generate-recap-content` (daily 11 PM UTC) — post-game recap posts
@@ -268,8 +268,8 @@ All steps above are **implemented and running in production** except:
 | `INSTAGRAM_ACCOUNT_ID` | Instagram account ID |
 | `FACEBOOK_ACCESS_TOKEN` | Facebook Graph API |
 | `FACEBOOK_PAGE_ID` | Facebook page ID |
-| `LINKEDIN_ACCESS_TOKEN` | LinkedIn OAuth 2.0 token with `w_organization_social` (company-page posting) |
-| `LINKEDIN_ORGANIZATION_ID` | NORMA company page id or `urn:li:organization:…` (never a person URN) |
+| `LINKEDIN_ACCESS_TOKEN` | LinkedIn OAuth 2.0 token with `w_organization_social` (company-page posting). **Required** secret — never hardcoded. |
+| `LINKEDIN_ORGANIZATION_ID` | Optional. NORMA company page id or `urn:li:organization:…` (never a person URN). Defaults to `146336141` (`https://www.linkedin.com/company/watch-norma/`) when unset. |
 | `LINKEDIN_CLIENT_ID` | Optional LinkedIn app client id (token refresh) |
 | `LINKEDIN_CLIENT_SECRET` | Optional LinkedIn app client secret (token refresh) |
 | `LINKEDIN_REFRESH_TOKEN` | Optional refresh token used on HTTP 401 |
@@ -282,7 +282,7 @@ All steps above are **implemented and running in production** except:
 | `EXPO_TOKEN` | EAS OTA update publishing (GitHub Actions secret) |
 | `OWNER_AUTH_PASSWORD` | Optional future owner-account auth health-check (documented name only; not wired) |
 
-**Production warnings:** Never commit actual secret values. All Edge Function secrets are set via `supabase secrets set`. The `.env.example` file contains only the three mobile-side variables. The `.gitignore` excludes `.env` files.
+**Production warnings:** Never commit actual secret values. All Edge Function secrets are set via `supabase secrets set`. `.env.example` lists client placeholders plus commented Edge Function secret names (including optional `LINKEDIN_ORGANIZATION_ID`, which defaults to NORMA org `146336141`). The `.gitignore` excludes `.env` files.
 
 ## API Surface
 

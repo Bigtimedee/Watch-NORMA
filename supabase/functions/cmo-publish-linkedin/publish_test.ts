@@ -19,10 +19,15 @@ import {
   type FetchLike,
   type LinkedInConfig,
 } from "./linkedin-client.ts";
+import {
+  NORMA_LINKEDIN_ORGANIZATION_ID,
+  NORMA_LINKEDIN_ORGANIZATION_URN,
+} from "./logic.ts";
 
 const CONFIG: LinkedInConfig = {
   accessToken: "test-access-token",
   organizationUrn: "urn:li:organization:424242",
+  organizationIdSource: "env",
   apiVersion: DEFAULT_LINKEDIN_API_VERSION,
 };
 
@@ -37,11 +42,19 @@ function jsonResponse(
   });
 }
 
-Deno.test("loadLinkedInConfig requires token + org id and does not invent tokens", () => {
+Deno.test("loadLinkedInConfig requires token only; missing org env falls back to 146336141", () => {
   const missing = loadLinkedInConfig({});
   assertEquals(missing.ok, false);
   if (!missing.ok) {
-    assertEquals(missing.missing, ["LINKEDIN_ACCESS_TOKEN", "LINKEDIN_ORGANIZATION_ID"]);
+    assertEquals(missing.missing, ["LINKEDIN_ACCESS_TOKEN"]);
+  }
+
+  const missingTokenWithOrg = loadLinkedInConfig({
+    LINKEDIN_ORGANIZATION_ID: "146336141",
+  });
+  assertEquals(missingTokenWithOrg.ok, false);
+  if (!missingTokenWithOrg.ok) {
+    assertEquals(missingTokenWithOrg.missing, ["LINKEDIN_ACCESS_TOKEN"]);
   }
 
   const ok = loadLinkedInConfig({
@@ -52,7 +65,53 @@ Deno.test("loadLinkedInConfig requires token + org id and does not invent tokens
   if (ok.ok) {
     assertEquals(ok.config.accessToken, "real-token-from-secrets");
     assertEquals(ok.config.organizationUrn, "urn:li:organization:424242");
+    assertEquals(ok.config.organizationIdSource, "env");
     assertEquals(ok.config.apiVersion, DEFAULT_LINKEDIN_API_VERSION);
+  }
+});
+
+Deno.test("loadLinkedInConfig: missing/empty org env defaults to NORMA 146336141", () => {
+  const missingOrg = loadLinkedInConfig({
+    LINKEDIN_ACCESS_TOKEN: "tok",
+  });
+  assertEquals(missingOrg.ok, true);
+  if (missingOrg.ok) {
+    assertEquals(missingOrg.config.organizationUrn, NORMA_LINKEDIN_ORGANIZATION_URN);
+    assertEquals(missingOrg.config.organizationIdSource, "norma_default");
+    assertEquals(missingOrg.config.accessToken, "tok");
+  }
+
+  const emptyOrg = loadLinkedInConfig({
+    LINKEDIN_ACCESS_TOKEN: "tok",
+    LINKEDIN_ORGANIZATION_ID: "  ",
+  });
+  assertEquals(emptyOrg.ok, true);
+  if (emptyOrg.ok) {
+    assertEquals(emptyOrg.config.organizationUrn, "urn:li:organization:146336141");
+    assertEquals(emptyOrg.config.organizationIdSource, "norma_default");
+  }
+
+  const fromSocial = loadLinkedInConfig(
+    { LINKEDIN_ACCESS_TOKEN: "tok" },
+    { socialAccountId: NORMA_LINKEDIN_ORGANIZATION_ID },
+  );
+  assertEquals(fromSocial.ok, true);
+  if (fromSocial.ok) {
+    assertEquals(fromSocial.config.organizationUrn, NORMA_LINKEDIN_ORGANIZATION_URN);
+    assertEquals(fromSocial.config.organizationIdSource, "social_accounts");
+  }
+
+  const envUrnWins = loadLinkedInConfig(
+    {
+      LINKEDIN_ACCESS_TOKEN: "tok",
+      LINKEDIN_ORGANIZATION_ID: "urn:li:organization:146336141",
+    },
+    { socialAccountId: "999" },
+  );
+  assertEquals(envUrnWins.ok, true);
+  if (envUrnWins.ok) {
+    assertEquals(envUrnWins.config.organizationUrn, NORMA_LINKEDIN_ORGANIZATION_URN);
+    assertEquals(envUrnWins.config.organizationIdSource, "env");
   }
 });
 

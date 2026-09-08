@@ -14,11 +14,15 @@ import {
   DUE_POSTS_QUERY,
   LINKEDIN_STATUS_MUTATION_FILTER,
   LINKEDIN_COMMENTARY_MAX,
+  NORMA_LINKEDIN_COMPANY_URL,
+  NORMA_LINKEDIN_ORGANIZATION_ID,
+  NORMA_LINKEDIN_ORGANIZATION_URN,
   classifyPublishCandidate,
   composeCommentary,
   firstImageUrl,
   isLinkedInPlatform,
   mayMutateCalendarStatus,
+  resolveLinkedInOrganizationId,
   runLinkedInPublishLoop,
   toOrganizationUrn,
   type CalendarPublishCandidate,
@@ -199,12 +203,62 @@ Deno.test("toOrganizationUrn accepts numeric id or org URN; rejects person URN",
     toOrganizationUrn("urn:li:organization:12345"),
     "urn:li:organization:12345",
   );
+  assertEquals(
+    toOrganizationUrn(NORMA_LINKEDIN_ORGANIZATION_ID),
+    NORMA_LINKEDIN_ORGANIZATION_URN,
+  );
+  assertEquals(
+    toOrganizationUrn(NORMA_LINKEDIN_ORGANIZATION_URN),
+    NORMA_LINKEDIN_ORGANIZATION_URN,
+  );
   assertThrows(
     () => toOrganizationUrn("urn:li:person:abc"),
     Error,
     "not a personal profile",
   );
   assertThrows(() => toOrganizationUrn(""), Error, "empty");
+});
+
+Deno.test("resolveLinkedInOrganizationId: env → social_accounts → NORMA default 146336141", () => {
+  assertEquals(NORMA_LINKEDIN_ORGANIZATION_ID, "146336141");
+  assertEquals(
+    NORMA_LINKEDIN_ORGANIZATION_URN,
+    "urn:li:organization:146336141",
+  );
+  assertEquals(
+    NORMA_LINKEDIN_COMPANY_URL,
+    "https://www.linkedin.com/company/watch-norma/",
+  );
+
+  assertEquals(resolveLinkedInOrganizationId({}), {
+    idOrUrn: "146336141",
+    source: "norma_default",
+  });
+  assertEquals(resolveLinkedInOrganizationId({ envValue: "" }), {
+    idOrUrn: "146336141",
+    source: "norma_default",
+  });
+  assertEquals(resolveLinkedInOrganizationId({ envValue: "   " }), {
+    idOrUrn: "146336141",
+    source: "norma_default",
+  });
+  assertEquals(
+    resolveLinkedInOrganizationId({ socialAccountId: "146336141" }),
+    { idOrUrn: "146336141", source: "social_accounts" },
+  );
+  assertEquals(
+    resolveLinkedInOrganizationId({
+      envValue: "999",
+      socialAccountId: "146336141",
+    }),
+    { idOrUrn: "999", source: "env" },
+  );
+  assertEquals(
+    resolveLinkedInOrganizationId({
+      envValue: "urn:li:organization:146336141",
+    }),
+    { idOrUrn: "urn:li:organization:146336141", source: "env" },
+  );
 });
 
 Deno.test("runLinkedInPublishLoop posts LinkedIn drafts and skips twitter", async () => {
@@ -288,6 +342,9 @@ Deno.test("cmo-publish-linkedin/index.ts filters platform in the due-posts query
   assert(!src.includes("api.twitter.com"));
   assert(!src.includes("postTweet"));
   assert(!src.includes("X_CONSUMER_KEY"));
+  assert(src.includes("146336141"));
+  assert(src.includes("https://www.linkedin.com/company/watch-norma/"));
+  assert(src.includes('Deno.env.get("LINKEDIN_ACCESS_TOKEN")'));
 });
 
 Deno.test("PR #32 twitter-only guard in cmo-publish is intact", async () => {

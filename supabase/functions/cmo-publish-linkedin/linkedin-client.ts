@@ -4,13 +4,21 @@
 // Uses the versioned Posts API (REST) as an organization author — never a
 // member/person URN. Images go through the Images API initializeUpload + PUT.
 //
+// NORMA company page: https://www.linkedin.com/company/watch-norma/
+// Default org id 146336141 (urn:li:organization:146336141) when
+// LINKEDIN_ORGANIZATION_ID is unset. LINKEDIN_ACCESS_TOKEN is required.
+//
 // Docs:
 //   POST https://api.linkedin.com/rest/posts
 //   POST https://api.linkedin.com/rest/images?action=initializeUpload
 // Required product/scope: Community Management API, w_organization_social
 // =============================================================================
 
-import { toOrganizationUrn } from "./logic.ts";
+import {
+  resolveLinkedInOrganizationId,
+  toOrganizationUrn,
+  type LinkedInOrgIdSource,
+} from "./logic.ts";
 
 export const LINKEDIN_API_BASE = "https://api.linkedin.com/rest";
 export const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -19,6 +27,7 @@ export const DEFAULT_LINKEDIN_API_VERSION = "202506";
 export interface LinkedInConfig {
   accessToken: string;
   organizationUrn: string;
+  organizationIdSource: LinkedInOrgIdSource;
   apiVersion: string;
   clientId?: string;
   clientSecret?: string;
@@ -33,21 +42,30 @@ export type LoadConfigResult =
 
 /**
  * Read LinkedIn secrets from an env map (Deno.env or a test stub).
- * Required: LINKEDIN_ACCESS_TOKEN, LINKEDIN_ORGANIZATION_ID
+ * Required: LINKEDIN_ACCESS_TOKEN (never hardcoded).
+ * Optional: LINKEDIN_ORGANIZATION_ID — bare id or urn:li:organization:…
+ *           (defaults to NORMA company page 146336141).
+ * Optional override: socialAccountId from social_accounts (platform=linkedin).
  * Optional: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REFRESH_TOKEN,
  *           LINKEDIN_API_VERSION
  */
-export function loadLinkedInConfig(env: EnvMap): LoadConfigResult {
-  const missing: string[] = [];
+export function loadLinkedInConfig(
+  env: EnvMap,
+  opts?: { socialAccountId?: string | null },
+): LoadConfigResult {
   const accessToken = env.LINKEDIN_ACCESS_TOKEN?.trim();
-  const orgRaw = env.LINKEDIN_ORGANIZATION_ID?.trim();
-  if (!accessToken) missing.push("LINKEDIN_ACCESS_TOKEN");
-  if (!orgRaw) missing.push("LINKEDIN_ORGANIZATION_ID");
-  if (missing.length > 0) return { ok: false, missing };
+  if (!accessToken) {
+    return { ok: false, missing: ["LINKEDIN_ACCESS_TOKEN"] };
+  }
+
+  const resolved = resolveLinkedInOrganizationId({
+    envValue: env.LINKEDIN_ORGANIZATION_ID,
+    socialAccountId: opts?.socialAccountId,
+  });
 
   let organizationUrn: string;
   try {
-    organizationUrn = toOrganizationUrn(orgRaw!);
+    organizationUrn = toOrganizationUrn(resolved.idOrUrn);
   } catch (err) {
     return {
       ok: false,
@@ -62,8 +80,9 @@ export function loadLinkedInConfig(env: EnvMap): LoadConfigResult {
   return {
     ok: true,
     config: {
-      accessToken: accessToken!,
+      accessToken,
       organizationUrn,
+      organizationIdSource: resolved.source,
       apiVersion: env.LINKEDIN_API_VERSION?.trim() || DEFAULT_LINKEDIN_API_VERSION,
       clientId,
       clientSecret,
