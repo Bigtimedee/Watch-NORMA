@@ -56,6 +56,8 @@ jobs:
           deno check supabase/functions/intent-api/index.ts
           deno check supabase/functions/_shared/quiet-hours.ts
           deno check supabase/functions/cmo-publish/logic.ts
+          deno check supabase/functions/cmo-publish-linkedin/logic.ts
+          deno check supabase/functions/cmo-publish-linkedin/linkedin-client.ts
       - name: Run tests
         # --allow-read: parse-bet-slip_test.ts and geo/migration source tests
         # read live files. No network; --allow-net=none stays.

@@ -516,10 +516,25 @@ function DraftPostCard({
 // Published Post Row
 // ---------------------------------------------------------------------------
 
+function getPublishedPostUrl(post: ContentCalendarRow): { href: string; label: string } | null {
+  if (!post.platform_post_id) return null;
+  if (post.platform === "linkedin") {
+    return {
+      href: `https://www.linkedin.com/feed/update/${encodeURIComponent(post.platform_post_id)}`,
+      label: "View on LinkedIn",
+    };
+  }
+  if (post.platform === "twitter") {
+    return {
+      href: `https://twitter.com/watchNORMA/status/${post.platform_post_id}`,
+      label: "View on 𝕏",
+    };
+  }
+  return null;
+}
+
 function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
-  const twitterUrl = post.platform_post_id
-    ? `https://twitter.com/watchNORMA/status/${post.platform_post_id}`
-    : null;
+  const publishedUrl = getPublishedPostUrl(post);
   const partnerAmplifiable = isPartnerAmplifiable(post);
 
   return (
@@ -542,14 +557,14 @@ function PublishedPostRow({ post }: { post: ContentCalendarRow }) {
           <span className="text-xs text-slate-500">
             {formatPublishedTime(post.published_at)}
           </span>
-          {twitterUrl && (
+          {publishedUrl && (
             <a
-              href={twitterUrl}
+              href={publishedUrl.href}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
             >
-              View on 𝕏
+              {publishedUrl.label}
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

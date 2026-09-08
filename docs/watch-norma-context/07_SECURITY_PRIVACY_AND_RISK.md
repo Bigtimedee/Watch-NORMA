@@ -55,12 +55,13 @@ Core principles:
 ## Secrets Management
 
 - **Environment variables:** All secrets are managed as Supabase secrets (`supabase secrets set`) and accessible only to Edge Functions at runtime. They are never committed to the repository.
-- **`.env.example`:** Contains only placeholder values for the three client-side variables (Supabase URL, anon key, SportsDataIO key).
+- **`.env.example`:** Client placeholders (Supabase URL, anon key, SportsDataIO key) plus commented Edge Function secret names for LinkedIn company-page publishing. Never real tokens.
 - **`.gitignore`:** Excludes `.env`, `.env.local`, `.env.production`, and other sensitive files.
 - **CI/CD secrets:** `EXPO_TOKEN` is stored as a GitHub Actions secret for OTA updates. Optional future owner auth health-check should read `OWNER_AUTH_PASSWORD` from GitHub Actions secrets only — document the name, do not commit a vault file or a real password.
 - **Kalshi credentials:** RSA private keys are encrypted with AES-GCM via WebCrypto in the Edge Function before storage. The ciphertext (IV prepended, base64-encoded) is stored in `connections.private_key_enc` (migration 071). The encryption key (`KALSHI_ENCRYPTION_KEY`) is stored as a Supabase secret and never written to the database. The API key ID (not the private key) is stored in `connections.metadata`. Legacy connections storing plaintext in `metadata.private_key` are still supported via a fallback path and should be migrated by reconnecting. 5 Deno tests in `_shared/kalshi-crypto_test.ts` verify roundtrip correctness, IV randomness, wrong-key rejection, and base64 output format.
 - **Stripe keys:** `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are Supabase secrets. The webhook handler verifies Stripe's signature before processing.
 - **Google service account:** `GOOGLE_SERVICE_ACCOUNT_JSON` is a Supabase secret used for Gmail API access (email wager ingestion).
+- **LinkedIn company page:** `LINKEDIN_ACCESS_TOKEN` and `LINKEDIN_ORGANIZATION_ID` are Supabase secrets used by `cmo-publish-linkedin`. Optional `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` / `LINKEDIN_REFRESH_TOKEN` refresh the access token on 401. Never log these values. The organization id must be a company page, never a person URN.
 
 **Production warnings:**
 - Never `console.log` tokens, API keys, or user credentials in Edge Functions.

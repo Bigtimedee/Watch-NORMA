@@ -62,6 +62,7 @@ const SOCIAL_DIRS = [
   "supabase/functions/publish-social-posts",
   "supabase/functions/cmo-generate",
   "supabase/functions/cmo-publish",
+  "supabase/functions/cmo-publish-linkedin",
   "supabase/functions/_shared",
 ];
 
