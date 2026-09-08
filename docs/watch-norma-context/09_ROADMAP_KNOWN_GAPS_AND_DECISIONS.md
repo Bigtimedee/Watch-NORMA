@@ -14,6 +14,8 @@ Based on repository inspection and the outage report:
 
 5. ~~**Demo screenshot seed visible in production Games/Alerts.**~~ **Closed (2026-09-05).** Ad-hoc `demo-%` games and `DEMO SCREENSHOT` alerts were inserted into production (`shijrazlzawjpobrpmnt`) and shown as live. Data was purged operationally (no cleanup migration). Client queries now exclude those rows; React Query keys are `games-v2` / `alerts-v2` (`DEMO_FILTER_VERSION`) so OTA + the 30s Games poll drop stale cached lists without a force-quit. `assertDemoSeedAllowed()` refuses the production project ref.
 
+6. ~~**`cmo-publish` tweeted non-X `content_calendar` drafts.**~~ **Closed (2026-09-08).** `fetchDuePosts` selected every `draft`/`scheduled` row with `scheduled_for <= now()` and posted them to the X API regardless of `platform`. LinkedIn draft `8c66955e` was briefly posted to X (duplicate later deleted). Fix: due query is `platform = 'twitter'` only; non-X rows are skipped in-loop with no status mutation; `markPublished` / `markFailed` also require a twitter draft/scheduled row. Consumer social cron `publish-social-posts` reads `social_posts` (not `content_calendar`) and already switches on `post.platform`.
+
 ## Known Gaps
 
 ### Data and Integrations
