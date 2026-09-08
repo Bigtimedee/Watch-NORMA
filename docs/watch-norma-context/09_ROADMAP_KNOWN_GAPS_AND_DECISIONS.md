@@ -59,6 +59,7 @@ Based on repository inspection and the outage report:
 ### Social
 
 - **No dedicated red-zone / Why Now alert screenshot in `media_assets`.** Consumer auto-posts now prefer `game-detail-watch.png` (tagged `alerts` / `why_now` / `red_zone`). Design should upload a real alert-card / Why Now screenshot so football posts do not reuse the watch-button screen as a stand-in.
+- ~~**LinkedIn `content_calendar` drafts had no publisher.**~~ **Closed (2026-09-08).** `cmo-publish-linkedin` posts `platform = 'linkedin'` draft/scheduled rows to the NORMA company page (organization Posts API). `cmo-publish` remains twitter-only (PR #32). Production still needs `LINKEDIN_ACCESS_TOKEN` + `LINKEDIN_ORGANIZATION_ID` (Community Management API, `w_organization_social`) before auto-ships go live; marketing can keep posting A1 via the browser until those secrets are set. `social_accounts` has no LinkedIn row; this path does not use `publish-social-posts`.
 
 ### Operations
 
@@ -80,7 +81,7 @@ These decisions require owner confirmation:
 6. **How should the app handle the off-season?** NCAA basketball has a defined season. What happens in summer — MLB-only? Feature dormancy?
 7. **Is the advertiser portal ready for external advertisers?** Campaign approval workflow is now live (migration 065): new campaigns land as `pending`, admin must approve before they enter the auction. The self-service flow is usable for external advertisers — remaining gap is manual creative review.
 8. **Should location be required for broadcast availability?** Using GPS would improve broadcast mapping accuracy but raises privacy concerns.
-9. **What is the multi-platform social strategy?** X/Twitter publishing is live. Instagram, Facebook, TikTok, Reddit are partially scaffolded. Which platforms are priority?
+9. **What is the multi-platform social strategy?** X/Twitter `content_calendar` publishing is live (`cmo-publish`, twitter-only). LinkedIn company-page publishing is implemented (`cmo-publish-linkedin`) and waits on LinkedIn API secrets. Instagram, Facebook, TikTok, Reddit are partially scaffolded on `social_posts`. Which remaining platforms are priority?
 10. **Should email wager ingestion be promoted more aggressively?** The Gmail-based flow works but requires user action (forwarding emails). Is this sufficient or should other email providers be added?
 
 ## Immediate Priorities

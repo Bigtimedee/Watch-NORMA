@@ -118,7 +118,7 @@ A3 is the spine. A4 through A7 are capability layers stacked on the same account
 
 ### Class D: Machine actors
 
-Not people, but they are users of the system and they write most of its data. `game-watcher-orchestrator`, the `poll-*` family, `evaluate-alerts`, `send-push`, `resolve-wagers`, `resolve-predictions`, `ad-auto-bidder`, `ad-budget-pacer`, `ad-fraud-check`, `floor-price-optimizer`, `cmo-generate`, `cmo-publish`, `purge-old-data`, `monitor-health`, `deep-link-health-check`, `renew-gmail-watch`. All run with the Supabase service role and bypass row level security. Treat any change to them as a privileged change.
+Not people, but they are users of the system and they write most of its data. `game-watcher-orchestrator`, the `poll-*` family, `evaluate-alerts`, `send-push`, `resolve-wagers`, `resolve-predictions`, `ad-auto-bidder`, `ad-budget-pacer`, `ad-fraud-check`, `floor-price-optimizer`, `cmo-generate`, `cmo-publish`, `cmo-publish-linkedin`, `purge-old-data`, `monitor-health`, `deep-link-health-check`, `renew-gmail-watch`. All run with the Supabase service role and bypass row level security. Treat any change to them as a privileged change.
 
 ---
 
@@ -390,7 +390,7 @@ campaigns:read   campaigns:write   reporting:read   inventory:read
 
 ### C2. Content operator
 
-`web/src/app/cmo/page.tsx` is the content calendar and approval surface. `cmo-generate` drafts brand social content with Claude, `generate-social-content` and `generate-recap-content` produce post and recap variants, `publish-social-posts` and `cmo-publish` distribute, and `fetch-social-metrics` reads performance back into `social_posts` and `social_hashtag_performance`. Consumer auto-post images are chosen by `_shared/social-media-select.ts` — settings / Tier-C sportsbook chrome is denylisted; alert / Why Now / red-zone screenshots are preferred. `cmo-publish` posts **twitter-only** `content_calendar` rows (`platform = 'twitter'`) to X; LinkedIn and other calendar platforms are skipped, not tweeted. The hourly `publish-social-posts` cron reads `social_posts` and routes by `post.platform`. Instagram, Facebook, TikTok, and Reddit publishers are built but not fully wired to their platform APIs.
+`web/src/app/cmo/page.tsx` is the content calendar and approval surface. `cmo-generate` drafts brand social content with Claude, `generate-social-content` and `generate-recap-content` produce post and recap variants, `publish-social-posts`, `cmo-publish`, and `cmo-publish-linkedin` distribute, and `fetch-social-metrics` reads performance back into `social_posts` and `social_hashtag_performance`. Consumer auto-post images are chosen by `_shared/social-media-select.ts` — settings / Tier-C sportsbook chrome is denylisted; alert / Why Now / red-zone screenshots are preferred. `cmo-publish` posts **twitter-only** `content_calendar` rows (`platform = 'twitter'`) to X; it must not tweet LinkedIn drafts (PR #32). `cmo-publish-linkedin` posts **linkedin-only** calendar rows to the NORMA company page. The hourly `publish-social-posts` cron reads `social_posts` and routes by `post.platform` (x/instagram/facebook/tiktok/reddit — no linkedin). Instagram, Facebook, TikTok, and Reddit publishers are built but not fully wired to their platform APIs.
 
 `lib/__tests__/no-ai-image-generation.test.ts` enforces a standing prohibition on AI generated imagery in published content. Do not weaken that test.
 

@@ -161,7 +161,8 @@ All items verified from repository files.
 
 *Social Content:*
 - `cmo-generate` (6 hours) — Claude-generated brand tweets
-- `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are left unpublished (not tweeted, not marked published).
+- `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are never tweeted (PR #32).
+- `cmo-publish-linkedin` (30 min) — publishes **linkedin-only** `content_calendar` rows to the NORMA LinkedIn company page (organization Posts / UGC API). Twitter rows are never selected.
 - `generate-social-content` (daily 6 AM UTC) — multi-platform content
 - `publish-social-posts` (hourly) — routes posts to platform publishers
 - `generate-recap-content` (daily 11 PM UTC) — post-game recap posts
@@ -193,6 +194,7 @@ Recent migrations (058–066):
 - `092_prizepicks_underdog_dfs_pickem.sql` — PrizePicks / Underdog in `streaming_providers` (`category=dfs_pickem`, `provider_type=sportsbook`)
 - `20260904183000_dfs_fantasy_integration_fixes.sql` — `follows.fantasy_source`, unique `(user_id, entity_type, entity_id)`, season-long fantasy providers, pick'em `sportsbook_restrictions`
 - `20260905160000_consumer_auto_post_media_denylist.sql` — `media_assets.eligible_for_consumer_auto_post`; deactivates sportsbooks-manual/email; retags game-detail-watch with alerts/why_now/red_zone
+- `20260908160000_cmo_publish_linkedin_cron.sql` — pg_cron `cmo-publish-linkedin` every 30 min (Vault auth); does not change twitter-only `cmo-publish-content`
 
 **Shared utilities** (`supabase/functions/_shared/`): `alert-scoring.ts` (signal extraction, scoring, "Why Now" generation), `auction-engine.ts` (Vickrey auction), `ai-ad-engine.ts` (Thompson Sampling creative selection), `pricing-engine.ts` (floor prices, dynamic premiums), `fatigue-model.ts` (ad fatigue), `outcome-proximity.ts` (wager proximity scoring), `sportradar.ts` (multi-sport API client with rate budgeting), `team-matching.ts` (fuzzy team name matching with alias map), `polling-state.ts` (game status state machine), `utils.ts` (hash, status mapping), `kalshi-crypto.ts` (RSA-PSS signing), `sportsbook-links.ts` (deep link URLs), `bet-ingestor.ts` (partner API interface), `email-parser.ts`, `social-content-engine.ts`, `social-media-select.ts` (consumer auto-post screenshot allowlist/denylist — never settings/Tier-C chrome), `social-publishers.ts`, `x-oauth.ts`, `daily-cadence.ts`, `template-vars.ts`, `cors.ts`.
 
@@ -266,6 +268,12 @@ All steps above are **implemented and running in production** except:
 | `INSTAGRAM_ACCOUNT_ID` | Instagram account ID |
 | `FACEBOOK_ACCESS_TOKEN` | Facebook Graph API |
 | `FACEBOOK_PAGE_ID` | Facebook page ID |
+| `LINKEDIN_ACCESS_TOKEN` | LinkedIn OAuth 2.0 token with `w_organization_social` (company-page posting) |
+| `LINKEDIN_ORGANIZATION_ID` | NORMA company page id or `urn:li:organization:…` (never a person URN) |
+| `LINKEDIN_CLIENT_ID` | Optional LinkedIn app client id (token refresh) |
+| `LINKEDIN_CLIENT_SECRET` | Optional LinkedIn app client secret (token refresh) |
+| `LINKEDIN_REFRESH_TOKEN` | Optional refresh token used on HTTP 401 |
+| `LINKEDIN_API_VERSION` | Optional `Linkedin-Version` header (YYYYMM). Defaults to `202506` |
 
 **CI/CD:**
 
@@ -313,6 +321,7 @@ All client queries go through the Supabase JS client which auto-generates REST c
 | `forecast-supply` | Daily 2 AM | Supply forecasting |
 | `cmo-generate` | Every 6 hours | Generate social content |
 | `cmo-publish` | Every 30 min | Publish twitter-only calendar rows to X |
+| `cmo-publish-linkedin` | Every 30 min | Publish linkedin-only calendar rows to the NORMA company page |
 | `generate-social-content` | Daily 6 AM UTC | Multi-platform content |
 | `publish-social-posts` | Hourly | Route to platform publishers |
 | `generate-recap-content` | Daily 11 PM UTC | Post-game recaps |
