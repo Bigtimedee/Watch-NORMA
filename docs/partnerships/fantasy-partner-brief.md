@@ -151,3 +151,11 @@ A Tier B integration would extend `parse-bet-slip` and `ingest-email-wagers` to 
 A Tier A integration would require a partner API agreement providing a read-only roster/entry endpoint. The NORMA architecture supports this via the existing `BetIngestor` interface in `_shared/bet-ingestor.ts` and the `connections.auth_mode = 'partner_api'` pattern. No architectural changes are needed when a partnership is secured — only an adapter implementation.
 
 **Next step:** Schedule a technical call to review PrizePicks and Underdog roster API specifications for a potential Tier B/A roadmap. Contact: partnerships@norma-app.com
+
+---
+
+## Betr (Betr Picks) — Planned
+
+Betr Picks is the next DFS pick'em operator on the NORMA roadmap (same MORE/LESS, multi-pick job as PrizePicks / Underdog). **Not implemented.** Do not pitch Betr as a live Connections tile.
+
+Engineering plan, proposed `provider_key = betr`, geo sources, and open questions: [`docs/betr-integration-plan.md`](../betr-integration-plan.md). Betr is unrelated to BetRivers. Betr SSBK (sportsbook) is out of v1.
