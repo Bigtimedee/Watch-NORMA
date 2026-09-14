@@ -72,7 +72,7 @@ Every partnership NORMA signs should do at least one of these jobs — ideally b
 | 2 — Streaming | ESPN+, YouTube TV, Peacock, Prime Video, Paramount+ | Both (distribution + advertising) |
 | 3 — Prediction Markets | Kalshi, Polymarket | Distribution (user acquisition) |
 | 4 — Sports Media | The Athletic, Bleacher Report, Yahoo Sports | Distribution |
-| 5 — Fantasy Sports | DraftKings DFS, Yahoo Fantasy, Sleeper, Underdog | Distribution |
+| 5 — Fantasy Sports | DraftKings DFS, Yahoo Fantasy, Sleeper, Underdog, PrizePicks, **Betr (Picks)** | Distribution |
 | 6 — Tech Platforms | Apple, Anthropic | Distribution + credibility |
 
 ---
@@ -474,7 +474,9 @@ Enhance NORMA's social content pipeline to create partner-amplifiable content. S
 
 ### Strategic Rationale
 
-Fantasy sports players (DraftKings DFS, Yahoo Fantasy, Underdog Fantasy, Sleeper) are highly engaged sports fans who follow specific players with financial stakes — essentially the same profile as NORMA's target user. Many fantasy players don't actively place spread bets and may not have connected sportsbook accounts, but they absolutely want to know when their player is having a big game or is in foul trouble.
+Fantasy sports players (DraftKings DFS, Yahoo Fantasy, Underdog Fantasy, Sleeper, PrizePicks, Betr Picks) are highly engaged sports fans who follow specific players with financial stakes — essentially the same profile as NORMA's target user. Many fantasy players don't actively place spread bets and may not have connected sportsbook accounts, but they absolutely want to know when their player is having a big game or is in foul trouble.
+
+**Betr (Betr Picks)** is the next DFS pick'em operator to add after PrizePicks / Underdog. It is **not implemented** yet. Engineering plan (keys, geo, OneLink, phased tickets): [`docs/betr-integration-plan.md`](betr-integration-plan.md). Do not confuse Betr with BetRivers. v1 is Picks only; Betr SSBK is a later optional sportsbook track.
 
 NORMA's v2 alert engine already supports player-level follows (`entity_type = 'player'` in the follows table). The gap is connecting NORMA's player-follow alerts to a fantasy platform's roster data, so NORMA can alert a user when *their rostered player* is having a breakout performance.
 
@@ -504,6 +506,12 @@ Build a fantasy roster import feature for NORMA. Specifically:
 5. Write a unit test verifying that pasting 5 player names creates 5 correct follows with entity_type = 'player'.
 6. Create docs/partnerships/fantasy-partner-brief.md: a pitch for Sleeper, Yahoo Fantasy, or Underdog BD teams explaining the integration concept, the user benefit, and the ask (API access to rosters + co-marketing mention to their user base).
 ```
+
+---
+
+**TASK FF-02: Betr Picks as the third `dfs_pickem` provider (plan written; implementation not started)**
+
+PrizePicks and Underdog shipped as Tier B/C pick'em. Betr Picks is the next operator in the same bucket. Do not implement from this partnership doc — follow [`docs/betr-integration-plan.md`](betr-integration-plan.md) (phases A–E, geo citations, OneLink TBD, BetRivers collision tests).
 
 ---
 
