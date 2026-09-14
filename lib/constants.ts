@@ -106,6 +106,7 @@ export const SPORTSBOOK_NAMES: Record<string, string> = {
   caesars: "Caesars",
   prizepicks: "PrizePicks",
   underdog: "Underdog",
+  betr: "Betr",
   sleeper: "Sleeper",
   yahoo_fantasy: "Yahoo Fantasy",
   espn_fantasy: "ESPN Fantasy",

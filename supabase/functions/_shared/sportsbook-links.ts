@@ -229,12 +229,22 @@ const PICKEM_TEMPLATES: Record<string, PickEmTemplate> = {
     web_fallback: "https://app.underdogfantasy.com",
     affiliate_param_key: "ref",
   },
+  // OneLink-first. No verified native scheme and no sport-scoped board URL.
+  // affiliate_param_key is empty until Betr BD gives a param — do not invent
+  // ?promo=NORMA. native_scheme stays blank (do not invent betr://).
+  betr: {
+    native_scheme: () => "",
+    universal_link: () => "https://betr.onelink.me/VZxy/betrapp",
+    web_fallback: "https://www.betr.app/picks",
+    affiliate_param_key: "",
+  },
 };
 
 /**
- * Build a pick'em deep link for PrizePicks or Underdog.
+ * Build a pick'em deep link for PrizePicks, Underdog, or Betr.
  * These apps target a player board, not a `{away}-at-{home}` game slug —
- * so this is distinct from `buildSportsbookLink`.
+ * so this is distinct from `buildSportsbookLink`. Betr v1 is OneLink-only
+ * (no sport board, no native scheme, no affiliate param).
  */
 export function buildPickEmLink(
   providerKey: string,
@@ -254,6 +264,20 @@ export function buildPickEmLink(
     };
   }
 
+  const nativeScheme  = template.native_scheme(context.sport);
+  const universalBase = template.universal_link(context.sport);
+
+  // Empty affiliate_param_key (Betr v1): append nothing until BD gives a param.
+  if (!template.affiliate_param_key) {
+    return {
+      provider_key: providerKey,
+      native_scheme: nativeScheme,
+      universal_link: universalBase,
+      web_fallback: template.web_fallback,
+      affiliate_params: "",
+    };
+  }
+
   let affiliateParams = `?${template.affiliate_param_key}=NORMA&campaign=${campaignId}`;
   if (affiliate) {
     affiliateParams += `&aff_id=${affiliate.affiliate_id}`;
@@ -262,8 +286,6 @@ export function buildPickEmLink(
     }
   }
 
-  const nativeScheme  = template.native_scheme(context.sport);
-  const universalBase = template.universal_link(context.sport);
   // Append affiliate params — the universal link may already have a query string
   const universalLink = universalBase.includes("?")
     ? `${universalBase}&campaign=${campaignId}`
@@ -338,6 +360,10 @@ export const SPORTSBOOK_BRAND_COLORS: Record<
   espnbet: { primary: "#FF4438", text: "#FFFFFF" },
   prizepicks: { primary: "#6C2BD9", text: "#FFFFFF" },
   underdog: { primary: "#E8F54A", text: "#000000" },
+  // Betr .primary-btn on betr.app (Webflow CSS betrsite.shared.39f2d5aa2.css,
+  // retrieved 2026-09-14): background-color #a444e4. Keep in sync with
+  // lib/sportsbook-brands.ts.
+  betr: { primary: "#A444E4", text: "#FFFFFF" },
 };
 
 // --- Sportsbook Display Names ---
@@ -350,6 +376,7 @@ export const SPORTSBOOK_DISPLAY_NAMES: Record<string, string> = {
   espnbet: "ESPN BET",
   prizepicks: "PrizePicks",
   underdog: "Underdog",
+  betr: "Betr",
   sleeper: "Sleeper",
   yahoo_fantasy: "Yahoo Fantasy",
   espn_fantasy: "ESPN Fantasy",
@@ -382,19 +409,20 @@ export function isSportsbookUrl(url: string): string | null {
       return key;
     }
   }
-  for (const [key, template] of Object.entries(PICKEM_TEMPLATES)) {
-    if (url.includes(key) || url.includes(template.web_fallback)) {
-      return key;
-    }
-  }
+  const pickem = detectPickEmProviderFromUrl(url);
+  if (pickem) return pickem;
   return null;
 }
 
-/** Detect PrizePicks / Underdog from a creative CTA URL. */
+/** Detect PrizePicks / Underdog / Betr from a creative CTA URL. */
 export function detectPickEmProviderFromUrl(url: string): string | null {
   const lower = url.toLowerCase();
   if (lower.includes("prizepicks")) return "prizepicks";
   if (lower.includes("underdog")) return "underdog";
+  // Host-specific: `includes("betr")` would match betrivers.com (BetRivers).
+  if (lower.includes("betr.app") || lower.includes("betr.onelink.me")) {
+    return "betr";
+  }
   return null;
 }
 

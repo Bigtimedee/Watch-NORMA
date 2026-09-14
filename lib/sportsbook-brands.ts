@@ -16,6 +16,10 @@ export const SPORTSBOOK_BRAND_COLORS: Record<string, { bg: string; text: string 
   espnbet: { bg: "#FF4438", text: "#FFFFFF" },
   prizepicks: { bg: "#6C2BD9", text: "#FFFFFF" },
   underdog: { bg: "#E8F54A", text: "#000000" },
+  // Betr .primary-btn on betr.app (Webflow CSS betrsite.shared.39f2d5aa2.css,
+  // retrieved 2026-09-14): background-color #a444e4. Brand magenta — not
+  // PrizePicks #6C2BD9. Lime #d9f53d exists as a highlight, not the CTA fill.
+  betr: { bg: "#A444E4", text: "#FFFFFF" },
 };
 
 export function detectSportsbookProvider(
@@ -24,7 +28,12 @@ export function detectSportsbookProvider(
 ): string | null {
   if (providerKey) return providerKey;
   const lower = url.toLowerCase();
+  // Host-specific: `includes("betr")` would steal BetRivers (betrivers.com).
+  if (lower.includes("betr.app") || lower.includes("betr.onelink.me")) {
+    return "betr";
+  }
   for (const key of Object.keys(SPORTSBOOK_BRAND_COLORS)) {
+    if (key === "betr") continue;
     if (lower.includes(key)) return key;
   }
   return null;

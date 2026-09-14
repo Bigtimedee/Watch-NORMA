@@ -509,9 +509,9 @@ Build a fantasy roster import feature for NORMA. Specifically:
 
 ---
 
-**TASK FF-02: Betr Picks as the third `dfs_pickem` provider (plan written; implementation not started)**
+**TASK FF-02: Betr Picks as the third `dfs_pickem` provider (Phase A shipped 2026-09-14)**
 
-PrizePicks and Underdog shipped as Tier B/C pick'em. Betr Picks is the next operator in the same bucket. Do not implement from this partnership doc — follow [`docs/betr-integration-plan.md`](betr-integration-plan.md) (phases A–E, geo citations, OneLink TBD, BetRivers collision tests).
+PrizePicks and Underdog shipped as Tier B/C pick'em. Betr Picks Phase A is in: registry seed, brands, `PICKEM_PROVIDER_KEYS`, geo, Connections, OneLink. Phases B–E (email/slip, auction sport-board, native scheme) follow [`docs/betr-integration-plan.md`](betr-integration-plan.md). Do not pitch email ingest or a live API.
 
 ---
 

@@ -154,8 +154,8 @@ A Tier A integration would require a partner API agreement providing a read-only
 
 ---
 
-## Betr (Betr Picks) — Planned
+## Betr (Betr Picks) — Phase A shipped
 
-Betr Picks is the next DFS pick'em operator on the NORMA roadmap (same MORE/LESS, multi-pick job as PrizePicks / Underdog). **Not implemented.** Do not pitch Betr as a live Connections tile.
+Betr Picks is the third DFS pick'em operator (`provider_key = betr`). Phase A (registry, geo, brands, Connections, OneLink) shipped 2026-09-14. Email/slip parse and a verified native scheme are not live — do not pitch those.
 
-Engineering plan, proposed `provider_key = betr`, geo sources, and open questions: [`docs/betr-integration-plan.md`](../betr-integration-plan.md). Betr is unrelated to BetRivers. Betr SSBK (sportsbook) is out of v1.
+Engineering plan and remaining phases: [`docs/betr-integration-plan.md`](../betr-integration-plan.md). Betr is unrelated to BetRivers. Betr SSBK (sportsbook) is out of v1.

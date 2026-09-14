@@ -119,6 +119,11 @@ describe("buildRosterFollowRows (roster import follow shapes)", () => {
     );
   });
 
+  it("stores betr as fantasy_source", () => {
+    const rows = buildRosterFollowRows(["Justin Jefferson"], USER_ID, "betr");
+    expect(rows[0].fantasy_source).toBe("betr");
+  });
+
   it("sets fantasy_source to other when Other is selected", () => {
     const rows = buildRosterFollowRows(["A"], USER_ID, "other");
     expect(rows[0].fantasy_source).toBe("other");

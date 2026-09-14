@@ -7,9 +7,10 @@ import {
 import { SPORTSBOOK_NAMES } from "../constants";
 
 describe("sportsbook-brands", () => {
-  it("includes prizepicks and underdog", () => {
+  it("includes prizepicks, underdog, and betr", () => {
     expect(SPORTSBOOK_BRAND_COLORS.prizepicks.bg).toBe("#6C2BD9");
     expect(SPORTSBOOK_BRAND_COLORS.underdog.bg).toBe("#E8F54A");
+    expect(SPORTSBOOK_BRAND_COLORS.betr.bg).toBe("#A444E4");
   });
 
   it("detects pick'em providers from URL hosts", () => {
@@ -18,6 +19,14 @@ describe("sportsbook-brands", () => {
     );
     expect(detectSportsbookProvider("https://app.underdogfantasy.com/picks")).toBe(
       "underdog",
+    );
+    expect(detectSportsbookProvider("https://www.betr.app/picks")).toBe("betr");
+    expect(detectSportsbookProvider("https://picks.betr.app")).toBe("betr");
+    expect(detectSportsbookProvider("https://betr.onelink.me/VZxy/betrapp")).toBe(
+      "betr",
+    );
+    expect(detectSportsbookProvider("https://www.betrivers.com/sports")).toBe(
+      null,
     );
     expect(detectSportsbookProvider("https://sportsbook.draftkings.com/x")).toBe(
       "draftkings",
@@ -33,11 +42,13 @@ describe("sportsbook-brands", () => {
   it("display names come from SPORTSBOOK_NAMES", () => {
     expect(sportsbookDisplayName("prizepicks")).toBe(SPORTSBOOK_NAMES.prizepicks);
     expect(sportsbookDisplayName("underdog")).toBe(SPORTSBOOK_NAMES.underdog);
+    expect(sportsbookDisplayName("betr")).toBe(SPORTSBOOK_NAMES.betr);
   });
 
   it("pick'em default label is Open, never Bet Now", () => {
     expect(defaultCtaLabel("prizepicks", true)).toBe("Open PrizePicks");
     expect(defaultCtaLabel("underdog", true)).toBe("Open Underdog");
+    expect(defaultCtaLabel("betr", true)).toBe("Open Betr");
     expect(defaultCtaLabel("draftkings", true)).toBe("Bet Now on DraftKings");
     expect(defaultCtaLabel("prizepicks", false)).toBe(
       "Not available in your region",

@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAddWager } from "../hooks/useWagers";
 import { SPORTSBOOK_NAMES } from "../lib/constants";
+import { PICKEM_PROVIDER_KEYS, isPickEmProvider } from "../lib/fantasy-platforms";
 import type { ScannedWager } from "../hooks/useBetSlipScanner";
 import type { WagerType, Game } from "../lib/types";
 
@@ -35,8 +36,7 @@ const ALL_BOOKS = [
   "betmgm",
   "espnbet",
   "caesars",
-  "prizepicks",
-  "underdog",
+  ...PICKEM_PROVIDER_KEYS,
 ];
 
 export function ReviewScannedWagersSheet({
@@ -90,8 +90,7 @@ export function ReviewScannedWagersSheet({
     setIsSaving(true);
     try {
       for (const w of wagers) {
-        const isPickEm =
-          w.sportsbook === "prizepicks" || w.sportsbook === "underdog";
+        const isPickEm = isPickEmProvider(w.sportsbook);
         await addWager.mutateAsync({
           game_id: game.id,
           sportsbook: w.sportsbook,
