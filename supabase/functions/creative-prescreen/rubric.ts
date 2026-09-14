@@ -1,3 +1,5 @@
+import { detectPickEmProviderFromUrl } from "../_shared/sportsbook-links.ts";
+
 export interface CreativeForReview {
   sponsor_text: string;
   cta_text: string | null;
@@ -43,6 +45,7 @@ Flag the creative if ANY of these conditions are true:
 5. Unsupported superlatives: Uses "best," "#1," "only," "exclusive" without verifiable basis.
 6. Deceptive urgency: Uses false countdown or scarcity claims.
 7. Category mismatch: Ad content clearly does not match the demand type.
+8. Pick'em "Bet Now": Flag if CTA text says "Bet Now" for PrizePicks, Underdog, or Betr Picks (betr.app, picks.betr.app, betr.onelink.me). Do not flag BetRivers.
 ${demandRule}
 
 --- RESPONSE FORMAT ---
@@ -55,6 +58,48 @@ Return only valid JSON. No other text.
 
 "reasons" must be an empty array when verdict is "pass".
 "reasons" must list the specific rule(s) violated when verdict is "flag".`;
+}
+
+const PICKEM_BET_NOW_REASON =
+  "Pick'em / DFS CTA must not use 'Bet Now' (use Open or Play on). Betr Picks is not a sportsbook.";
+
+/**
+ * Hard campaign-review flag: pick'em creatives (PrizePicks / Underdog / Betr)
+ * must not ship "Bet Now" in cta_text. BetRivers ("Bet Now on BetRivers") is
+ * a traditional sportsbook and must not trip this rule.
+ *
+ * Ops still reviews flagged rows — this does not silently rewrite the copy.
+ */
+export function flagPickEmBetNowCopy(creative: CreativeForReview): PrescreenResult {
+  const cta = (creative.cta_text ?? "").trim();
+  if (!cta || !/bet\s*now/i.test(cta)) {
+    return { verdict: "pass", reasons: [] };
+  }
+
+  const urlProvider = detectPickEmProviderFromUrl(creative.cta_url ?? "");
+  if (urlProvider) {
+    return { verdict: "flag", reasons: [PICKEM_BET_NOW_REASON] };
+  }
+
+  const lower = cta.toLowerCase();
+  // `\bbetr\b` does not match "betrivers".
+  if (/\bbetr\b/.test(lower) || lower.includes("prizepicks") || lower.includes("underdog")) {
+    return { verdict: "flag", reasons: [PICKEM_BET_NOW_REASON] };
+  }
+
+  return { verdict: "pass", reasons: [] };
+}
+
+export function mergePrescreenResults(
+  hard: PrescreenResult,
+  llm: PrescreenResult,
+): PrescreenResult {
+  if (hard.verdict !== "flag") return llm;
+  const reasons = [...hard.reasons];
+  for (const r of llm.reasons) {
+    if (!reasons.includes(r)) reasons.push(r);
+  }
+  return { verdict: "flag", reasons };
 }
 
 export function parsePrescreenResponse(raw: string): PrescreenResult {

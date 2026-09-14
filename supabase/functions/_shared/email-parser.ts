@@ -29,11 +29,29 @@ const SPORTSBOOK_DOMAINS: Record<string, string> = {
   "prizepicks.com":  "prizepicks",
   "underdogfantasy.com": "underdog",
   "underdog.com": "underdog",
+  // Betr Picks (provider_key = betr) — BLOCKED ON FIXTURE. Do NOT add
+  // "betr.app" (or any betr.* host) until we have a redacted transactional
+  // confirmation email. Do NOT register the bare token "betr":
+  // String.includes would steal BetRivers (betrivers.com).
+  // Capture steps (docs/betr-integration-plan.md § Phase B / §7):
+  //   1. Place a tiny legal-state entry or ask a teammate who uses Betr.
+  //   2. Save From, subject, and a redacted body (no live PII) as a fixture.
+  //   3. Map the full From-header domain only (likely betr.app).
+  //   4. Add a sportsbook switch arm for betr that calls parsePickEmEntry
+  //      iff PICKEM_LEG_RE matches; otherwise a Betr-specific parser.
+  // Known public mailboxes that are support/BD, NOT confirmed transactional:
+  //   support@betr.app, ask@betr.app, partnerships@betr.app,
+  //   support.escalations@betr.app.
 };
 
 export function detectSportsbook(fromAddress: string): string | null {
   const lower = fromAddress.toLowerCase();
-  for (const [domain, key] of Object.entries(SPORTSBOOK_DOMAINS)) {
+  // Longest domain first so "betrivers.com" always wins over a future
+  // accidental substring like "betr".
+  const domains = Object.entries(SPORTSBOOK_DOMAINS).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+  for (const [domain, key] of domains) {
     if (lower.includes(domain)) return key;
   }
   return null;

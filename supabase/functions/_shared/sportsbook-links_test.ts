@@ -250,6 +250,25 @@ Deno.test("contextualizeSponsorCtaUrl: betr URL stays OneLink without fake sport
   assertEquals(out, "https://betr.onelink.me/VZxy/betrapp");
 });
 
+Deno.test("contextualizeSponsorCtaUrl: picks.betr.app and OneLink rewrite to the same landing", () => {
+  const ctx = { sport: "ncaaf" as const, campaignId: 3 };
+  assertEquals(
+    contextualizeSponsorCtaUrl("https://picks.betr.app", ctx),
+    "https://betr.onelink.me/VZxy/betrapp",
+  );
+  assertEquals(
+    contextualizeSponsorCtaUrl("https://betr.onelink.me/VZxy/betrapp", ctx),
+    "https://betr.onelink.me/VZxy/betrapp",
+  );
+});
+
+Deno.test("isSportsbookUrl matches betr hosts and not betrivers", () => {
+  assertEquals(isSportsbookUrl("https://www.betr.app/picks"), "betr");
+  assertEquals(isSportsbookUrl("https://picks.betr.app"), "betr");
+  assertEquals(isSportsbookUrl("https://betr.onelink.me/VZxy/betrapp"), "betr");
+  assertEquals(isSportsbookUrl("https://www.betrivers.com/sports"), null);
+});
+
 Deno.test("contextualizeSponsorCtaUrl: betrivers.com is unchanged", () => {
   const raw = "https://www.betrivers.com/sportsbook";
   assertEquals(contextualizeSponsorCtaUrl(raw, { sport: "nfl", campaignId: 1 }), raw);

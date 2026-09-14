@@ -78,13 +78,13 @@ Deno.serve(async (req) => {
     const prompt = `You are analyzing a screenshot of a sports betting slip or DFS pick'em entry slip. Extract all wagers from this image.
 ${gameContext}
 For each wager, return:
-- sportsbook: The betting platform (e.g. "draftkings", "fanduel", "betmgm", "espnbet", "caesars", "prizepicks", "underdog"). Use lowercase keys. PrizePicks and Underdog entries show player projections (more/less on a stat line) rather than traditional spreads.
-- wager_type: One of "spread", "moneyline", "over_under", or "prop". PrizePicks and Underdog entries MUST use "prop".
+- sportsbook: The betting platform (e.g. "draftkings", "fanduel", "betmgm", "espnbet", "caesars", "prizepicks", "underdog", "betr"). Use lowercase keys. PrizePicks, Underdog, and Betr Picks entries show player projections (MORE/LESS or Over/Under on a stat line) rather than traditional spreads. Use "betr" only for Betr Picks (magenta Betr branding, pick'em entry). Do NOT use "betr" for BetRivers sportsbook slips.
+- wager_type: One of "spread", "moneyline", "over_under", or "prop". PrizePicks, Underdog, and Betr entries MUST use "prop".
 - description: A short description of the bet (e.g. "Duke -3.5", "Over 145.5", "Zach Edey Over 22.5 Points", "Justin Jefferson More 89.5 Rec Yds")
 - team_name: The team name if applicable, or null for over/under and pick'em props
 - line: The numeric line/spread/projection value (e.g. -3.5, 145.5, 89.5), or null if not applicable
 - odds: The American odds as a string (e.g. "-110", "+150"), or a payout multiplier like "6x" for pick'em, or null if not visible
-- For PrizePicks / Underdog entry slips also extract when visible:
+- For PrizePicks / Underdog / Betr Picks entry slips also extract when visible:
   - entry_fee: numeric entry amount
   - payout_multiplier: numeric multiplier (e.g. 6)
   - legs: array of { "player_name", "stat", "line", "direction": "more"|"less" }

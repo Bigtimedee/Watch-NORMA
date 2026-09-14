@@ -1,5 +1,10 @@
 import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildPrescreenPrompt, parsePrescreenResponse } from "./rubric.ts";
+import {
+  buildPrescreenPrompt,
+  flagPickEmBetNowCopy,
+  mergePrescreenResults,
+  parsePrescreenResponse,
+} from "./rubric.ts";
 import type { CreativeForReview } from "./rubric.ts";
 
 function makeCreative(overrides: Partial<CreativeForReview> = {}): CreativeForReview {
@@ -113,4 +118,55 @@ Deno.test("parse: non-string reasons are filtered out", () => {
   const result = parsePrescreenResponse('{"verdict":"flag","reasons":[1, "valid reason", null]}');
   assertEquals(result.verdict, "flag");
   assertEquals(result.reasons, ["valid reason"]);
+});
+
+// ─── pick'em "Bet Now" hard flag (Betr / PP / UD vs BetRivers) ───────
+
+Deno.test("flagPickEmBetNowCopy: Bet Now on Betr is flagged", () => {
+  const result = flagPickEmBetNowCopy(
+    makeCreative({ cta_text: "Bet Now on Betr", cta_url: "https://www.betr.app/picks" }),
+  );
+  assertEquals(result.verdict, "flag");
+  assertEquals(result.reasons.length > 0, true);
+});
+
+Deno.test("flagPickEmBetNowCopy: Betr OneLink + Bet Now is flagged", () => {
+  const result = flagPickEmBetNowCopy(
+    makeCreative({ cta_text: "Bet Now", cta_url: "https://betr.onelink.me/VZxy/betrapp" }),
+  );
+  assertEquals(result.verdict, "flag");
+});
+
+Deno.test("flagPickEmBetNowCopy: Open Betr is not flagged", () => {
+  const result = flagPickEmBetNowCopy(
+    makeCreative({ cta_text: "Open Betr", cta_url: "https://www.betr.app/picks" }),
+  );
+  assertEquals(result.verdict, "pass");
+  assertEquals(result.reasons, []);
+});
+
+Deno.test("flagPickEmBetNowCopy: Bet Now on BetRivers is not flagged", () => {
+  const result = flagPickEmBetNowCopy(
+    makeCreative({
+      cta_text: "Bet Now on BetRivers",
+      cta_url: "https://www.betrivers.com/sportsbook",
+    }),
+  );
+  assertEquals(result.verdict, "pass");
+});
+
+Deno.test("mergePrescreenResults: hard flag wins even if LLM passes", () => {
+  const merged = mergePrescreenResults(
+    { verdict: "flag", reasons: ["Pick'em / DFS CTA must not use 'Bet Now' (use Open or Play on). Betr Picks is not a sportsbook."] },
+    { verdict: "pass", reasons: [] },
+  );
+  assertEquals(merged.verdict, "flag");
+  assertEquals(merged.reasons.length >= 1, true);
+});
+
+Deno.test("rubric: prompt includes pick'em Bet Now rule", () => {
+  const prompt = buildPrescreenPrompt(makeCreative());
+  assertStringIncludes(prompt, "Bet Now");
+  assertStringIncludes(prompt, "Betr Picks");
+  assertStringIncludes(prompt, "BetRivers");
 });

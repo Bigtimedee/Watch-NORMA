@@ -233,6 +233,6 @@ Migration `20260914210000_betr_dfs_pickem.sql` seeds `betr` as `dfs_pickem` and 
 
 1. `SELECT key, category, ios_scheme, universal_link FROM streaming_providers WHERE key = 'betr';` — category `dfs_pickem`, `ios_scheme` NULL, OneLink universal_link.
 2. `SELECT sportsbook_key, allowed_states FROM sportsbook_restrictions WHERE sportsbook_key = 'betr';` — includes TN, excludes NY.
-3. Redeploy any function that bundles `_shared/sportsbook-links.ts` (auction CTA detect + OneLink template).
+3. Redeploy functions that bundle `_shared/sportsbook-links.ts` (auction CTA detect + OneLink), `parse-bet-slip` (vision enum includes `betr`), `email-parser.ts` (BetRivers still mapped; Betr domain still unmapped), and `creative-prescreen` (`flagPickEmBetNowCopy`).
 
-Do not treat email parse or slip OCR as live — those are Phase B.
+Slip OCR enum and auction rewrite shipped in Phases B–E. **Do not treat Betr email ingest as live** — `betr.app` is unmapped until a redacted confirmation fixture exists.

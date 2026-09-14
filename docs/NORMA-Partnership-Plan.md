@@ -476,7 +476,7 @@ Enhance NORMA's social content pipeline to create partner-amplifiable content. S
 
 Fantasy sports players (DraftKings DFS, Yahoo Fantasy, Underdog Fantasy, Sleeper, PrizePicks, Betr Picks) are highly engaged sports fans who follow specific players with financial stakes — essentially the same profile as NORMA's target user. Many fantasy players don't actively place spread bets and may not have connected sportsbook accounts, but they absolutely want to know when their player is having a big game or is in foul trouble.
 
-**Betr (Betr Picks)** is the next DFS pick'em operator to add after PrizePicks / Underdog. It is **not implemented** yet. Engineering plan (keys, geo, OneLink, phased tickets): [`docs/betr-integration-plan.md`](betr-integration-plan.md). Do not confuse Betr with BetRivers. v1 is Picks only; Betr SSBK is a later optional sportsbook track.
+**Betr (Betr Picks)** is live as NORMA's third `dfs_pickem` operator (`provider_key = betr`, Tier B/C). Engineering plan: [`docs/betr-integration-plan.md`](betr-integration-plan.md). Do not confuse Betr with BetRivers. Email ingest is blocked until a real confirmation fixture exists. v1 is Picks only; Betr SSBK is a later optional sportsbook track.
 
 NORMA's v2 alert engine already supports player-level follows (`entity_type = 'player'` in the follows table). The gap is connecting NORMA's player-follow alerts to a fantasy platform's roster data, so NORMA can alert a user when *their rostered player* is having a breakout performance.
 
@@ -509,9 +509,9 @@ Build a fantasy roster import feature for NORMA. Specifically:
 
 ---
 
-**TASK FF-02: Betr Picks as the third `dfs_pickem` provider (Phase A shipped 2026-09-14)**
+**TASK FF-02: Betr Picks as the third `dfs_pickem` provider (Tier B/C shipped 2026-09-14)**
 
-PrizePicks and Underdog shipped as Tier B/C pick'em. Betr Picks Phase A is in: registry seed, brands, `PICKEM_PROVIDER_KEYS`, geo, Connections, OneLink. Phases B–E (email/slip, auction sport-board, native scheme) follow [`docs/betr-integration-plan.md`](betr-integration-plan.md). Do not pitch email ingest or a live API.
+PrizePicks, Underdog, and Betr Picks are Tier B/C pick'em. Betr: registry seed, brands, `PICKEM_PROVIDER_KEYS`, geo, Connections, OneLink, slip OCR enum, roster `fantasy_source = betr`, auction OneLink rewrite, Open Betr CTA. Email ingest is **blocked on fixture** — do not pitch it. No live API. Native scheme TBD. Follow [`docs/betr-integration-plan.md`](betr-integration-plan.md).
 
 ---
 

@@ -18,9 +18,10 @@ function readRepo(rel: string): string {
 }
 
 describe("SPORTSBOOK_NAMES", () => {
-  it("includes prizepicks and underdog", () => {
+  it("includes prizepicks, underdog, and betr", () => {
     expect(SPORTSBOOK_NAMES.prizepicks).toBe("PrizePicks");
     expect(SPORTSBOOK_NAMES.underdog).toBe("Underdog");
+    expect(SPORTSBOOK_NAMES.betr).toBe("Betr");
   });
 
   it("includes season-long fantasy display names", () => {
@@ -49,6 +50,7 @@ describe("FANTASY_PLATFORMS", () => {
         "espn_fantasy",
         "prizepicks",
         "underdog",
+        "betr",
         "other",
       ]),
     );
@@ -68,6 +70,8 @@ describe("FANTASY_PLATFORMS", () => {
 
   it("isPickEmProvider / isFantasyPlatform helpers", () => {
     expect(isPickEmProvider("prizepicks")).toBe(true);
+    expect(isPickEmProvider("betr")).toBe(true);
+    expect(isPickEmProvider("betrivers")).toBe(false);
     expect(isPickEmProvider("draftkings")).toBe(false);
     expect(isFantasyPlatform("sleeper")).toBe(true);
     expect(isFantasyPlatform("youtube_tv")).toBe(false);
@@ -91,9 +95,10 @@ describe("app.json LSApplicationQueriesSchemes", () => {
 describe("parse-bet-slip live source", () => {
   const src = readRepo("supabase/functions/parse-bet-slip/index.ts");
 
-  it("enumerates prizepicks and underdog", () => {
+  it("enumerates prizepicks, underdog, and betr", () => {
     expect(src).toContain("prizepicks");
     expect(src).toContain("underdog");
+    expect(src).toContain('"betr"');
   });
 
   it("asks vision for pick'em legs", () => {
@@ -108,6 +113,12 @@ describe("email-parser live source", () => {
   it("maps prizepicks and underdog sender domains", () => {
     expect(src).toContain('"prizepicks.com"');
     expect(src).toContain('"underdogfantasy.com"');
+  });
+
+  it("maps BetRivers via betrivers.com and does not invent a betr.app domain", () => {
+    expect(src).toContain('"betrivers.com"');
+    expect(src).toMatch(/BLOCKED ON FIXTURE/);
+    expect(src).not.toMatch(/"[^"\n]*"\s*:\s*"betr"/);
   });
 
   it("has a dedicated pick'em regex parser", () => {

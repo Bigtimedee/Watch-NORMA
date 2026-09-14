@@ -154,8 +154,8 @@ A Tier A integration would require a partner API agreement providing a read-only
 
 ---
 
-## Betr (Betr Picks) — Phase A shipped
+## Betr (Betr Picks) — Tier B/C shipped
 
-Betr Picks is the third DFS pick'em operator (`provider_key = betr`). Phase A (registry, geo, brands, Connections, OneLink) shipped 2026-09-14. Email/slip parse and a verified native scheme are not live — do not pitch those.
+Betr Picks is the third DFS pick'em operator (`provider_key = betr`). Connections, roster paste, slip scan, brands, geo, and OneLink CTAs shipped 2026-09-14. Email ingest is **blocked on a real confirmation fixture** — do not pitch it. No verified native scheme. No live roster API.
 
-Engineering plan and remaining phases: [`docs/betr-integration-plan.md`](../betr-integration-plan.md). Betr is unrelated to BetRivers. Betr SSBK (sportsbook) is out of v1.
+Engineering plan: [`docs/betr-integration-plan.md`](../betr-integration-plan.md). Betr is unrelated to BetRivers. Betr SSBK (sportsbook) is out of v1.
