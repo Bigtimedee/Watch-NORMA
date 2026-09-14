@@ -319,6 +319,18 @@ No live roster API. Re-import on lineup change. Same limits as PP/UD: if neither
 - [x] Auction-engine already calls `contextualizeSponsorCtaUrl` on both return paths — no second wiring if detection works
 - [x] Sponsor creatives that still say "Bet Now" in `ctaText` are **flagged** at campaign review (`flagPickEmBetNowCopy` in `creative-prescreen`); BetRivers is exempt. Client also refuses to render "Bet Now on Betr".
 
+#### Lessons / pitfalls (Phase D CI, 2026-09-14)
+
+Commit [`3217593`](https://github.com/Bigtimedee/Watch-NORMA/commit/32175939eff2e22c8088581fbf2b714b2ed4234f) (Betr Phases B–E) failed Client CI with `error TS2300: Duplicate identifier 'ctaText'` in `components/SponsorCTAButton.tsx` (lines 15 and 16). Run: [34893196566](https://github.com/Bigtimedee/Watch-NORMA/actions/runs/34893196566).
+
+**Cause:** A Phase D comment update accidentally left a second `ctaText?: string;` on `SponsorCTAButtonProps` while keeping the original.
+
+**Rule:** When editing React/TS prop interfaces, **update the existing field's JSDoc/comment in place** — never paste a second copy of the same property name.
+
+**Check:** Before push, `npx tsc --noEmit` must be clean. The Client CI job (`Client (TypeCheck + Jest)` in `.github/workflows/ci.yml`) runs this and will fail on TS2300.
+
+**Fix:** Already on main — [`c8c88d2`](https://github.com/Bigtimedee/Watch-NORMA/commit/c8c88d2313e9de958b12b7235bbb50c1166b30af) (`fix(dfs): drop duplicate ctaText prop on SponsorCTAButton`), merged in PR #38. Do not re-touch `SponsorCTAButton.tsx` for this.
+
 ---
 
 ### Phase E — Tests, analytics, flag
@@ -449,3 +461,4 @@ Third-party reviews (Sportsline, GamblingSitesUSA, etc.) were used only to notic
 - [x] BetRivers called out as unrelated
 - [x] Cross-links from `04_DATA_AND_INTEGRATIONS.md`, partnership Tier 5, roadmap, fantasy partner brief
 - [x] Implementation PR (separate) follows Phases A–E (email ingest still blocked on fixture)
+- [x] Phase D lessons: TS2300 duplicate `ctaText` on `SponsorCTAButtonProps`; fix `c8c88d2` already on main

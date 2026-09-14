@@ -16,6 +16,10 @@ Based on repository inspection and the outage report:
 
 6. ~~**`cmo-publish` tweeted non-X `content_calendar` drafts.**~~ **Closed (2026-09-08).** `fetchDuePosts` selected every `draft`/`scheduled` row with `scheduled_for <= now()` and posted them to the X API regardless of `platform`. LinkedIn draft `8c66955e` was briefly posted to X (duplicate later deleted). Fix: due query is `platform = 'twitter'` only; non-X rows are skipped in-loop with no status mutation; `markPublished` / `markFailed` also require a twitter draft/scheduled row. Consumer social cron `publish-social-posts` reads `social_posts` (not `content_calendar`) and already switches on `post.platform`.
 
+### CI pitfall: duplicate interface properties
+
+~~**Client CI `TS2300` duplicate `ctaText` on `SponsorCTAButtonProps`.**~~ **Closed (2026-09-14).** Betr Phase D (`3217593`) pasted a second `ctaText?: string;` instead of editing the existing JSDoc in place. Client CI (`npx tsc --noEmit`) failed: [run 34893196566](https://github.com/Bigtimedee/Watch-NORMA/actions/runs/34893196566). Fix `c8c88d2` (PR #38) is on main — do not re-touch `SponsorCTAButton.tsx`. **Rule:** update React/TS prop fields in place; never duplicate the property name. **Check:** `npx tsc --noEmit` must be clean before push. Durable agent note: `CLAUDE.md` (same heading). Incident write-up: [`docs/betr-integration-plan.md`](../betr-integration-plan.md) Phase D lessons.
+
 ## Known Gaps
 
 ### Data and Integrations
