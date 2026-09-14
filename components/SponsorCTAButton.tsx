@@ -13,7 +13,6 @@ interface SponsorCTAButtonProps {
   ctaUrl: string;
   /** Advertiser-supplied button label. Pick'em "Bet Now" copy is replaced with Open {Name}. */
   ctaText?: string;
-  ctaText?: string;
   logoUrl?: string | null;
   alertId: number;
   providerKey?: string;
