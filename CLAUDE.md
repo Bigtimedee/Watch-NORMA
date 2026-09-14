@@ -14,6 +14,23 @@ causes a `duplicate key value violates unique constraint "schema_migrations_pkey
 CI failure that is painful to untangle. Timestamped migrations
 (`YYYYMMDDHHMMSS_name.sql`) are always safe for ad-hoc agent work.
 
+## CI pitfall: duplicate interface properties
+
+Client CI (`Client (TypeCheck + Jest)` in `.github/workflows/ci.yml`) runs
+`npx tsc --noEmit` and fails on `error TS2300: Duplicate identifier`.
+
+On 2026-09-14, Betr Phase D left a second `ctaText?: string;` on
+`SponsorCTAButtonProps` while keeping the original (`3217593` →
+[run 34893196566](https://github.com/Bigtimedee/Watch-NORMA/actions/runs/34893196566)).
+Fix is already on main: `c8c88d2` (PR #38). Do not re-edit that file for this.
+
+When editing a React/TS props interface, **update the existing field's
+JSDoc/comment in place**. Never paste a second copy of the same property name.
+
+Before every push that touches `.ts` / `.tsx`, `npx tsc --noEmit` must be clean.
+
+---
+
 Before performing any work on Watch-NORMA, read:
 
 `/docs/watch-norma-context/README.md`
