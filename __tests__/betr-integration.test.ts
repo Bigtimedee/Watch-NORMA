@@ -79,7 +79,10 @@ describe("Betr provider registry + geo migration", () => {
     expect(sql).toContain("https://www.betr.app/picks");
     expect(sql).toContain("id1635215598");
     expect(sql).toContain("ON CONFLICT (key) DO UPDATE");
-    expect(sql).not.toMatch(/betr:\/\//);
+    // ios_scheme is the NULL after provider_type. Quoted 'betr://' must not appear
+    // (the comment may mention betr:// in backticks).
+    expect(sql).toMatch(/'sportsbook',\s*NULL,/);
+    expect(sql).not.toMatch(/'betr:\/\//);
   });
 
   it("does not edit 092 or 20260904183000", () => {
