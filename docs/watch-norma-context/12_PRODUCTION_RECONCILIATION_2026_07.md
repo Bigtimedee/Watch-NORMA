@@ -226,3 +226,13 @@ Migration `092_prizepicks_underdog_dfs_pickem.sql` landed on `main` via Phase 3 
 4. Deploy the updated `evaluate-alerts` bundle (auction CTA rewriter + player-follow candidates + pick'em email parser)
 
 `app.json` on `main` remains 1.5.0 / build 23. A claimed 1.6.0 / build 33 Waiting for Review is not in this repo.
+
+## 9. Betr Phase A (2026-09-14) — apply after merge
+
+Migration `20260914210000_betr_dfs_pickem.sql` seeds `betr` as `dfs_pickem` and a `sportsbook_restrictions` row (help-center Picks=Yes, including TN). Apply to production `shijrazlzawjpobrpmnt` after merge. Verify:
+
+1. `SELECT key, category, ios_scheme, universal_link FROM streaming_providers WHERE key = 'betr';` — category `dfs_pickem`, `ios_scheme` NULL, OneLink universal_link.
+2. `SELECT sportsbook_key, allowed_states FROM sportsbook_restrictions WHERE sportsbook_key = 'betr';` — includes TN, excludes NY.
+3. Redeploy any function that bundles `_shared/sportsbook-links.ts` (auction CTA detect + OneLink template).
+
+Do not treat email parse or slip OCR as live — those are Phase B.

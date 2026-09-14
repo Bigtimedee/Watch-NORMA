@@ -32,8 +32,8 @@ export default function PickEmScreen() {
 
       <Text style={s.desc}>
         Mark the pick&apos;em apps you use. NORMA does not have a live API to
-        PrizePicks or Underdog — connect here, then import your entry from
-        Connections → Fantasy Roster, or scan an entry slip.
+        PrizePicks, Underdog, or Betr — connect here, then import your entry
+        from Connections → Fantasy Roster, or scan an entry slip.
       </Text>
 
       {loadingBooks ? (
@@ -42,8 +42,8 @@ export default function PickEmScreen() {
         </View>
       ) : pickEmProviders.length === 0 ? (
         <Text style={s.empty}>
-          PrizePicks and Underdog are not in the provider catalog yet. You can
-          still import player names from Fantasy Roster.
+          PrizePicks, Underdog, and Betr are not in the provider catalog yet.
+          You can still import player names from Fantasy Roster.
         </Text>
       ) : (
         <FlatList

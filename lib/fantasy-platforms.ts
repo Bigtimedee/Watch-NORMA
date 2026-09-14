@@ -11,13 +11,14 @@ export const FANTASY_PLATFORMS = [
   { value: "espn_fantasy", label: "ESPN Fantasy" },
   { value: "prizepicks", label: "PrizePicks" },
   { value: "underdog", label: "Underdog" },
+  { value: "betr", label: "Betr Picks" },
   { value: "other", label: "Other" },
 ] as const;
 
 export type FantasyPlatform = (typeof FANTASY_PLATFORMS)[number]["value"];
 
 /** Pick'em operators — category = dfs_pickem in provider_registry. */
-export const PICKEM_PROVIDER_KEYS = ["prizepicks", "underdog"] as const;
+export const PICKEM_PROVIDER_KEYS = ["prizepicks", "underdog", "betr"] as const;
 export type PickEmProviderKey = (typeof PICKEM_PROVIDER_KEYS)[number];
 
 /** Season-long fantasy apps — category = fantasy. No live roster API. */

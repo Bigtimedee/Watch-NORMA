@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useConnections } from "../../../hooks/useConnections";
 import { ImportRosterSheet } from "../../../components/ImportRosterSheet";
 import { useFollows } from "../../../hooks/useFollows";
+import { isPickEmProvider } from "../../../lib/fantasy-platforms";
 
 export default function ConnectionsScreen() {
   const router = useRouter();
@@ -29,13 +30,10 @@ export default function ConnectionsScreen() {
       c.connected &&
       c.provider_key !== "kalshi" &&
       c.provider_key !== "polymarket" &&
-      c.provider_key !== "prizepicks" &&
-      c.provider_key !== "underdog"
+      !isPickEmProvider(c.provider_key)
   ).length;
   const pickEmCount = (connections ?? []).filter(
-    (c) =>
-      c.connected &&
-      (c.provider_key === "prizepicks" || c.provider_key === "underdog")
+    (c) => c.connected && isPickEmProvider(c.provider_key)
   ).length;
   const predictionCount = (connections ?? []).filter(
     (c) =>
@@ -67,7 +65,7 @@ export default function ConnectionsScreen() {
     },
     {
       title: "Pick'em & DFS",
-      subtitle: "PrizePicks, Underdog, and daily fantasy",
+      subtitle: "PrizePicks, Underdog, Betr, and daily fantasy",
       icon: "football-outline" as const,
       count: pickEmCount,
       route: "/(tabs)/connections/pickem" as const,

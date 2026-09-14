@@ -189,12 +189,33 @@ Deno.test("buildPickEmLink: unknown provider returns empty link (safe fallback)"
   assertEquals(link.universal_link, "");
 });
 
+Deno.test("Betr: OneLink / picks fallback, blank scheme, no invented sport board or affiliate param", () => {
+  const link = buildPickEmLink("betr", pickEmCtx("nfl"), 42);
+  assertEquals(link.native_scheme, "");
+  assertEquals(link.universal_link, "https://betr.onelink.me/VZxy/betrapp");
+  assertEquals(link.web_fallback, "https://www.betr.app/picks");
+  assertEquals(link.affiliate_params, "");
+  assertEquals(link.universal_link.includes("promo"), false);
+  assertEquals(link.universal_link.includes("sport="), false);
+  assertEquals(link.universal_link.includes("betr://"), false);
+});
+
 // ─── Auction CTA rewriter (dead-code fix: wire buildPickEmLink) ──────────────
 
-Deno.test("detectPickEmProviderFromUrl matches prizepicks and underdog hosts", () => {
+Deno.test("detectPickEmProviderFromUrl matches prizepicks, underdog, and betr hosts", () => {
   assertEquals(detectPickEmProviderFromUrl("https://app.prizepicks.com"), "prizepicks");
   assertEquals(detectPickEmProviderFromUrl("https://app.underdogfantasy.com/picks"), "underdog");
+  assertEquals(detectPickEmProviderFromUrl("https://www.betr.app/picks"), "betr");
+  assertEquals(detectPickEmProviderFromUrl("https://picks.betr.app"), "betr");
+  assertEquals(detectPickEmProviderFromUrl("https://betr.onelink.me/VZxy/betrapp"), "betr");
   assertEquals(detectPickEmProviderFromUrl("https://sportsbook.draftkings.com/x"), null);
+});
+
+Deno.test("detectPickEmProviderFromUrl does not match betrivers.com", () => {
+  assertEquals(detectPickEmProviderFromUrl("https://www.betrivers.com"), null);
+  assertEquals(detectPickEmProviderFromUrl("https://betrivers.com/sportsbook"), null);
+  assertEquals(detectPickEmProviderFromUrl("https://sports.betrivers.com"), null);
+  assertEquals(isSportsbookUrl("https://www.betrivers.com/sports"), null);
 });
 
 Deno.test("contextualizeSponsorCtaUrl: sportsbook URL is unchanged", () => {
@@ -219,6 +240,19 @@ Deno.test("contextualizeSponsorCtaUrl: underdog URL becomes sport-scoped board",
   });
   assertStringIncludes(out ?? "", "underdogfantasy.com");
   assertStringIncludes(out ?? "", "college_football");
+});
+
+Deno.test("contextualizeSponsorCtaUrl: betr URL stays OneLink without fake sport board", () => {
+  const out = contextualizeSponsorCtaUrl("https://www.betr.app/picks", {
+    sport: "nfl",
+    campaignId: 9,
+  });
+  assertEquals(out, "https://betr.onelink.me/VZxy/betrapp");
+});
+
+Deno.test("contextualizeSponsorCtaUrl: betrivers.com is unchanged", () => {
+  const raw = "https://www.betrivers.com/sportsbook";
+  assertEquals(contextualizeSponsorCtaUrl(raw, { sport: "nfl", campaignId: 1 }), raw);
 });
 
 Deno.test("contextualizeSponsorCtaUrl: null/empty stays null", () => {

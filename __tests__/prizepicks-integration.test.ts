@@ -192,7 +192,7 @@ describe("wager sheets + types + alert candidates", () => {
 
   it("ReviewScannedWagersSheet ALL_BOOKS includes prizepicks and underdog", () => {
     const src = readRepo("components/ReviewScannedWagersSheet.tsx");
-    expect(src).toMatch(/ALL_BOOKS[\s\S]*prizepicks[\s\S]*underdog/);
+    expect(src).toContain("...PICKEM_PROVIDER_KEYS");
   });
 
   it("ProviderCategory includes dfs_pickem", () => {

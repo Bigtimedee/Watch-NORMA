@@ -23,10 +23,11 @@ const SPORTSBOOK_RESTRICTIONS: Record<string, string[]> = {
   betmgm:     ["AZ","CO","DC","IL","IN","IA","KS","LA","MD","MA","MI","MS","NJ","NY","OH","OR","PA","TN","VA","WV","WY"],
   caesars:    ["AZ","CO","CT","IL","IN","IA","KS","LA","MD","MA","MI","NJ","NY","NC","OH","PA","TN","VA","WV","WY"],
   pointsbet:  ["CO","IL","IN","IA","MI","NJ","NY","PA","VA","WV"],
-  // Pick'em — mirrors migration 20260904183000. Broader than sportsbooks
-  // in TX/CA/FL; still fail-closed in drafts-only / unavailable states.
+  // Pick'em — PrizePicks / Underdog: migration 20260904183000.
+  // Betr: migration 20260914210000 (help-center Picks=Yes, including TN).
   prizepicks: ["AK","AL","AR","AZ","CA","CO","DC","DE","FL","GA","IL","IN","KS","KY","MA","ME","MN","MO","NC","ND","NE","NH","NM","NY","OK","OR","RI","SC","SD","TN","TX","UT","VA","VT","WI","WV","WY"],
   underdog:   ["AK","AL","AR","AZ","CA","CO","DE","FL","GA","IL","IN","KS","KY","MA","MN","MO","MS","NC","ND","NE","NH","NM","OK","OR","RI","SC","SD","TN","TX","UT","VA","VT","WI","WV","WY"],
+  betr:       ["AK","AL","AR","AZ","CA","CO","DC","DE","FL","GA","IL","IN","KS","KY","MA","MN","NC","ND","NE","NH","NM","OK","OR","RI","SC","SD","TN","TX","UT","VA","VT","WI","WV","WY"],
 };
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,13 @@ Deno.test("pick'em: PrizePicks eligible in TX and NY; Underdog eligible in TX no
   assertEquals(isGeoEligible("NJ", SPORTSBOOK_RESTRICTIONS.underdog), false);
 });
 
+Deno.test("pick'em: Betr eligible in TX and TN; not NY or NJ", () => {
+  assert(isGeoEligible("TX", SPORTSBOOK_RESTRICTIONS.betr));
+  assert(isGeoEligible("TN", SPORTSBOOK_RESTRICTIONS.betr));
+  assertEquals(isGeoEligible("NY", SPORTSBOOK_RESTRICTIONS.betr), false);
+  assertEquals(isGeoEligible("NJ", SPORTSBOOK_RESTRICTIONS.betr), false);
+});
+
 Deno.test("pick'em restriction fixture matches migration 20260904183000", async () => {
   const sql = await Deno.readTextFile(
     new URL("../../migrations/20260904183000_dfs_fantasy_integration_fixes.sql", import.meta.url),
@@ -249,4 +257,24 @@ Deno.test("pick'em restriction fixture matches migration 20260904183000", async 
       `underdog seed must not include drafts-only/unavailable ${blocked}`,
     );
   }
+});
+
+Deno.test("pick'em restriction fixture matches migration 20260914210000 betr", async () => {
+  const sql = await Deno.readTextFile(
+    new URL("../../migrations/20260914210000_betr_dfs_pickem.sql", import.meta.url),
+  );
+  assert(sql.includes("'betr'"), "migration must seed betr restrictions");
+  assert(sql.includes("sportsbook_restrictions"), "migration must mention sportsbook_restrictions");
+  for (const state of SPORTSBOOK_RESTRICTIONS.betr) {
+    assert(sql.includes(`'${state}'`), `betr seed missing ${state}`);
+  }
+  const arrayBlock = sql.slice(sql.indexOf("ARRAY["), sql.indexOf("]"));
+  for (const blocked of ["NY", "NJ", "MD", "MI", "OH", "PA", "WA", "NV", "CT"]) {
+    assertEquals(
+      arrayBlock.includes(`'${blocked}'`),
+      false,
+      `betr Picks seed must not include unavailable ${blocked}`,
+    );
+  }
+  assert(arrayBlock.includes("'TN'"), "betr seed includes help-center TN");
 });

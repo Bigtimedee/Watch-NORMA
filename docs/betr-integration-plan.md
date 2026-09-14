@@ -1,7 +1,7 @@
 # Betr (Betr Picks) Integration Plan
 
-**Status:** Plan only — not implemented  
-**Date:** 2026-09-08  
+**Status:** Phase A implemented (2026-09-14) — provider seed, brands, keys, geo, OneLink. Phases B–E not done.  
+**Date:** 2026-09-08 (plan); Phase A 2026-09-14  
 **Owner:** Eng + Dave (product / geo sign-off)  
 **Canonical key:** `betr`  
 **Category:** `dfs_pickem` (same bucket as PrizePicks / Underdog)
@@ -253,12 +253,18 @@ v1 is expected to be **store/OneLink-heavy**. Do not register a guessed scheme i
 
 **Phase A acceptance**
 
-- [ ] `betr` row in `provider_registry` with `category = dfs_pickem`
-- [ ] `sportsbook_restrictions` row cited to help center + store listings; TN decision documented
-- [ ] `PICKEM_PROVIDER_KEYS` includes `betr`; Connections counts use `isPickEmProvider`
-- [ ] Brand maps exist on client + edge (hex from a cited asset)
-- [ ] No fabricated scheme or affiliate param in production code
-- [ ] Pick'em screen lists Betr after migration apply; sportsbooks screen still excludes `dfs_pickem`
+- [x] `betr` row in `provider_registry` with `category = dfs_pickem`
+- [x] `sportsbook_restrictions` row cited to help center + store listings; TN decision documented
+- [x] `PICKEM_PROVIDER_KEYS` includes `betr`; Connections counts use `isPickEmProvider`
+- [x] Brand maps exist on client + edge (hex from a cited asset)
+- [x] No fabricated scheme or affiliate param in production code
+- [x] Pick'em screen lists Betr after migration apply; sportsbooks screen still excludes `dfs_pickem`
+
+TN: **included** (help-center Picks = Yes). Play Store omits TN; fail-closed would hide the CTA from a help-center-legal state. Re-verify in-app from a TN account before treating as final.
+
+CTA: **"Open Betr"** (existing pick'em convention). Not "Play on Betr", never "Bet Now on Betr".
+
+Brand hex: `#A444E4` from betr.app `.primary-btn { background-color: #a444e4 }` (Webflow CSS `betrsite.shared.39f2d5aa2.css`, retrieved 2026-09-14).
 
 ---
 
