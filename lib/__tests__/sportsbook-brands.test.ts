@@ -55,6 +55,27 @@ describe("sportsbook-brands", () => {
     );
   });
 
+  it("Betr keeps Open Betr even when style or ctaText says Bet Now", () => {
+    expect(defaultCtaLabel("betr", true, { style: "bet_now" })).toBe("Open Betr");
+    expect(defaultCtaLabel("betr", true, { ctaText: "Bet Now on Betr" })).toBe(
+      "Open Betr",
+    );
+    expect(defaultCtaLabel("betr", true, { ctaText: "Bet Now on Betr" })).not.toBe(
+      "Bet Now on Betr",
+    );
+    expect(defaultCtaLabel("betr", true, { ctaText: "Play on Betr" })).toBe(
+      "Play on Betr",
+    );
+  });
+
+  it("detectSportsbookProvider never maps BetRivers hosts to betr", () => {
+    expect(detectSportsbookProvider("https://www.betrivers.com")).toBe(null);
+    expect(detectSportsbookProvider("https://sports.betrivers.com/sportsbook")).toBe(
+      null,
+    );
+    expect(detectSportsbookProvider("https://betrivers.com")).toBe(null);
+  });
+
   it("SponsorCTAButton style=open never says Bet Now", () => {
     expect(defaultCtaLabel("draftkings", true, { style: "open" })).toBe(
       "Open DraftKings",

@@ -1,7 +1,7 @@
 # Betr (Betr Picks) Integration Plan
 
-**Status:** Phase A implemented (2026-09-14) — provider seed, brands, keys, geo, OneLink. Phases B–E not done.  
-**Date:** 2026-09-08 (plan); Phase A 2026-09-14  
+**Status:** Phases A–E implemented (2026-09-14) except Betr email ingest, which is blocked on a real confirmation-email fixture.  
+**Date:** 2026-09-08 (plan); Phase A 2026-09-14; Phases B–E 2026-09-14  
 **Owner:** Eng + Dave (product / geo sign-off)  
 **Canonical key:** `betr`  
 **Category:** `dfs_pickem` (same bucket as PrizePicks / Underdog)
@@ -290,9 +290,9 @@ Extend the `parse-bet-slip` prompt: Betr Picks entry screens show player, MORE/L
 
 **Phase B acceptance**
 
-- [ ] BetRivers still maps only `betrivers.com`
-- [ ] Either a redacted Betr fixture + passing parser test, **or** an explicit "no email in v1" note in this plan's follow-up ticket
-- [ ] Vision prompt lists `betr`; scanned slips can be assigned provider `betr` in `ReviewScannedWagersSheet`
+- [x] BetRivers still maps only `betrivers.com`
+- [x] **No email in v1** — no transactional fixture obtained. `betr.app` is unmapped; `email-parser.ts` has a BLOCKED ON FIXTURE stub with capture steps. Bare token `betr` is not a domain. `detectSportsbook("hello@betrivers.com") === "betrivers"`; `detectSportsbook("noreply@betr.app") === null`.
+- [x] Vision prompt lists `betr`; scanned slips can be assigned provider `betr` in `ReviewScannedWagersSheet` (`...PICKEM_PROVIDER_KEYS`)
 
 ---
 
@@ -300,11 +300,11 @@ Extend the `parse-bet-slip` prompt: Betr Picks entry screens show player, MORE/L
 
 Mostly falls out of Phase A constants.
 
-- [ ] Picker shows "Betr Picks"; save writes `fantasy_source = 'betr'`
-- [ ] `lib/__tests__/import-roster.test.ts` covers `buildRosterFollowRows(..., "betr")`
-- [ ] `evaluate-alerts` needs **no new Stage 0 query** if player follows already flow through `userFollowPlayerMap` / `followMatchesGamePlayers`
-- [ ] Manual QA: import 3 NFL names → those users are candidates on a live/test game whose boxscore contains those names
-- [ ] Connections fantasy-follow count includes Betr-sourced rows (already filters `source === "fantasy"`)
+- [x] Picker shows "Betr Picks"; save writes `fantasy_source = 'betr'`
+- [x] `lib/__tests__/import-roster.test.ts` covers `buildRosterFollowRows(..., "betr")`
+- [x] `evaluate-alerts` needs **no new Stage 0 query** if player follows already flow through `userFollowPlayerMap` / `followMatchesGamePlayers`
+- [ ] Manual QA: import 3 NFL names → those users are candidates on a live/test game whose boxscore contains those names *(unit coverage of 3-name Betr rows exists; live boxscore QA is ops)*
+- [x] Connections fantasy-follow count includes Betr-sourced rows (already filters `source === "fantasy"`)
 
 No live roster API. Re-import on lineup change. Same limits as PP/UD: if neither Sportradar summary nor ESPN boxscore has the player name, the follow does not become an alert candidate.
 
@@ -312,12 +312,12 @@ No live roster API. Re-import on lineup change. Same limits as PP/UD: if neither
 
 ### Phase D — Auction / CTA copy + compliance
 
-- [ ] `isPickEmProvider("betr")` is true → `defaultCtaLabel` is **not** `"Bet Now on Betr"`
-- [ ] Product copy: **"Play on Betr"** (or documented "Open Betr" if we keep one pattern for all pick'em). Update `sportsbook-brands.test.ts` accordingly. If we change only Betr to "Play on" and leave PP/UD as "Open", say so in the test name.
-- [ ] `detectPickEmProviderFromUrl` matches `betr.app`, `picks.betr.app`, `betr.onelink.me` — **must not** match `betrivers.com` (write that test first)
-- [ ] `contextualizeSponsorCtaUrl` rewrites those hosts through `buildPickEmLink`; traditional sportsbook URLs unchanged
-- [ ] Auction-engine already calls `contextualizeSponsorCtaUrl` on both return paths — no second wiring if detection works
-- [ ] Sponsor creatives that still say "Bet Now" in `ctaText` should be rejected or rewritten at campaign review (ops), not silently shown
+- [x] `isPickEmProvider("betr")` is true → `defaultCtaLabel` is **not** `"Bet Now on Betr"`
+- [x] Product copy: **"Open Betr"** (same pick'em convention as PrizePicks / Underdog). Advertiser `ctaText` of `"Play on Betr"` is still shown; `"Bet Now on Betr"` is not.
+- [x] `detectPickEmProviderFromUrl` matches `betr.app`, `picks.betr.app`, `betr.onelink.me` — **must not** match `betrivers.com` (write that test first)
+- [x] `contextualizeSponsorCtaUrl` rewrites those hosts through `buildPickEmLink`; traditional sportsbook URLs unchanged
+- [x] Auction-engine already calls `contextualizeSponsorCtaUrl` on both return paths — no second wiring if detection works
+- [x] Sponsor creatives that still say "Bet Now" in `ctaText` are **flagged** at campaign review (`flagPickEmBetNowCopy` in `creative-prescreen`); BetRivers is exempt. Client also refuses to render "Bet Now on Betr".
 
 ---
 
@@ -341,9 +341,9 @@ No live roster API. Re-import on lineup change. Same limits as PP/UD: if neither
 
 **Phase E acceptance**
 
-- [ ] CI Jest + Deno tests covering the rows above
-- [ ] `npx expo install --check` unchanged (no new native deps)
-- [ ] Docs in `04` / partnership plan flipped from **Planned** to **Tier B/C** in the **implementation** PR, not this one
+- [x] CI Jest + Deno tests covering the rows above
+- [x] `npx expo install --check` unchanged (no new native deps)
+- [x] Docs in `04` / partnership plan flipped from **Planned** to **Tier B/C** in the **implementation** PR, not this one
 
 ---
 
@@ -448,4 +448,4 @@ Third-party reviews (Sportsline, GamblingSitesUSA, etc.) were used only to notic
 - [x] Betr is not treated as implemented
 - [x] BetRivers called out as unrelated
 - [x] Cross-links from `04_DATA_AND_INTEGRATIONS.md`, partnership Tier 5, roadmap, fantasy partner brief
-- [ ] Implementation PR (separate) follows Phases A–E
+- [x] Implementation PR (separate) follows Phases A–E (email ingest still blocked on fixture)

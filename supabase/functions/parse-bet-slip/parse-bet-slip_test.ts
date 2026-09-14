@@ -1,5 +1,5 @@
 // parse-bet-slip_test.ts — assert the live prompt (not a copied excerpt)
-// recognizes PrizePicks / Underdog pick'em slips.
+// recognizes PrizePicks / Underdog / Betr Picks pick'em slips.
 
 import { assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
@@ -11,6 +11,12 @@ Deno.test("parse-bet-slip prompt: includes prizepicks in sportsbook enumeration"
 
 Deno.test("parse-bet-slip prompt: includes underdog in sportsbook enumeration", () => {
   assertStringIncludes(src, "underdog");
+});
+
+Deno.test("parse-bet-slip prompt: includes betr in sportsbook enumeration", () => {
+  assertStringIncludes(src, '"betr"');
+  assertStringIncludes(src, "Betr Picks");
+  assertStringIncludes(src, "BetRivers");
 });
 
 Deno.test("parse-bet-slip prompt: preserves original sportsbooks", () => {

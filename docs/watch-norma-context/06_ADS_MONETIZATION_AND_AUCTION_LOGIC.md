@@ -10,7 +10,7 @@ This is fundamentally different from banner ads or pre-roll video. NORMA's ad un
 
 All ad surfaces are implemented and integrated into the alert pipeline.
 
-**Alert-ad companion (primary).** Every alert that clears the throttle/dedup stage enters the Vickrey auction. If a sponsor wins, their logo, copy, and CTA URL are attached to the alert card. The sponsor text appears below the alert explanation. The CTA button (e.g., "Bet Now on DraftKings") appears alongside the "Watch on [Provider]" button.
+**Alert-ad companion (primary).** Every alert that clears the throttle/dedup stage enters the Vickrey auction. If a sponsor wins, their logo, copy, and CTA URL are attached to the alert card. The sponsor text appears below the alert explanation. The CTA button (e.g., "Bet Now on DraftKings") appears alongside the "Watch on [Provider]" button. Pick'em operators (PrizePicks, Underdog, Betr) use **Open {Name}**, never "Bet Now on Betr". Auction URLs for Betr rewrite to the verified OneLink via `contextualizeSponsorCtaUrl`. Creatives that still say "Bet Now" on a pick'em URL are flagged at campaign review (`flagPickEmBetNowCopy`); BetRivers is exempt.
 
 **In-app alert card.** The `AlertCard` component renders the sponsor logo, sponsor text, and CTA button when present. Tapping the CTA opens the sportsbook or advertiser deep link.
 

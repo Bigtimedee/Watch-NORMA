@@ -45,9 +45,11 @@ export function sportsbookDisplayName(key: string | null | undefined): string | 
 }
 
 /**
- * Default CTA copy. Pick'em apps are not sportsbooks — never "Bet Now on PrizePicks".
- * SponsorCTAButton always uses style "open". BetNowButton uses "open" for pick'em
- * and "bet_now" for traditional books.
+ * Default CTA copy. Pick'em apps are not sportsbooks — never "Bet Now on PrizePicks"
+ * or "Bet Now on Betr". Product convention is "Open {Name}" for all pick'em
+ * (PrizePicks / Underdog / Betr). Advertiser ctaText is kept when it does not
+ * say "Bet Now"; "Bet Now on Betr" is dropped so it is not shown to users.
+ * Campaign review should still reject that copy (creative-prescreen).
  */
 export function defaultCtaLabel(
   key: string | null,
@@ -55,11 +57,16 @@ export function defaultCtaLabel(
   opts?: { ctaText?: string; style?: "bet_now" | "open" },
 ): string {
   if (!eligible) return "Not available in your region";
-  if (opts?.ctaText) return opts.ctaText;
+  const pickEm = !!(key && isPickEmProvider(key));
+  const advertiserText = opts?.ctaText?.trim();
+  const advertiserSaysBetNow = !!advertiserText && /bet\s*now/i.test(advertiserText);
+  if (advertiserText && !(pickEm && advertiserSaysBetNow)) {
+    return advertiserText;
+  }
   const name = sportsbookDisplayName(key);
   const style =
-    opts?.style ?? (key && isPickEmProvider(key) ? "open" : "bet_now");
-  if (style === "open") {
+    opts?.style ?? (pickEm ? "open" : "bet_now");
+  if (pickEm || style === "open") {
     return name ? `Open ${name}` : "Open App";
   }
   return name ? `Bet Now on ${name}` : "Bet Now";

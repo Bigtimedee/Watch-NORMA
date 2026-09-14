@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { buildPrescreenPrompt, parsePrescreenResponse } from "./rubric.ts";
+import {
+  buildPrescreenPrompt,
+  flagPickEmBetNowCopy,
+  mergePrescreenResults,
+  parsePrescreenResponse,
+} from "./rubric.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -93,7 +98,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const result = parsePrescreenResponse(rawText);
+    const llm = parsePrescreenResponse(rawText);
+    const result = mergePrescreenResults(
+      flagPickEmBetNowCopy({
+        sponsor_text: creative.sponsor_text,
+        cta_text: creative.cta_text,
+        cta_url: creative.cta_url,
+        demand_type: demandType,
+      }),
+      llm,
+    );
 
     await supabase
       .from("creatives")

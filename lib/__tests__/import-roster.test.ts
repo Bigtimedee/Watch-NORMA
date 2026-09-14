@@ -124,6 +124,23 @@ describe("buildRosterFollowRows (roster import follow shapes)", () => {
     expect(rows[0].fantasy_source).toBe("betr");
   });
 
+  it("imports a 3-name Betr Picks roster as fantasy player follows", () => {
+    const names = parseRosterInput("Justin Jefferson\nCeeDee Lamb\nSaquon Barkley");
+    const rows = buildRosterFollowRows(names, USER_ID, "betr");
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.source).toBe("fantasy");
+      expect(row.fantasy_source).toBe("betr");
+      expect(row.entity_type).toBe("player");
+      expect(row.follow_type).toBe("player");
+    }
+    expect(rows.map((r) => r.entity_id)).toEqual([
+      "justin jefferson",
+      "ceedee lamb",
+      "saquon barkley",
+    ]);
+  });
+
   it("sets fantasy_source to other when Other is selected", () => {
     const rows = buildRosterFollowRows(["A"], USER_ID, "other");
     expect(rows[0].fantasy_source).toBe("other");

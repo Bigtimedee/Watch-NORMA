@@ -1,5 +1,5 @@
 /**
- * Betr Phase A — reads live source, not copied snapshots.
+ * Betr Phase A–E — reads live source, not copied snapshots.
  * Mirrors __tests__/prizepicks-integration.test.ts.
  */
 
@@ -139,5 +139,61 @@ describe("Betr iOS scheme is not registered", () => {
     const schemes: string[] =
       appJson.expo?.ios?.infoPlist?.LSApplicationQueriesSchemes ?? [];
     expect(schemes).not.toContain("betr");
+  });
+});
+
+describe("Betr Phase B — slip enum + gated email", () => {
+  it("parse-bet-slip vision prompt enumerates betr and warns about BetRivers", () => {
+    const src = readRepo("supabase/functions/parse-bet-slip/index.ts");
+    expect(src).toContain('"betr"');
+    expect(src).toContain("Betr Picks");
+    expect(src).toContain("BetRivers");
+  });
+
+  it("ReviewScannedWagersSheet can assign provider betr via PICKEM_PROVIDER_KEYS", () => {
+    expect(PICKEM_PROVIDER_KEYS).toEqual(expect.arrayContaining(["betr"]));
+    const src = readRepo("components/ReviewScannedWagersSheet.tsx");
+    expect(src).toContain("...PICKEM_PROVIDER_KEYS");
+  });
+
+  it("email-parser leaves Betr domains unmapped and keeps BetRivers on betrivers.com", () => {
+    const src = readRepo("supabase/functions/_shared/email-parser.ts");
+    expect(src).toContain('"betrivers.com"');
+    expect(src).toMatch(/BLOCKED ON FIXTURE/);
+    expect(src).not.toMatch(/"[^"\n]*"\s*:\s*"betr"/);
+    expect(src).not.toMatch(/^\s*case "betr"/m);
+  });
+});
+
+describe("Betr Phase C — roster / fantasy_source", () => {
+  it("follows.fantasy_source comment in the Betr migration includes betr", () => {
+    const sql = readRepo(BETR_MIGRATION);
+    expect(sql).toMatch(/COMMENT ON COLUMN public\.follows\.fantasy_source/);
+    expect(sql).toMatch(/fantasy_source[\s\S]*betr/);
+  });
+
+  it("ImportRosterSheet picker is FANTASY_PLATFORMS including Betr Picks", () => {
+    const src = readRepo("components/ImportRosterSheet.tsx");
+    expect(src).toContain("FANTASY_PLATFORMS");
+    expect(FANTASY_PLATFORMS.find((p) => p.value === "betr")?.label).toBe(
+      "Betr Picks",
+    );
+  });
+});
+
+describe("Betr Phase D — auction rewrite + compliance copy", () => {
+  it("edge detectPickEmProviderFromUrl is host-specific (no betrivers steal)", () => {
+    const src = readRepo("supabase/functions/_shared/sportsbook-links.ts");
+    expect(src).toContain("betr.app");
+    expect(src).toContain("betr.onelink.me");
+    expect(src).toContain("betrivers.com");
+    expect(src).toContain("contextualizeSponsorCtaUrl");
+  });
+
+  it("creative-prescreen hard-flags pick'em Bet Now and exempts BetRivers", () => {
+    const src = readRepo("supabase/functions/creative-prescreen/rubric.ts");
+    expect(src).toContain("flagPickEmBetNowCopy");
+    expect(src).toContain("detectPickEmProviderFromUrl");
+    expect(src).toContain("betrivers");
   });
 });

@@ -11,7 +11,8 @@ import {
 
 interface SponsorCTAButtonProps {
   ctaUrl: string;
-  /** Advertiser-supplied button label. Shown verbatim — NORMA never writes betting copy. */
+  /** Advertiser-supplied button label. Pick'em "Bet Now" copy is replaced with Open {Name}. */
+  ctaText?: string;
   ctaText?: string;
   logoUrl?: string | null;
   alertId: number;
@@ -37,7 +38,7 @@ export function SponsorCTAButton({
     text: "#fff",
   };
 
-  // Advertiser-supplied text verbatim; fall back to "Open [Name]" — never "Bet Now"
+  // Advertiser-supplied text unless it is pick'em "Bet Now"; then "Open [Name]"
   const label = defaultCtaLabel(provider, geo.eligible, {
     ctaText,
     style: "open",

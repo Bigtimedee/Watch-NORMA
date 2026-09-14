@@ -16,6 +16,20 @@ Deno.test("detectSportsbook: underdog.com → underdog", () => {
   assertEquals(detectSportsbook("alerts@underdog.com"), "underdog");
 });
 
+Deno.test("detectSportsbook: betrivers.com → betrivers (BetRivers regression)", () => {
+  assertEquals(detectSportsbook("hello@betrivers.com"), "betrivers");
+  assertEquals(detectSportsbook("BetRivers <noreply@betrivers.com>"), "betrivers");
+  assertEquals(detectSportsbook("alerts@sports.betrivers.com"), "betrivers");
+});
+
+Deno.test("detectSportsbook: Betr Picks sender is unmapped until a fixture exists", () => {
+  // Do not invent betr.app. A bare "betr" token must not steal BetRivers.
+  assertEquals(detectSportsbook("noreply@betr.app"), null);
+  assertEquals(detectSportsbook("support@betr.app"), null);
+  assertEquals(detectSportsbook("Betr Picks <hello@betr.app>"), null);
+  assertEquals(detectSportsbook("betr"), null);
+});
+
 const PRIZEPICKS_FIXTURE = `
 Your PrizePicks entry is locked.
 
