@@ -103,7 +103,7 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `_shared/social-media-select_test.ts` — allowlist/denylist for consumer auto-post screenshots
 - `_shared/social-content-engine_test.ts` — Football M1 prompts + `selectScreenshotUrl` denylist
 - `cmo-publish/media-upload_test.ts` — media upload logic
-- `cmo-publish/platform-filter_test.ts` — LinkedIn/non-X calendar rows are not posted to X; due query is twitter-only
+- `cmo-publish/platform-filter_test.ts` — LinkedIn/non-X calendar rows are not posted to X; due query is twitter-only; paused rows skip without mutation; `preflightPublishRow` skips paused/failed/published after `fetchDuePosts` (incident `310441ec`)
 - `cmo-publish-linkedin/platform-filter_test.ts` — LinkedIn due query is linkedin-only; twitter rows are skipped; PR #32 twitter-only guard still present in `cmo-publish`; missing org env falls back to NORMA `146336141`
 - `cmo-publish-linkedin/publish_test.ts` — mock LinkedIn Posts/Images API (text, image, 401 refresh, missing token, org-id default)
 - `creative-prescreen/rubric_test.ts` — 18 tests for buildPrescreenPrompt (rubric coverage, demand type rules, JSON format) and parsePrescreenResponse (valid/malformed/unknown verdict, non-string reasons)

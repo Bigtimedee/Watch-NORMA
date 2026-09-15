@@ -161,7 +161,7 @@ All items verified from repository files.
 
 *Social Content:*
 - `cmo-generate` (6 hours) — Claude-generated brand tweets
-- `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are never tweeted (PR #32).
+- `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are never tweeted (PR #32). Immediately before `postTweet`, the loop re-reads the row and skips (no tweet, no `markFailed`) if status is no longer `draft`/`scheduled` — closes the pause TOCTOU on `310441ec` (2026-09-15). Drafts still auto-publish when due.
 - `cmo-publish-linkedin` (30 min) — publishes **linkedin-only** `content_calendar` rows to the NORMA LinkedIn company page (`https://www.linkedin.com/company/watch-norma/`, org `146336141`). Twitter rows are never selected. `LINKEDIN_ORGANIZATION_ID` is optional.
 - `generate-social-content` (daily 6 AM UTC) — multi-platform content
 - `publish-social-posts` (hourly) — routes posts to platform publishers
