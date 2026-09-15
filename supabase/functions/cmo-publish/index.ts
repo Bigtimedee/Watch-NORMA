@@ -15,6 +15,10 @@ import {
   DUE_POSTS_QUERY,
   TWITTER_STATUS_MUTATION_FILTER,
   classifyPublishCandidate,
+  describePossibleOrphanTweet,
+  isMarkPublishedMiss,
+  markPublishedMissError,
+  preflightPublishRow,
 } from "./logic.ts";
 
 // ---------------------------------------------------------------------------
@@ -368,6 +372,12 @@ async function countPublishedToday(
 // A post is publishable when:
 //   platform = 'twitter' AND status IN ('draft','scheduled') AND scheduled_for <= now()
 // Non-X platforms (linkedin, instagram, tiktok, facebook) are never selected.
+//
+// TOCTOU (incident 310441ec, 2026-09-15): this query is a snapshot. Marketing
+// uses status='paused' heavily; Design can pause a junk/due draft after this
+// select and before postTweet. The publish loop re-reads the row immediately
+// before tweeting (revalidateDuePost). Do not treat paused as failed.
+// Drafts still auto-publish when due — paused is the only hold.
 // ---------------------------------------------------------------------------
 
 async function fetchDuePosts(
@@ -418,10 +428,37 @@ async function markPublished(
     throw new Error(`Failed to mark post ${postId} as published: ${error.message}`);
   }
   if (!data) {
-    throw new Error(
-      `Failed to mark post ${postId} as published: no matching twitter draft/scheduled row`,
-    );
+    throw new Error(markPublishedMissError(postId));
   }
+}
+
+/**
+ * Last look before postTweet. fetchDuePosts already filtered draft|scheduled,
+ * but status can change to paused in that window (310441ec). Skip = no tweet,
+ * no markFailed.
+ */
+async function revalidateDuePost(
+  supabase: ReturnType<typeof createClient>,
+  postId: string,
+): Promise<ReturnType<typeof preflightPublishRow>> {
+  const { data, error } = await supabase
+    .from("content_calendar")
+    .select("id, platform, status")
+    .eq("id", postId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      `[cmo-publish] Preflight revalidate failed for ${postId}: ${error.message}`,
+    );
+    return { ok: false, skipped: true, reason: `preflight_error:${error.message}` };
+  }
+
+  return preflightPublishRow(
+    (data as { id: string; platform: string | null; status: string | null } | null) ??
+      null,
+    postId,
+  );
 }
 
 async function markFailed(
@@ -615,9 +652,43 @@ serve(async (req: Request): Promise<Response> => {
         }
       }
 
+      // Re-select immediately before the X API call. A pause after fetchDuePosts
+      // (or during media upload) must skip — never tweet, never markFailed.
+      const preflight = await revalidateDuePost(supabase, post.id);
+      if (!preflight.ok) {
+        console.log(
+          `[cmo-publish] Post ${post.id} skipped at preflight (${preflight.reason}). Not tweeting, not marking failed.`,
+        );
+        results.push({
+          id: post.id,
+          success: false,
+          skipped: true,
+          error: preflight.reason,
+        });
+        continue;
+      }
+
       const { tweetId } = await postTweet(tweetBody, credentials, mediaIds.length > 0 ? mediaIds : undefined);
 
-      await markPublished(supabase, post.id, tweetId);
+      try {
+        await markPublished(supabase, post.id, tweetId);
+      } catch (markErr) {
+        // Tweet already sent. If the row left draft/scheduled (paused mid-flight),
+        // markFailed would no-op or overwrite a pause — log the orphan and skip.
+        if (isMarkPublishedMiss(markErr)) {
+          const message = describePossibleOrphanTweet(post.id, tweetId);
+          console.error(`[cmo-publish] ${message}`);
+          results.push({
+            id: post.id,
+            success: false,
+            skipped: true,
+            tweet_id: tweetId,
+            error: message,
+          });
+          continue;
+        }
+        throw markErr;
+      }
 
       console.log(
         `[cmo-publish] Post ${post.id} published successfully. Tweet ID: ${tweetId}`,
@@ -629,7 +700,8 @@ serve(async (req: Request): Promise<Response> => {
         publishErr instanceof Error ? publishErr.message : String(publishErr);
       console.error(`[cmo-publish] Failed to publish post ${post.id}: ${message}`);
 
-      // Mark as failed so it doesn't get stuck in a retry loop
+      // Mark as failed so it doesn't get stuck in a retry loop.
+      // Preflight skip and markPublished-miss-on-paused never reach here.
       await markFailed(supabase, post.id, message);
 
       results.push({ id: post.id, success: false, error: message });
