@@ -55,6 +55,21 @@ export const FOOTBALL_PREFERRED_TAGS = [
 
 export const CONSUMER_AUTO_POST_FALLBACK_FILENAME = "game-detail-watch.png";
 
+/**
+ * Seed-catalog Expo captures. PR #29 retagged game-detail-watch as
+ * alerts/why_now/red_zone so it won media selection on every thin-slate run
+ * and auto-shipped via cmo-publish (2026-09-16 overnight, tweets
+ * 2100147692882034709 / 2100147702713446507).
+ *
+ * These filenames must not be attached to auto-publishable calendar drafts.
+ * Design/Expo captures for real live games use distinct filenames
+ * (e.g. TNF Why Now Lions@Bills) and are not in this set.
+ */
+export const STOCK_CONSUMER_FILENAMES: ReadonlySet<string> = new Set([
+  "game-detail-watch.png",
+  "games-list.png",
+]);
+
 export const CONSUMER_SCREENSHOT_CATALOG = {
   games_list: "games-list.png",
   alerts: "game-detail-watch.png",
@@ -104,6 +119,13 @@ export function isBannedConsumerFilename(filenameOrUrl: string): boolean {
 
 export function isBannedConsumerScreenshotKey(key: string): boolean {
   return CONSUMER_AUTO_POST_BANNED_KEYS.has(key);
+}
+
+export function isStockConsumerFilename(filenameOrUrl: string): boolean {
+  const name = filenameOrUrl.includes("/")
+    ? filenameFromMediaUrl(filenameOrUrl)
+    : filenameOrUrl;
+  return STOCK_CONSUMER_FILENAMES.has(name);
 }
 
 /**
@@ -183,28 +205,57 @@ export interface MediaAssetRow {
   public_url?: string | null;
   filename?: string | null;
   theme_tags?: string[] | null;
+  eligible_for_consumer_auto_post?: boolean | null;
+}
+
+export interface SelectConsumerMediaOptions {
+  sport?: string | null;
+  /**
+   * When true, seed-catalog game-detail / games-list may win if nothing
+   * fresher matches. Auto-publish paths must leave this false (default):
+   * stock is not acceptable moment media.
+   */
+  allowStockFallback?: boolean;
+}
+
+function isEligibleConsumerRow(row: MediaAssetRow): boolean {
+  if (!row.public_url) return false;
+  if (row.eligible_for_consumer_auto_post === false) return false;
+  const name = row.filename || filenameFromMediaUrl(row.public_url);
+  return !isBannedConsumerFilename(name);
+}
+
+function rowFilename(row: MediaAssetRow): string {
+  return row.filename || filenameFromMediaUrl(row.public_url ?? "");
+}
+
+function firstMatchingUrl(rows: MediaAssetRow[], tags: string[]): string | null {
+  for (const tag of tags) {
+    const match = rows.find((row) => (row.theme_tags ?? []).includes(tag));
+    if (match?.public_url) return match.public_url;
+  }
+  return rows[0]?.public_url ?? null;
 }
 
 /**
  * Rank active media_assets rows for a consumer auto-post.
  * Hard-excludes banned filenames even if they match the requested tag.
+ * Prefers Design/Expo captures over seed-catalog stock screenshots.
  */
 export function selectConsumerMediaUrl(
   rows: MediaAssetRow[],
   theme: string,
-  options?: { sport?: string | null },
+  options?: SelectConsumerMediaOptions,
 ): string | null {
   const tags = preferredTagsForTheme(theme, options);
-  const eligible = rows.filter((row) => {
-    if (!row.public_url) return false;
-    const name = row.filename || filenameFromMediaUrl(row.public_url);
-    return !isBannedConsumerFilename(name);
-  });
+  const eligible = rows.filter(isEligibleConsumerRow);
+  const fresh = eligible.filter((row) => !isStockConsumerFilename(rowFilename(row)));
 
-  for (const tag of tags) {
-    const match = eligible.find((row) => (row.theme_tags ?? []).includes(tag));
-    if (match?.public_url) return match.public_url;
-  }
+  const freshUrl = firstMatchingUrl(fresh, tags);
+  if (freshUrl) return freshUrl;
 
-  return eligible[0]?.public_url ?? null;
+  if (!options?.allowStockFallback) return null;
+
+  const stock = eligible.filter((row) => isStockConsumerFilename(rowFilename(row)));
+  return firstMatchingUrl(stock, tags);
 }

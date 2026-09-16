@@ -40,6 +40,10 @@ import {
   type ImageVariant,
   type PostFormat,
 } from "../_shared/social-content-engine.ts";
+import {
+  assessSlate,
+  shouldSkipEmptySlateConsumerPosts,
+} from "../_shared/social-generate-gate.ts";
 
 const PLATFORMS = ["x", "instagram", "facebook", "tiktok", "reddit"] as const;
 
@@ -161,7 +165,7 @@ Deno.serve(async (req) => {
     let gamesQuery = supabase
       .from("games")
       .select("id, home_team, away_team, scheduled_at, status, home_score, away_score, sport")
-      .eq("status", "scheduled")
+      .in("status", ["scheduled", "inprogress", "halftime"])
       .gte("scheduled_at", `${todayStr}T00:00:00.000Z`)
       .lt("scheduled_at", `${tomorrowStr}T00:00:00.000Z`)
       .limit(10);
@@ -172,6 +176,36 @@ Deno.serve(async (req) => {
 
     const { data: gameRows } = await gamesQuery;
     const games: GameData[] = gameRows ?? [];
+
+    if (
+      shouldSkipEmptySlateConsumerPosts(games.length) ||
+      !assessSlate({
+        games: games.map((g) => ({
+          id: g.id,
+          status: g.status ?? "scheduled",
+          sport: g.sport ?? null,
+          scheduled_at: g.scheduled_at ?? null,
+        })),
+        recentAlertCount: 0,
+        now: _now,
+      }).hasStrongMoment
+    ) {
+      console.log(JSON.stringify({
+        function:  "generate-social-content",
+        event:     "skipped_thin_slate",
+        games:     games.length,
+        timestamp: new Date().toISOString(),
+      }));
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "thin_slate",
+          games_found: games.length,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Derive the dominant sport for this run: explicit override → first game's sport → null
     const activeSport: string | null = reqSport ?? games[0]?.sport ?? null;

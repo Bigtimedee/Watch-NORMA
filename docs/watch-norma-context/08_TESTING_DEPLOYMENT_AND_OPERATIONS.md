@@ -99,8 +99,9 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `evaluate-alerts/logic_test.ts` — alert evaluation rules (unit)
 - `evaluate-alerts/integration_test.ts` — **E2E pipeline integration tests (36 tests, added P1-01)**: wires extractSignals → computeScore/checkMustNotify → determineAlertType → buildWhyNow → computeDedupHash. Covers: (1) follower + close/blowout threshold, (2) wager line crossed + wager_impact status, (3) all four must-notify rules, (4) dedup margin-bucket hash correctness, (5) per-game/hour cap gate logic, (6) quiet-hours push suppression with in-app record preserved, (7) no-stake user never becomes candidate. DB-dependent stages (candidate generation, throttle table, push dispatch) are documented as staging smoke-test scope.
 - `resolve-wagers/logic_test.ts` — wager resolution logic
-- `cmo-generate/media-selection_test.ts` — consumer auto-post media + theme pool (sportsbooks-manual banned; football themes remain)
-- `_shared/social-media-select_test.ts` — allowlist/denylist for consumer auto-post screenshots
+- `cmo-generate/media-selection_test.ts` — consumer auto-post media + theme pool (sportsbooks-manual banned; football themes remain; generate gates Claude + insert behind slate/media helpers)
+- `_shared/social-media-select_test.ts` — allowlist/denylist for consumer auto-post screenshots; stock game-detail cannot win without an explicit fallback
+- `_shared/social-generate-gate_test.ts` — thin-slate / Wed-like generate does not emit draft+stock; live/TNF + fresh Why Now media still drafts
 - `_shared/social-content-engine_test.ts` — Football M1 prompts + `selectScreenshotUrl` denylist
 - `cmo-publish/media-upload_test.ts` — media upload logic
 - `cmo-publish/platform-filter_test.ts` — LinkedIn/non-X calendar rows are not posted to X; due query is twitter-only; paused rows skip without mutation; `preflightPublishRow` skips paused/failed/published after `fetchDuePosts` (incident `310441ec`)

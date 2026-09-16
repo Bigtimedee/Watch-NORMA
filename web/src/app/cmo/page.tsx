@@ -901,8 +901,11 @@ export default function CMODashboardPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">Content Queue</h1>
           <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
-            AI-generated posts are added every 6 hours and auto-publish unless paused or deleted.
-            Review drafts below, make edits, or pause individual posts before they go live.
+            AI-generated posts are added when there is a real live/slate moment
+            and fresh (non-stock) media. Thin-slate days skip rather than queuing
+            draft+stock screenshots. Qualifying drafts auto-publish unless paused
+            or deleted. Review drafts below, make edits, or pause individual posts
+            before they go live.
           </p>
         </div>
 
@@ -961,8 +964,9 @@ export default function CMODashboardPage() {
           </svg>
           <p className="text-sm text-slate-300">
             <span className="text-orange-400 font-semibold">Auto-publishes unless paused.</span>{" "}
-            Drafts are scheduled at 11 AM, 2 PM, 6 PM, and 9 PM ET. The CMO agent generates new
-            content every 6 hours. Max 10 posts per day.
+            Drafts are scheduled at 11 AM, 2 PM, 6 PM, and 9 PM ET. Generate skips
+            Wednesday-style empty slates instead of attaching stock game-detail
+            screenshots. Max 10 posts per day.
           </p>
         </div>
 
@@ -1006,7 +1010,8 @@ export default function CMODashboardPage() {
                 <div className="text-3xl mb-3">📭</div>
                 <p className="text-slate-400 text-sm font-medium">No posts in queue</p>
                 <p className="text-slate-600 text-xs mt-1">
-                  The CMO agent generates new content every 6 hours.
+                  Generate runs every 6 hours but skips empty slates instead of
+                  queuing stock screenshots.
                 </p>
               </div>
             ) : (

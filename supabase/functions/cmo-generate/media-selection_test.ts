@@ -107,10 +107,15 @@ Deno.test("queryMediaAsset ranking: sportsbooks-manual.png cannot win", () => {
         public_url: "https://cdn.example/game-detail-watch.png",
         theme_tags: ["alerts", "why_now", "red_zone"],
       },
+      {
+        filename: "live-alert-capture.png",
+        public_url: "https://cdn.example/live-alert-capture.png",
+        theme_tags: ["alerts", "why_now", "red_zone"],
+      },
     ],
     "wager_tracking",
   );
-  assertEquals(url, "https://cdn.example/game-detail-watch.png");
+  assertEquals(url, "https://cdn.example/live-alert-capture.png");
   assertEquals(isBannedConsumerFilename(url!), false);
 });
 
@@ -131,4 +136,29 @@ Deno.test("GET /cmo-generate: returns 200 status ok", () => {
   const expectedShape = { status: "ok", function: "cmo-generate" };
   assertEquals(expectedShape.status, "ok");
   assertEquals(expectedShape.function, "cmo-generate");
+});
+
+Deno.test("cmo-generate/index.ts gates Claude + insert behind slate/media helpers", async () => {
+  const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  assert(src.includes("fetchSlateSignals"));
+  assert(src.includes("shouldGenerateBrandPosts(slate)"));
+  assert(src.includes("decideCalendarInserts"));
+  assert(src.includes("Skipping Claude brand posts — thin slate"));
+  assert(!src.includes("allowStockFallback: true"));
+
+  const slateAt = src.indexOf("await fetchSlateSignals");
+  const claudeAt = src.indexOf("await generatePostsWithClaude");
+  const decideAt = src.indexOf("decideCalendarInserts(candidates");
+  const insertAt = src.indexOf('.from("content_calendar")\n    .insert(records)');
+  assert(slateAt >= 0 && claudeAt > slateAt, "slate must be assessed before Claude");
+  assert(decideAt >= 0 && insertAt > decideAt, "insert must run after decideCalendarInserts");
+});
+
+Deno.test("cmo-generate does not weaken cmo-publish pause-skip", async () => {
+  const publish = await Deno.readTextFile(
+    new URL("../cmo-publish/logic.ts", import.meta.url),
+  );
+  assert(publish.includes("PAUSED_STATUS"));
+  assert(publish.includes("status_paused"));
+  assert(publish.includes("isPausedStatus"));
 });
