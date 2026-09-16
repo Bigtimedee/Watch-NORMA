@@ -11,6 +11,7 @@ import {
   CONSUMER_AUTO_POST_FALLBACK_FILENAME,
   isBannedConsumerFilename,
   isExcludedConsumerAutoPostTheme,
+  isStockConsumerFilename,
   pickConsumerScreenshotFilename,
   selectConsumerMediaUrl,
   themeToMediaTag,
@@ -127,10 +128,16 @@ Deno.test("selectConsumerMediaUrl: hard-excludes sportsbooks-manual even when ta
       public_url: "https://cdn.example/game-detail-watch.png",
       theme_tags: ["alerts", "why_now", "red_zone", "never_miss"],
     },
+    {
+      filename: "lions-bills-why-now.png",
+      public_url: "https://cdn.example/lions-bills-why-now.png",
+      theme_tags: ["alerts", "why_now", "red_zone"],
+    },
   ];
 
   const url = selectConsumerMediaUrl(rows, "sportsbooks");
-  assertEquals(url, "https://cdn.example/game-detail-watch.png");
+  assertEquals(url, "https://cdn.example/lions-bills-why-now.png");
+  assertEquals(isStockConsumerFilename(url!), false);
 });
 
 Deno.test("selectConsumerMediaUrl: football theme prefers red_zone asset when present", () => {
@@ -146,6 +153,11 @@ Deno.test("selectConsumerMediaUrl: football theme prefers red_zone asset when pr
       theme_tags: ["alerts", "why_now", "red_zone", "never_miss"],
     },
     {
+      filename: "red-zone-alert-capture.png",
+      public_url: "https://cdn.example/red-zone-alert-capture.png",
+      theme_tags: ["red_zone", "why_now", "alerts"],
+    },
+    {
       filename: "sportsbooks-manual.png",
       public_url: "https://cdn.example/sportsbooks-manual.png",
       theme_tags: ["sportsbooks", "red_zone"],
@@ -153,7 +165,7 @@ Deno.test("selectConsumerMediaUrl: football theme prefers red_zone asset when pr
   ];
 
   const url = selectConsumerMediaUrl(rows, "football_red_zone_moment", { sport: "ncaaf" });
-  assertEquals(url, "https://cdn.example/game-detail-watch.png");
+  assertEquals(url, "https://cdn.example/red-zone-alert-capture.png");
 });
 
 Deno.test("selectConsumerMediaUrl: returns null when only banned assets exist", () => {
@@ -177,4 +189,25 @@ Deno.test("preferredTagsForTheme: football leads with red_zone", () => {
 Deno.test("fallback filename is the watch/alert screenshot, not settings chrome", () => {
   assertEquals(CONSUMER_AUTO_POST_FALLBACK_FILENAME, "game-detail-watch.png");
   assertEquals(isBannedConsumerFilename(CONSUMER_AUTO_POST_FALLBACK_FILENAME), false);
+  assertEquals(isStockConsumerFilename(CONSUMER_AUTO_POST_FALLBACK_FILENAME), true);
+});
+
+Deno.test("selectConsumerMediaUrl: eligible_for_consumer_auto_post=false cannot win", () => {
+  const url = selectConsumerMediaUrl(
+    [
+      {
+        filename: "old-settings.png",
+        public_url: "https://cdn.example/old-settings.png",
+        theme_tags: ["alerts"],
+        eligible_for_consumer_auto_post: false,
+      },
+      {
+        filename: "live-why-now.png",
+        public_url: "https://cdn.example/live-why-now.png",
+        theme_tags: ["alerts"],
+      },
+    ],
+    "user_benefit_bet_resolved",
+  );
+  assertEquals(url, "https://cdn.example/live-why-now.png");
 });

@@ -1,11 +1,26 @@
 // =============================================================================
 // NORMA CMO Agent — cmo-generate Edge Function
-// Generates 2-4 social media posts via Claude and inserts them as drafts.
-// Invoked by pg_cron every 6 hours and optionally via HTTP.
+// Generates social posts via Claude only when there is a strong live/slate
+// moment AND non-stock media. Thin-slate days (Wed non-sports-day, empty
+// Alerts) skip rather than inserting draft+due rows with catalog game-detail
+// screenshots that cmo-publish would auto-ship. Invoked by pg_cron every 6h.
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { isDemoAlert, isDemoGameId } from "../_shared/demo-guard.ts";
+import {
+  assessSlate,
+  decideCalendarInserts,
+  shouldGenerateBrandPosts,
+  FOOTBALL_SLATE_HORIZON_HOURS,
+  RECENT_ALERT_HORIZON_HOURS,
+  LIVE_GAME_STATUSES,
+  FOOTBALL_SPORTS,
+  type CalendarInsertCandidate,
+  type SlateAssessment,
+  type SlateGame,
+} from "../_shared/social-generate-gate.ts";
 import { selectConsumerMediaUrl } from "../_shared/social-media-select.ts";
 import { selectThemes, type ContentTheme } from "./themes.ts";
 
@@ -342,6 +357,7 @@ async function generatePostsWithClaude(
 // ---------------------------------------------------------------------------
 // Query media_assets for a consumer auto-post screenshot.
 // Uses the shared denylist so settings / Tier-C chrome can never win.
+// Stock catalog game-detail / games-list cannot win (no allowStockFallback).
 // ---------------------------------------------------------------------------
 
 async function queryMediaAsset(
@@ -351,8 +367,9 @@ async function queryMediaAsset(
   try {
     const { data, error } = await supabase
       .from("media_assets")
-      .select("public_url, filename, theme_tags")
+      .select("public_url, filename, theme_tags, eligible_for_consumer_auto_post")
       .eq("is_active", true)
+      .eq("eligible_for_consumer_auto_post", true)
       .not("public_url", "is", null)
       .order("id")
       .limit(25);
@@ -362,12 +379,76 @@ async function queryMediaAsset(
       return null;
     }
 
-    return selectConsumerMediaUrl(data ?? [], theme);
+    const eligible = (data ?? []).filter(
+      (row: { eligible_for_consumer_auto_post?: boolean | null }) =>
+        row.eligible_for_consumer_auto_post !== false,
+    );
+    return selectConsumerMediaUrl(eligible, theme);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[cmo-generate] media_assets lookup threw: ${msg}`);
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Slate signals: live games, near-term football, recent Why Now alerts.
+// Demo fixtures never count.
+// ---------------------------------------------------------------------------
+
+async function fetchSlateSignals(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<SlateAssessment> {
+  const footballHorizon = new Date(
+    now.getTime() + FOOTBALL_SLATE_HORIZON_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+  const alertCutoff = new Date(
+    now.getTime() - RECENT_ALERT_HORIZON_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+
+  const [liveResult, footballResult, alertResult] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id, status, sport, scheduled_at")
+      .in("status", [...LIVE_GAME_STATUSES])
+      .limit(50),
+    supabase
+      .from("games")
+      .select("id, status, sport, scheduled_at")
+      .eq("status", "scheduled")
+      .in("sport", [...FOOTBALL_SPORTS])
+      .gte("scheduled_at", now.toISOString())
+      .lte("scheduled_at", footballHorizon)
+      .limit(50),
+    supabase
+      .from("alerts")
+      .select("id, game_id, title")
+      .gte("created_at", alertCutoff)
+      .limit(100),
+  ]);
+
+  if (liveResult.error) {
+    console.warn(`[cmo-generate] live games query failed: ${liveResult.error.message}`);
+  }
+  if (footballResult.error) {
+    console.warn(`[cmo-generate] football slate query failed: ${footballResult.error.message}`);
+  }
+  if (alertResult.error) {
+    console.warn(`[cmo-generate] recent alerts query failed: ${alertResult.error.message}`);
+  }
+
+  const games: SlateGame[] = [
+    ...((liveResult.data ?? []) as SlateGame[]),
+    ...((footballResult.data ?? []) as SlateGame[]),
+  ].filter((g) => !isDemoGameId(g.id ?? null));
+
+  const recentAlertCount = ((alertResult.data ?? []) as Array<{
+    game_id?: string | null;
+    title?: string | null;
+  }>).filter((row) => !isDemoAlert(row)).length;
+
+  return assessSlate({ games, recentAlertCount, now });
 }
 
 // ---------------------------------------------------------------------------
@@ -634,43 +715,52 @@ serve(async (req: Request): Promise<Response> => {
     `[cmo-generate] Starting generation at ${now.toISOString()}, count=${postCount}, source=${requestPayload.source ?? "direct"}`,
   );
 
-  // Build the Supabase client early — needed for SM-02 data queries
+  // Build the Supabase client early — needed for slate + SM-02 queries
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Select themes for this generation run
-  const themes = selectThemes(now, postCount);
-  console.log(`[cmo-generate] Selected themes: ${themes.join(", ")}`);
+  const slate = await fetchSlateSignals(supabase, now);
+  console.log(
+    `[cmo-generate] Slate: hasStrongMoment=${slate.hasStrongMoment} ` +
+      `live=${slate.liveCount} footballUpcoming=${slate.footballUpcomingCount} ` +
+      `recentAlerts=${slate.recentAlertCount}`,
+  );
 
-  // Generate posts via Claude
-  let generatedPosts: GeneratedPost[];
-  try {
-    generatedPosts = await generatePostsWithClaude(themes, postCount, anthropicApiKey);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[cmo-generate] Claude generation failed: ${message}`);
-    return new Response(
-      JSON.stringify({ error: "Content generation failed", details: message }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  if (generatedPosts.length === 0) {
-    return new Response(
-      JSON.stringify({ error: "Claude returned no valid posts" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+  // Thin slate (Wed non-sports-day, empty Alerts): do not invent Claude brand
+  // tweets that would attach stock game-detail and auto-ship via cmo-publish.
+  let generatedPosts: GeneratedPost[] = [];
+  if (shouldGenerateBrandPosts(slate)) {
+    const themes = selectThemes(now, postCount);
+    console.log(`[cmo-generate] Selected themes: ${themes.join(", ")}`);
+    try {
+      generatedPosts = await generatePostsWithClaude(themes, postCount, anthropicApiKey);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[cmo-generate] Claude generation failed: ${message}`);
+      return new Response(
+        JSON.stringify({ error: "Content generation failed", details: message }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (generatedPosts.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Claude returned no valid posts" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
+  } else {
+    console.log("[cmo-generate] Skipping Claude brand posts — thin slate");
   }
 
   // ---------------------------------------------------------------------------
   // SM-02: Generate supplemental posts — alert_called_it + norma_in_numbers
-  // These run in parallel alongside the Claude-generated posts.
+  // alert_called_it is a real resolved-game moment; norma_in_numbers still
+  // goes through decideCalendarInserts (skipped on thin slate / stock media).
   // ---------------------------------------------------------------------------
   const [alertCalledItPosts, normaInNumbersPost] = await Promise.all([
     generateAlertCalledItPosts(supabase, now),
     generateNormaInNumbersPost(supabase, now),
   ]);
 
-  // Merge: SM-02 posts append after the Claude posts
   const allPosts: GeneratedPost[] = [
     ...generatedPosts,
     ...alertCalledItPosts,
@@ -678,35 +768,61 @@ serve(async (req: Request): Promise<Response> => {
   ];
 
   console.log(
-    `[cmo-generate] Total posts: ${allPosts.length} ` +
+    `[cmo-generate] Candidate posts: ${allPosts.length} ` +
     `(claude=${generatedPosts.length}, alert_called_it=${alertCalledItPosts.length}, norma_in_numbers=${normaInNumbersPost ? 1 : 0})`,
   );
 
-  // Compute posting schedule — assign each post to the next available window
-  const postingWindows = getNextPostingWindows(allPosts.length);
-  console.log(`[cmo-generate] Posting windows: ${postingWindows.join(", ")}`);
-
-  // Fetch one screenshot per post in parallel; fall back to empty array if unavailable
   const mediaUrls: (string | null)[] = await Promise.all(
     allPosts.map((post) => queryMediaAsset(supabase, post.theme)),
   );
 
-  const records: ContentCalendarInsert[] = allPosts.map((post, idx) => {
-    const mediaUrl = mediaUrls[idx];
-    return {
-      platform: PLATFORM,
-      content_type: post.content_type,
-      body: post.body,
-      media_urls: mediaUrl ? [mediaUrl] : [],
-      hashtags: post.hashtags,
-      status: "draft",
-      scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
-      generation_prompt: `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()}`,
-      partner_mention: post.partner_mention,
-    };
-  });
+  const candidates: CalendarInsertCandidate[] = allPosts.map((post, idx) => ({
+    body: post.body,
+    hashtags: post.hashtags,
+    content_type: post.content_type,
+    theme: post.theme,
+    partner_mention: post.partner_mention,
+    mediaUrl: mediaUrls[idx],
+  }));
 
-  // Insert into Supabase
+  const { inserts, skipped } = decideCalendarInserts(candidates, slate);
+  if (skipped.length > 0) {
+    console.log(
+      `[cmo-generate] Skipped ${skipped.length} candidates: ` +
+        skipped.map((s) => `${s.candidate.theme}:${s.reason}`).join(", "),
+    );
+  }
+
+  if (inserts.length === 0) {
+    console.log("[cmo-generate] No auto-publishable drafts — refusing stock/thin-slate fallback");
+    return new Response(
+      JSON.stringify({
+        success: true,
+        generated: 0,
+        skipped: skipped.length,
+        skipped_reason: slate.hasStrongMoment ? "no_fresh_media" : "thin_slate",
+        slate,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const postingWindows = getNextPostingWindows(inserts.length);
+  console.log(`[cmo-generate] Posting windows: ${postingWindows.join(", ")}`);
+
+  const records: ContentCalendarInsert[] = inserts.map((post, idx) => ({
+    platform: PLATFORM,
+    content_type: post.content_type,
+    body: post.body,
+    media_urls: [post.mediaUrl as string],
+    hashtags: post.hashtags,
+    status: "draft",
+    scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
+    generation_prompt:
+      `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()} | slate:${slate.hasStrongMoment ? "strong" : "thin_alert_called_it"}`,
+    partner_mention: post.partner_mention,
+  }));
+
   const { data: insertedRows, error: insertError } = await supabase
     .from("content_calendar")
     .insert(records)
@@ -726,6 +842,7 @@ serve(async (req: Request): Promise<Response> => {
     JSON.stringify({
       success: true,
       generated: insertedRows?.length ?? 0,
+      skipped: skipped.length,
       posts: insertedRows?.map((r) => ({
         id: r.id,
         scheduled_for: r.scheduled_for,
