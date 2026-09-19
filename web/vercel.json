@@ -1,0 +1,14 @@
+{
+  "redirects": [
+    {
+      "source": "/advertise",
+      "destination": "/advertisers",
+      "statusCode": 301
+    },
+    {
+      "source": "/advertise/",
+      "destination": "/advertisers",
+      "statusCode": 301
+    }
+  ]
+}

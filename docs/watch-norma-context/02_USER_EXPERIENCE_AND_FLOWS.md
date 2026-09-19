@@ -144,7 +144,7 @@ Based on the repository, the app has the following screens and components:
 
 **Advertiser Portal (web/):**
 - `/advertisers` — public advertiser landing page (real route)
-- `/advertise`, `/advertise/` — permanent redirect (308) to `/advertisers`; public marketing CTA, do not drop
+- `/advertise`, `/advertise/` — permanent redirect to `/advertisers` (Vercel 301 / Next.js 308); public marketing CTA, do not drop
 - `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password`
 - `/dashboard` — advertiser overview
 - `/campaigns` — campaign list, `/campaigns/new` — create campaign
