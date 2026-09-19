@@ -4,6 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import {
+  EXPIRED_RESET_COPY,
+  EXPIRED_RESET_HEADLINE,
+  WEB_FORGOT_PASSWORD_PATH,
+  isExpiredRecoveryError,
+  parseRecoveryParams,
+  postResetDestination,
+} from "@/lib/auth-recovery-landing";
 
 type PageState = "checking" | "ready" | "expired" | "success";
 
@@ -16,33 +24,80 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createSupabaseBrowser();
+    const href = window.location.href;
+    const params = parseRecoveryParams(href);
+    if (isExpiredRecoveryError(params)) {
+      setPageState("expired");
+      return;
+    }
 
-    // PKCE flow: session already established by /auth/callback before redirect here
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setPageState("ready");
+    const supabase = createSupabaseBrowser();
+    let cancelled = false;
+
+    const markReady = () => {
+      if (!cancelled) setPageState("ready");
+    };
+
+    const run = async () => {
+      // Browser client may already have consumed ?code= / #access_token
+      // via detectSessionInUrl. Check first so we do not double-exchange.
+      const existing = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (existing.data.session) {
+        markReady();
         return;
       }
-      // Hash flow fallback: session arrives via fragment after Supabase redirect
-      // onAuthStateChange fires when Supabase detects the #access_token fragment
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
-            setPageState("ready");
-          }
+
+      if (params.code && params.code.length >= 16) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+          params.code
+        );
+        if (cancelled) return;
+        if (!exchangeError) {
+          markReady();
+          return;
         }
-      );
-      // Give hash-based flow 2s to fire before declaring link expired
+      }
+
+      if (params.accessToken && params.refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: params.accessToken,
+          refresh_token: params.refreshToken,
+        });
+        if (cancelled) return;
+        if (!sessionError) {
+          markReady();
+          return;
+        }
+      }
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+          markReady();
+        }
+      });
+
       const timer = setTimeout(() => {
-        setPageState((s) => s === "checking" ? "expired" : s);
-      }, 2000);
+        setPageState((s) => (s === "checking" ? "expired" : s));
+      }, 2500);
 
       return () => {
         subscription.unsubscribe();
         clearTimeout(timer);
       };
+    };
+
+    let cleanup: (() => void) | undefined;
+    run().then((fn) => {
+      cleanup = fn;
     });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,22 +111,27 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     const supabase = createSupabaseBrowser();
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await supabase.auth.updateUser({ password });
 
-    if (error) {
+    if (updateError) {
       setError(
-        error.status === 403 || error.message.toLowerCase().includes("session")
-          ? "This reset link has expired or already been used. Please request a new one."
-          : error.message
+        updateError.status === 403 ||
+          updateError.message.toLowerCase().includes("session") ||
+          updateError.message.toLowerCase().includes("expired")
+          ? EXPIRED_RESET_COPY
+          : updateError.message
       );
       setLoading(false);
       return;
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const isAdmin = user?.app_metadata?.role === "admin";
     setPageState("success");
-    // Sign out the reset session so the user logs in fresh with their new password
-    await supabase.auth.signOut();
-    router.push("/auth/login?reset=success");
+    router.push(postResetDestination(Boolean(isAdmin)));
+    router.refresh();
   };
 
   if (pageState === "checking") {
@@ -86,12 +146,10 @@ export default function ResetPasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-          <h2 className="text-xl font-bold text-white">Link Expired</h2>
-          <p className="text-slate-400">
-            This password reset link is invalid or has already been used.
-          </p>
+          <h2 className="text-xl font-bold text-white">{EXPIRED_RESET_HEADLINE}</h2>
+          <p className="text-slate-400">{EXPIRED_RESET_COPY}</p>
           <Link
-            href="/auth/forgot-password"
+            href={WEB_FORGOT_PASSWORD_PATH}
             className="block text-sm text-orange-400 hover:text-orange-300"
           >
             Request a new reset link →
@@ -146,7 +204,7 @@ export default function ResetPasswordPage() {
               <p className="text-sm text-red-400">{error}</p>
               {error.includes("expired") && (
                 <Link
-                  href="/auth/forgot-password"
+                  href={WEB_FORGOT_PASSWORD_PATH}
                   className="text-sm text-orange-400 hover:text-orange-300"
                 >
                   Request a new reset link →

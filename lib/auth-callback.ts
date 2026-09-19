@@ -2,15 +2,17 @@ import { supabase } from "./supabase";
 import { APP_SCHEME } from "./constants";
 
 /**
- * Existing production auth callback. `supabase/config.toml` sets
- * `site_url = "norma://auth-callback"`. Using this scheme (not a
- * Universal Link / associated domain) means recovery emails open the
- * installed app without an App Store Connect associated-domains change.
+ * Mobile auth callback. Local `supabase/config.toml` sets
+ * `site_url = "norma://auth-callback"`. Production hosted site_url is the
+ * web set-password page (`https://getnorma.app/auth/reset-password`) —
+ * NEVER marketing `/`. Mobile emails must keep passing this scheme as
+ * redirectTo. Using this scheme (not a Universal Link / associated domain)
+ * means recovery emails open the installed app without an App Store Connect
+ * associated-domains change.
  *
  * Limitation: production Redirect URLs in the Supabase dashboard must
- * continue to allow `norma://auth-callback`. That is dashboard config,
- * not an App Store click. Do not switch this to a new path without
- * adding it to the allowlist.
+ * continue to allow `norma://auth-callback` (see supabase/auth-redirects.json).
+ * Do not switch this to a new path without adding it to the allowlist.
  */
 export const AUTH_CALLBACK_PATH = "auth-callback";
 

@@ -123,6 +123,28 @@ jobs:
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: node scripts/apply-auth-email-templates.mjs
 
+  apply-auth-redirects:
+    name: Apply Auth Redirects
+    runs-on: ubuntu-latest
+    needs: [client]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Warn if secrets are missing
+        if: env.SUPABASE_ACCESS_TOKEN == '' || env.SUPABASE_PROJECT_REF == ''
+        run: |
+          echo "::warning::SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF not set."
+          echo "::warning::Auth redirects were NOT applied. Set Site URL to https://getnorma.app/auth/reset-password (docs/operations/auth-redirects.md)."
+      - name: PATCH hosted Auth site_url + allowlist
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: node scripts/apply-auth-redirects.mjs
+
   ota-update:
     name: OTA Update (EAS)
     runs-on: ubuntu-latest

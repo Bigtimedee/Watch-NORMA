@@ -48,6 +48,7 @@ Core principles:
 - Admin pages check for `admin` role via `_shared/admin.ts`.
 - Admin role assigned via migration 024 (`admin_role` in Supabase auth).
 - The web middleware (`web/src/middleware.ts`) enforces auth on protected routes.
+- Admin / advertiser password recovery must land on `/auth/reset-password` (hosted Auth `site_url` + `redirectTo`). Production must not use marketing `https://getnorma.app` as `site_url`. Mobile recovery remains `norma://auth-callback`. See `docs/operations/auth-redirects.md` and hard rule 23.
 
 **Protected routes:**
 - All `/(tabs)/` routes in the mobile app require authentication (enforced by `AuthGate` in root layout).

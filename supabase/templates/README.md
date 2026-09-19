@@ -8,3 +8,5 @@ Hosted Supabase does **not** pick them up from git. Production project `shijrazl
 2. Manual paste into [Authentication → Email Templates](https://supabase.com/dashboard/project/shijrazlzawjpobrpmnt/auth/templates) if the API cannot run.
 
 See `docs/operations/auth-email-templates.md` for apply steps, dashboard fallback, and how to re-test from `/admin`.
+
+**URL config is separate:** hosted `site_url` must be `https://getnorma.app/auth/reset-password` (never marketing `/`). Apply with `scripts/apply-auth-redirects.mjs` / `docs/operations/auth-redirects.md`. Mobile `norma://auth-callback` stays allowlisted.

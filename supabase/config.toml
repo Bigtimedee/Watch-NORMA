@@ -15,11 +15,20 @@ port = 54323
 
 [auth]
 enabled = true
+# Local / mobile-first. Production hosted site_url is NOT this value —
+# it must be https://getnorma.app/auth/reset-password (never marketing /).
+# See supabase/auth-redirects.json and docs/operations/auth-redirects.md.
 site_url = "norma://auth-callback"
 # Mobile recovery / magic-link return path. Custom scheme only — no
 # associated-domain / App Store Connect change required. Production
-# dashboard Redirect URLs must keep this allowlisted.
-additional_redirect_urls = ["norma://auth-callback"]
+# dashboard Redirect URLs must keep this allowlisted AND must include
+# apex + www /auth/reset-password. HARD RULE: do not point hosted
+# site_url at https://getnorma.app or https://www.getnorma.app.
+additional_redirect_urls = [
+  "norma://auth-callback",
+  "http://localhost:3000/auth/reset-password",
+  "http://127.0.0.1:3000/auth/reset-password",
+]
 
 [auth.external.apple]
 enabled = true

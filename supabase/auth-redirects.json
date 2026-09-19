@@ -1,0 +1,20 @@
+{
+  "projectRef": "shijrazlzawjpobrpmnt",
+  "comment": "HARD RULE: site_url must be the web set-password page, never bare marketing / . Mobile norma://auth-callback stays allowlisted. Applied by scripts/apply-auth-redirects.mjs (Management API PATCH of site_url + uri_allow_list only).",
+  "site_url": "https://getnorma.app/auth/reset-password",
+  "uri_allow_list": [
+    "norma://",
+    "norma://auth-callback",
+    "exp://",
+    "https://getnorma.app",
+    "https://getnorma.app/**",
+    "https://getnorma.app/auth/reset-password",
+    "https://getnorma.app/auth/callback",
+    "https://getnorma.app/auth/callback?next=/auth/reset-password",
+    "https://www.getnorma.app",
+    "https://www.getnorma.app/**",
+    "https://www.getnorma.app/auth/reset-password",
+    "https://www.getnorma.app/auth/callback",
+    "https://www.getnorma.app/auth/callback?next=/auth/reset-password"
+  ]
+}

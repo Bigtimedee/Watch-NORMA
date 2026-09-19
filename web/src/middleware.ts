@@ -29,9 +29,18 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  // Alias Dave / docs may use. Must not require admin auth — that would bounce
+  // an unauthenticated recovery session to /auth/login.
+  if (path === "/admin/reset-password") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/reset-password";
+    return NextResponse.redirect(url);
+  }
+
   // Protected routes: redirect to login if not authenticated
   const protectedPaths = ["/dashboard", "/campaigns", "/reporting", "/billing", "/inventory", "/settings", "/onboarding", "/admin"];
-  if (protectedPaths.some((p) => path.startsWith(p)) && !user) {
+  const recoveryExempt = path === "/admin/reset-password";
+  if (protectedPaths.some((p) => path.startsWith(p)) && !user && !recoveryExempt) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
@@ -71,6 +80,7 @@ export const config = {
     "/onboarding/:path*",
     "/auth",
     "/auth/:path*",
+    "/admin",
     "/admin/:path*",
   ],
 };
