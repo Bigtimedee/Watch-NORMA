@@ -208,6 +208,8 @@ Upgrading inferred → verified requires a partner server-to-server callback (P2
 **Access:** `reporting-api` `attribution` report type. UI: `/reporting` Attribution panel (click "View" on any campaign row).
 
 **Advertiser-facing pages:**
+- `/advertisers` — public self-serve landing page. Public marketing (home, `/advertisers`, `/demo`, `/developers`, OpenAPI blurb) must not show placeholder `0% CTR` / `$0.0` counters or unpublished 12–18% CTR as delivered proof. Use early-access qualitative copy until campaigns have real volume.
+- `/advertise` — permanent redirect to `/advertisers` (marketing CTA `getnorma.app/advertise`; trailing slash included). Vercel-edge 301 in `web/vercel.json`; Next.js 308 fallback in `web/next.config.ts`.
 - `/dashboard` — campaign overview, key metrics
 - `/campaigns` — campaign list with status badges
 - `/campaigns/new` — create new campaign (name, budget, targeting, flight dates)

@@ -5,12 +5,12 @@ import { DemoForm } from "./demo-form";
 export const metadata: Metadata = {
   title: "Schedule a Demo — NORMA Advertising",
   description:
-    "Book a 30-minute demo with the NORMA advertising team. Learn how moment-based push notification ads deliver 12-18% CTR for sportsbooks, streaming services, and commerce brands.",
+    "Book a 30-minute demo with the NORMA advertising team. Learn how moment-based push notification ads work for sportsbooks, streaming services, and commerce brands.",
 };
 
 const whatYoullLearn = [
   "How NORMA's second-price auction works and how to bid for maximum ROI",
-  "Which moment types deliver the highest CTR for your vertical",
+  "Which moment types match your vertical and how floors are priced",
   "How self-serve campaign setup and creative A/B testing work",
   "Custom pricing for volume advertisers and direct deal structures",
   "DSP and programmatic API access for machine-client bidding",

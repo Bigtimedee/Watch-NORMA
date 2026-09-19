@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NORMA — Your Bet Is Covering. Your Team Needs You. Tune In Now.",
     description:
-      "Live sports notifications based on YOUR money and YOUR teams. 12-18% CTR ad platform for advertisers. Free app for fans.",
+      "Live sports notifications based on YOUR money and YOUR teams. Free app for fans. Advertiser portal for moment-based sports ads.",
     images: ["/og-image.jpg"],
   },
   alternates: {

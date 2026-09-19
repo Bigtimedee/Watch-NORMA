@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NORMA Ads API",
-    "description": "The NORMA Ads API enables programmatic campaign management and reporting\nfor sports bettor push notification inventory.\n\nNORMA delivers ads at the exact moment users have active financial stakes\nin live games — generating 12–18% CTR on high-intent moments like\nBet Resolved, Overtime, and Spread Alert.\n\nThis API is designed for use by AI advertising agents and DSP integrations.\nIt supports OAuth 2.0 Client Credentials flow and is MCP-compatible via\nthe norma-ads-mcp server package.\n\nMCP Server: https://mcp.getnorma.app\nDeveloper Docs: https://getnorma.app/developers\nAgent Discovery: https://getnorma.app/adagents.json\n",
+    "description": "The NORMA Ads API enables programmatic campaign management and reporting\nfor sports bettor push notification inventory.\n\nNORMA delivers ads at the exact moment users have active financial stakes\nin live games — Bet Resolved, Overtime, Spread Alert, and other moment types.\nDelivery metrics are published after real campaign volume, not as placeholders.\n\nThis API is designed for use by AI advertising agents and DSP integrations.\nIt supports OAuth 2.0 Client Credentials flow and is MCP-compatible via\nthe norma-ads-mcp server package.\n\nMCP Server: https://mcp.getnorma.app\nDeveloper Docs: https://getnorma.app/developers\nAgent Discovery: https://getnorma.app/adagents.json\n",
     "version": "1.0.0",
     "contact": {
       "name": "NORMA Ads Platform",
