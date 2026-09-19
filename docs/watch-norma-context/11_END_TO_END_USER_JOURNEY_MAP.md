@@ -361,7 +361,7 @@ campaigns:read   campaigns:write   reporting:read   inventory:read
 
 ### B3. Distribution partner
 
-`web/src/app/partners/[partnerKey]/page.tsx` renders a co marketing landing page per partner from the `partners` table, with attribution through `partner_referral_codes`. Admin management sits at `/admin/partners` with server actions in `admin/partners/actions.ts`. Partner facing collateral (Kalshi, Polymarket, streaming, fantasy, editorial, Apple) is written up under `docs/partnerships/`.
+`web/src/app/partners/[partnerKey]/page.tsx` renders a co-marketing landing page per partner from `streaming_providers` / `provider_registry`, with attribution through `partner_referral_codes` (service-role client). The `partners` CRM table (`bd_contact_email`, `notes`) is admin-only: RLS is on with no anon/authenticated policies (`20260919203000`); `/admin/partners` calls `requireAdmin()` then `createSupabaseAdmin()`. Partner facing collateral (Kalshi, Polymarket, streaming, fantasy, editorial, Apple) is written up under `docs/partnerships/`.
 
 ---
 

@@ -1,10 +1,12 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 
 export async function createPartner(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  await requireAdmin();
+  const supabase = createSupabaseAdmin();
 
   const name = (formData.get("name") as string | null)?.trim();
   const tier = formData.get("tier") as string | null;

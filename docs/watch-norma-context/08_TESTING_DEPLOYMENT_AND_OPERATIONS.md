@@ -217,7 +217,22 @@ Previously noted risks that have been resolved:
 ### Backend (Supabase)
 
 - **Hosted Supabase:** Production Supabase project (URL in environment variables).
-- **Migrations:** Applied via `supabase db push` (71 migration files: 001–069 + 4 timestamped; 031/032 unused).
+- **Migrations:** Applied via `supabase db push`. Do not treat `schema_migrations` as the only source of truth — verify live schema (`to_regclass`, `pg_class.relrowsecurity`, `pg_policies`) per `12_PRODUCTION_RECONCILIATION_2026_07.md`.
+- **Ops: RLS on `sportsbook_restrictions` / `partners` / `partner_referral_codes` (2026-09-19).** Migration `20260919203000_rls_public_reference_tables.sql` is the checked-in copy of the emergency prod lock. Idempotent (`ENABLE ROW LEVEL SECURITY`, `DROP POLICY IF EXISTS`). If prod already applied the emergency SQL, `supabase db push` / ledger insert is still required so the repo stays the source of truth — re-running the SQL is a no-op on objects. Verify:
+
+```sql
+SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN (
+    'sportsbook_restrictions',
+    'partners',
+    'partner_referral_codes'
+  );
+```
+
+Expected: `relrowsecurity = true`, `relforcerowsecurity = false` (so `service_role` still bypasses). Client impact: `useSportsbookGeo` keeps SELECT on `sportsbook_restrictions`. `/admin/partners` must use `createSupabaseAdmin()` (not the user JWT) because `partners` has no client policies. `increment_partner_clicks` remains SECURITY DEFINER.
 - **Edge Functions:** Deployed via `supabase functions deploy [function-name]` (41 functions).
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
 - **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, `20260307000001_cmo_agent.sql`, and `20260706000003_report_log.sql`).

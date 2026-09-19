@@ -265,7 +265,7 @@ Geographic enforcement for sportsbook advertising is implemented at the foundati
 ### Data Model
 
 - **`profiles.timezone`** — captured from the user's device at signup/login via the runtime `Intl.DateTimeFormat().resolvedOptions().timeZone` API. This is the authoritative jurisdiction signal.
-- **`sportsbook_restrictions` table** — maps each sportsbook or pick'em key to an array of US state codes where that operator is legally permitted to advertise. Seeded via migration 058 (DraftKings, FanDuel, BetMGM, Caesars, PointsBet) and `20260904183000` (PrizePicks Player Picks; Underdog classic Pick'em or Champions — not drafts-only). Age minimums are not encoded; the table is state-only. Sources are cited in the migration comments and must be re-verified before expanding lists.
+- **`sportsbook_restrictions` table** — maps each sportsbook or pick'em key to an array of US state codes where that operator is legally permitted to advertise. Seeded via migration 058 (DraftKings, FanDuel, BetMGM, Caesars, PointsBet) and `20260904183000` (PrizePicks Player Picks; Underdog classic Pick'em or Champions — not drafts-only). Age minimums are not encoded; the table is state-only. Sources are cited in the migration comments and must be re-verified before expanding lists. RLS is enabled (`20260919203000`): `anon`/`authenticated` SELECT only so `useSportsbookGeo` can read the allowlist; writes are service_role / SQL.
 - **`advertisers.allowed_jurisdictions`** — advertiser-level override for jurisdiction allowlists, used when an advertiser's legal footprint differs from the default sportsbook restriction list.
 
 ### Auction Engine Enforcement
