@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { NormaDemo } from "@/components/norma-demo";
-import { StatCounter } from "@/components/stat-counter";
 
 export const dynamic = "force-dynamic";
 
@@ -495,36 +494,20 @@ export default function HomePage() {
             <span style={{ color: "#f97316" }}>AD UNIT IN SPORTS.</span>
           </h2>
 
-          {/* Stats grid */}
-          <div className="grid gap-0 sm:grid-cols-3" style={{ border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, overflow: "hidden" }}>
-            {[
-              { label: "CTR on Bet Resolution", value: 18, suffix: "%", note: "Industry average: 0.35%" },
-              { label: "Floor Price Per Impression", value: 10, prefix: "$0.", suffix: "", note: "Starts at $0.10 per moment" },
-              { label: "Lower CPA vs Social Ads", value: 5, suffix: "×", note: "For sportsbook install campaigns" },
-            ].map((stat, i) => (
-              <div
-                key={stat.label}
-                className="text-center py-12 px-8"
-                style={{
-                  borderRight: i < 2 ? "1px solid rgba(255,255,255,0.07)" : "none",
-                  background: "rgba(255,255,255,0.01)",
-                }}
-              >
-                <div
-                  className="font-display"
-                  style={{ fontSize: "clamp(64px, 8vw, 96px)", color: "#f97316", lineHeight: 1 }}
-                >
-                  <StatCounter to={stat.value} prefix={stat.prefix ?? ""} suffix={stat.suffix} duration={1600} />
-                </div>
-                <div
-                  className="font-semibold mt-3"
-                  style={{ fontSize: 13, color: "#F5F3EE", textTransform: "uppercase", letterSpacing: "0.08em" }}
-                >
-                  {stat.label}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{stat.note}</div>
-              </div>
-            ))}
+          {/* Pilot state — no fabricated CTR / spend chrome until real delivery exists */}
+          <div
+            className="mx-auto max-w-2xl rounded-2xl px-8 py-10 text-center"
+            style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.01)" }}
+          >
+            <div
+              className="font-semibold uppercase"
+              style={{ fontSize: 12, color: "#f97316", letterSpacing: "0.12em" }}
+            >
+              Early advertiser access
+            </div>
+            <p style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1.7, marginTop: 12 }}>
+              The ad unit sits inside the live-game alert — not beside it. We publish delivery metrics only after campaigns have real volume. No placeholder CTR or spend figures.
+            </p>
           </div>
 
           {/* Advertiser description */}

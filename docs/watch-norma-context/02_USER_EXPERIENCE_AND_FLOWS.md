@@ -143,7 +143,7 @@ Based on the repository, the app has the following screens and components:
 - `PreferencesSheet` — favorite teams, quiet hours, alert limits, notification channels
 
 **Advertiser Portal (web/):**
-- `/advertisers` — public advertiser landing page (real route)
+- `/advertisers` — public advertiser landing page (real route). No fabricated CTR / spend proof chrome; early-access copy until real delivery volume exists.
 - `/advertise`, `/advertise/` — permanent redirect to `/advertisers` (Vercel 301 / Next.js 308); public marketing CTA, do not drop
 - `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password`
 - `/dashboard` — advertiser overview

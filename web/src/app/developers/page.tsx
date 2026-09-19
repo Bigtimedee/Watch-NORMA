@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "NORMA for Developers | Agentic Ad Inventory API",
   description:
-    "Programmatic access to NORMA push notification inventory. 12–18% CTR on high-intent sports betting moments. REST API, MCP Server, and AdCP-compatible.",
+    "Programmatic access to NORMA push notification inventory on high-intent sports betting moments. REST API, MCP Server, and AdCP-compatible.",
   other: {
     "adcp:endpoint": "https://mcp.getnorma.app",
     "adcp:discovery": "https://getnorma.app/adagents.json",
@@ -13,17 +13,17 @@ export const metadata: Metadata = {
 };
 
 const MOMENT_TYPES = [
-  { key: "bet_resolved",       display: "Bet Resolved",       when: "User's wager settles",                       floor: "$0.50", ctr: "9–15%" },
-  { key: "prediction_resolved",display: "Prediction Resolved",when: "Prediction market position resolves",        floor: "$0.60", ctr: "11–17%" },
-  { key: "overtime",           display: "Overtime",           when: "Game enters overtime",                       floor: "$0.40", ctr: "12–18%" },
-  { key: "close_game",         display: "Close Game",         when: "1-possession game in final minutes",         floor: "$0.35", ctr: "7–13%" },
-  { key: "spread_alert",       display: "Spread Alert",       when: "Score crosses user's spread line",           floor: "$0.30", ctr: "6–10%" },
-  { key: "moneyline_alert",    display: "Moneyline Alert",    when: "Moneyline bet momentum shift",               floor: "$0.30", ctr: "5–9%" },
-  { key: "total_alert",        display: "Total Alert",        when: "Over/under bet at decision point",           floor: "$0.25", ctr: "4–8%" },
-  { key: "prop_alert",         display: "Prop Alert",         when: "Player prop approaching its line",           floor: "$0.25", ctr: "4–8%" },
-  { key: "position_alert",     display: "Position Alert",     when: "Prediction market position significant move",floor: "$0.20", ctr: "3–7%" },
-  { key: "foul_trouble",       display: "Foul Trouble",       when: "Key starter picks up 4th foul",              floor: "$0.15", ctr: "2–6%" },
-  { key: "follow_alert",       display: "Follow Alert",       when: "Notable moment for a followed team/player",  floor: "$0.10", ctr: "2–4%" },
+  { key: "bet_resolved",       display: "Bet Resolved",       when: "User's wager settles",                       floor: "$0.50" },
+  { key: "prediction_resolved",display: "Prediction Resolved",when: "Prediction market position resolves",        floor: "$0.60" },
+  { key: "overtime",           display: "Overtime",           when: "Game enters overtime",                       floor: "$0.40" },
+  { key: "close_game",         display: "Close Game",         when: "1-possession game in final minutes",         floor: "$0.35" },
+  { key: "spread_alert",       display: "Spread Alert",       when: "Score crosses user's spread line",           floor: "$0.30" },
+  { key: "moneyline_alert",    display: "Moneyline Alert",    when: "Moneyline bet momentum shift",               floor: "$0.30" },
+  { key: "total_alert",        display: "Total Alert",        when: "Over/under bet at decision point",           floor: "$0.25" },
+  { key: "prop_alert",         display: "Prop Alert",         when: "Player prop approaching its line",           floor: "$0.25" },
+  { key: "position_alert",     display: "Position Alert",     when: "Prediction market position significant move",floor: "$0.20" },
+  { key: "foul_trouble",       display: "Foul Trouble",       when: "Key starter picks up 4th foul",              floor: "$0.15" },
+  { key: "follow_alert",       display: "Follow Alert",       when: "Notable moment for a followed team/player",  floor: "$0.10" },
 ];
 
 const QUICKSTART_STEPS = [
@@ -52,7 +52,7 @@ const QUICKSTART_STEPS = [
     title: "Fetch moment types",
     body: null,
     code: `curl "https://api.getnorma.app/api/ads/moment-types"
-# Returns floor CPMs and CTR ranges for all 11 moment types — no auth required`,
+# Returns floor CPMs for all 11 moment types — no auth required`,
   },
   {
     step: 5,
@@ -150,7 +150,7 @@ export default function DevelopersPage() {
             The only ad inventory tied to a user&apos;s<br className="hidden sm:block" /> active financial stake in a live game.
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            12–18% CTR. Second-price Vickrey auction. Fully programmable via MCP and REST API.
+            Second-price Vickrey auction. Fully programmable via MCP and REST API. Delivery metrics publish after real campaign volume.
           </p>
           <div className="flex flex-wrap justify-center gap-4 pt-2">
             <a
@@ -198,9 +198,9 @@ export default function DevelopersPage() {
                   <td className="py-3 text-slate-400">Whenever the algorithm decides</td>
                 </tr>
                 <tr>
-                  <td className="py-3 pr-6 text-slate-500">Typical CTR</td>
-                  <td className="py-3 pr-6 text-white font-semibold text-green-400">12–18%</td>
-                  <td className="py-3 text-slate-400">0.05–0.2%</td>
+                  <td className="py-3 pr-6 text-slate-500">Delivery proof</td>
+                  <td className="py-3 pr-6 text-white">Published after real campaign volume</td>
+                  <td className="py-3 text-slate-400">Platform-reported averages</td>
                 </tr>
                 <tr>
                   <td className="py-3 pr-6 text-slate-500">Audience signal</td>
@@ -229,8 +229,7 @@ export default function DevelopersPage() {
                 <tr className="border-b border-slate-700">
                   <th className="text-left py-3 pr-4 text-slate-500 font-medium">Moment</th>
                   <th className="text-left py-3 pr-4 text-slate-500 font-medium">When it fires</th>
-                  <th className="text-left py-3 pr-4 text-slate-500 font-medium">Floor CPM</th>
-                  <th className="text-left py-3 text-slate-500 font-medium">Historical CTR</th>
+                  <th className="text-left py-3 text-slate-500 font-medium">Floor CPM</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -238,14 +237,13 @@ export default function DevelopersPage() {
                   <tr key={m.key} className="hover:bg-slate-900/50">
                     <td className="py-3 pr-4 text-white font-medium">{m.display}</td>
                     <td className="py-3 pr-4 text-slate-400">{m.when}</td>
-                    <td className="py-3 pr-4 text-orange-300 font-mono">{m.floor}</td>
-                    <td className="py-3 text-green-400 font-mono">{m.ctr}</td>
+                    <td className="py-3 text-orange-300 font-mono">{m.floor}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-600">CTR ranges are based on product design targets. Realized rates will vary by creative quality and audience composition. Historical aggregate data will populate as campaigns run.</p>
+          <p className="text-xs text-slate-600">Floor CPMs are configured product rates. We do not publish CTR or CPA here until campaigns have real aggregate volume.</p>
         </section>
 
         {/* ── Integration Paths ── */}
@@ -335,19 +333,12 @@ GET /.well-known/adagents.json`} />
 
         {/* ── Performance Benchmarks ── */}
         <section className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">Performance benchmarks</h2>
+          <h2 className="text-2xl font-bold text-white">Performance reporting</h2>
           <div className="bg-slate-900 border border-amber-800/40 rounded-xl p-6">
-            <p className="text-amber-400 text-sm font-semibold mb-2">Live data — populating as campaigns run</p>
+            <p className="text-amber-400 text-sm font-semibold mb-2">Early access — no placeholder delivery stats</p>
             <p className="text-slate-400 text-sm">
-              Aggregate CTR and CPA data by moment type will appear here as campaigns accumulate volume.
-              The CTR ranges shown in the inventory table above reflect product design targets based on
-              the intent signal model — users who receive a notification have an active financial stake
-              in the triggering event.
-            </p>
-            <p className="mt-3 text-slate-400 text-sm">
-              For comparison: the industry average CTR for mobile app install ads is 0.5–1.0% (Facebook/Meta, 2024).
-              NORMA&apos;s moment-triggered model targets 12–18% on the highest-intent moments (Bet Resolved, Overtime)
-              by delivering at the exact second the user&apos;s financial outcome is being decided.
+              Aggregate CTR and CPA by moment type will appear here after campaigns accumulate real volume.
+              We do not show design-target percentages or empty zeros as proof.
             </p>
           </div>
         </section>

@@ -1,36 +1,35 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { StatCounter } from "@/components/stat-counter";
 
 export const metadata: Metadata = {
-  title: "NORMA Advertising — 12-18% CTR Push Notification Ads for Sports Fans",
+  title: "NORMA Advertising — Moment-Based Push Ads for Sports Fans",
   description:
-    "Reach sports bettors at the exact moment their bet is covering. Self-serve ad platform with second-price auction, AI creative optimization, and $0.10 floor prices. No minimum spend.",
+    "Reach sports bettors at the exact moment their bet is covering. Self-serve ad platform with second-price auction and AI creative optimization. Early advertiser access — no fabricated delivery stats.",
   openGraph: {
-    title: "NORMA Advertising — 12-18% CTR. Not a Typo.",
+    title: "NORMA Advertising — Ads Inside the Moment",
     description:
-      "Your ad inside the push notification that creates the viewer. Self-serve portal, second-price auction, Thompson Sampling creative optimization. Start with $25/day.",
+      "Your ad inside the push notification that creates the viewer. Self-serve portal, second-price auction, Thompson Sampling creative optimization.",
   },
 };
 
 const momentRows = [
-  { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60", ctr: "14–20%", ctrMax: 20 },
-  { name: "Bet Resolved", desc: "User's wager just settled, win or lose", floor: "$0.50", ctr: "12–18%", ctrMax: 18 },
-  { name: "Overtime", desc: "Game goes to extra time, peak adrenaline", floor: "$0.40", ctr: "10–15%", ctrMax: 15 },
-  { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35", ctr: "8–14%", ctrMax: 14 },
-  { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30", ctr: "8–12%", ctrMax: 12 },
-  { name: "Moneyline Alert", desc: "Moneyline outcome flipping", floor: "$0.30", ctr: "7–11%", ctrMax: 11 },
-  { name: "Total Alert", desc: "Over/under pace changing", floor: "$0.25", ctr: "6–10%", ctrMax: 10 },
-  { name: "Prop Alert", desc: "Player prop stat line in play", floor: "$0.25", ctr: "6–9%", ctrMax: 9 },
-  { name: "Position Alert", desc: "Prediction market position at risk", floor: "$0.20", ctr: "5–8%", ctrMax: 8 },
-  { name: "Foul Trouble", desc: "Key starter picks up 4th foul", floor: "$0.15", ctr: "4–7%", ctrMax: 7 },
-  { name: "Follow Alert", desc: "Team follower with no financial stake", floor: "$0.10", ctr: "3–5%", ctrMax: 5 },
+  { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60" },
+  { name: "Bet Resolved", desc: "User's wager just settled, win or lose", floor: "$0.50" },
+  { name: "Overtime", desc: "Game goes to extra time, peak adrenaline", floor: "$0.40" },
+  { name: "Close Game", desc: "Within 6 points, final 5 minutes", floor: "$0.35" },
+  { name: "Spread Alert", desc: "User's spread line is being crossed", floor: "$0.30" },
+  { name: "Moneyline Alert", desc: "Moneyline outcome flipping", floor: "$0.30" },
+  { name: "Total Alert", desc: "Over/under pace changing", floor: "$0.25" },
+  { name: "Prop Alert", desc: "Player prop stat line in play", floor: "$0.25" },
+  { name: "Position Alert", desc: "Prediction market position at risk", floor: "$0.20" },
+  { name: "Foul Trouble", desc: "Key starter picks up 4th foul", floor: "$0.15" },
+  { name: "Follow Alert", desc: "Team follower with no financial stake", floor: "$0.10" },
 ];
 
 const differentiators = [
   {
     title: "The Push Notification Is the Ad Unit",
-    body: "Your brand lives inside the alert that makes someone grab their phone. Not beside it. Not after it. Inside it. That's why CTRs run 10-50x higher than display.",
+    body: "Your brand lives inside the alert that makes someone grab their phone. Not beside it. Not after it. Inside it.",
   },
   {
     title: "You're Buying Intent, Not Impressions",
@@ -42,7 +41,7 @@ const differentiators = [
   },
   {
     title: "No Wasted Spend",
-    body: "Second-price auction: you only pay the minimum needed to win. Floor prices start at $0.10. Average CPAs run 3-5x lower than social ads.",
+    body: "Second-price auction: you only pay the minimum needed to win. Floor prices start at $0.10.",
   },
   {
     title: "Self-Optimizing Creatives",
@@ -160,9 +159,11 @@ export default function AdvertisersPage() {
                 className="font-display leading-none"
                 style={{ fontSize: "clamp(68px, 9vw, 110px)", color: "#F5F3EE", lineHeight: 0.92 }}
               >
-                12-18% CTR.
+                ADS INSIDE
                 <br />
-                <span style={{ color: "#64748b" }}>NOT A TYPO.</span>
+                THE MOMENT.
+                <br />
+                <span style={{ color: "#64748b" }}>NOT A BANNER.</span>
               </h1>
               <p
                 className="mt-8 leading-relaxed"
@@ -182,33 +183,27 @@ export default function AdvertisersPage() {
               </div>
             </div>
 
-            {/* Right: Stats */}
-            <div className="flex-shrink-0 grid grid-cols-1 gap-3" style={{ width: "clamp(280px, 35vw, 380px)" }}>
-              {[
-                { value: 18, suffix: "%", label: "CTR on Bet Resolution", note: "Top moment type" },
-                { value: 10, prefix: "$0.", suffix: "", label: "Floor Price Per Impression", note: "Follow Alert floor" },
-                { value: 50, suffix: "×", label: "Higher CTR than display", note: "Overhead banner comparison" },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded-2xl p-6"
-                  style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.07)" }}
-                >
-                  <div
-                    className="font-display"
-                    style={{ fontSize: 56, color: "#f97316", lineHeight: 1 }}
-                  >
-                    <StatCounter to={s.value} prefix={s.prefix ?? ""} suffix={s.suffix} duration={1400} />
-                  </div>
-                  <div
-                    className="font-semibold mt-2 uppercase"
-                    style={{ fontSize: 12, color: "#F5F3EE", letterSpacing: "0.08em" }}
-                  >
-                    {s.label}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{s.note}</div>
-                </div>
-              ))}
+            {/* Right: Pilot state — no fabricated CTR / spend chrome */}
+            <div
+              className="flex-shrink-0 rounded-2xl p-8"
+              style={{
+                width: "clamp(280px, 35vw, 380px)",
+                background: "#1e293b",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <div
+                className="font-semibold uppercase"
+                style={{ fontSize: 11, color: "#f97316", letterSpacing: "0.12em" }}
+              >
+                Early advertiser access
+              </div>
+              <p style={{ fontSize: 16, color: "#94a3b8", lineHeight: 1.7, marginTop: 16 }}>
+                Self-serve campaigns are live. We show delivery metrics only after real volume — not placeholder CTR, CPA, or spend.
+              </p>
+              <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginTop: 16 }}>
+                Floor prices are published below. Performance numbers will follow campaigns, not the other way around.
+              </p>
             </div>
           </div>
         </div>
@@ -276,13 +271,13 @@ export default function AdvertisersPage() {
             <div
               className="grid"
               style={{
-                gridTemplateColumns: "2fr 2.5fr 80px 100px 100px",
+                gridTemplateColumns: "2fr 2.5fr 80px",
                 background: "#1e293b",
                 padding: "12px 24px",
                 borderBottom: "1px solid rgba(255,255,255,0.07)",
               }}
             >
-              {["Moment Type", "Description", "Floor", "CTR Range", ""].map((h) => (
+              {["Moment Type", "Description", "Floor"].map((h) => (
                 <div
                   key={h}
                   style={{ fontSize: 10, fontWeight: 700, color: "#64748b", letterSpacing: "0.12em", textTransform: "uppercase" }}
@@ -298,7 +293,7 @@ export default function AdvertisersPage() {
                 key={row.name}
                 className="grid items-center"
                 style={{
-                  gridTemplateColumns: "2fr 2.5fr 80px 100px 100px",
+                  gridTemplateColumns: "2fr 2.5fr 80px",
                   padding: "14px 24px",
                   borderBottom: i < momentRows.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                   background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
@@ -311,19 +306,6 @@ export default function AdvertisersPage() {
                   style={{ fontSize: 18, color: "#f97316" }}
                 >
                   {row.floor}
-                </div>
-                <div style={{ fontSize: 13, color: "#94a3b8" }}>{row.ctr}</div>
-                {/* CTR visual bar */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      height: 3,
-                      borderRadius: 2,
-                      background: "#f97316",
-                      width: `${(row.ctrMax / 20) * 100}%`,
-                      opacity: 0.6 + (row.ctrMax / 20) * 0.4,
-                    }}
-                  />
                 </div>
               </div>
             ))}

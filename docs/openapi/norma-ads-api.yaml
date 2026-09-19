@@ -7,8 +7,8 @@ info:
     for sports bettor push notification inventory.
 
     NORMA delivers ads at the exact moment users have active financial stakes
-    in live games — generating 12–18% CTR on high-intent moments like
-    Bet Resolved, Overtime, and Spread Alert.
+    in live games — Bet Resolved, Overtime, Spread Alert, and other moment types.
+    Delivery metrics are published after real campaign volume, not as placeholders.
 
     This API is designed for use by AI advertising agents and DSP integrations.
     It supports OAuth 2.0 Client Credentials flow and is MCP-compatible via
