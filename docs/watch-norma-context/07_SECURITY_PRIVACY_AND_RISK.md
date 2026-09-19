@@ -41,6 +41,7 @@ Core principles:
 **Row-Level Security (RLS):**
 - All user-facing tables have RLS enabled with policies restricting access to the user's own rows (e.g., `auth.uid() = user_id`).
 - Edge Functions that need to write across users use the `SUPABASE_SERVICE_ROLE_KEY` (admin key, never exposed to the client).
+- Public-schema reference / CRM tables that originally shipped with "No RLS needed" comments (`sportsbook_restrictions`, `partners`, `partner_referral_codes`) now have RLS (migration `20260919203000`). `sportsbook_restrictions` and `partner_referral_codes` are SELECT-only for `anon`/`authenticated`. `partners` has **no** client policies (it stores `bd_contact_email` and `notes`); `/admin/partners` uses the service-role client after `requireAdmin()`. `service_role` continues to bypass RLS. Expect `pg_class.relrowsecurity = true` on all three after apply.
 
 **Advertiser authentication:**
 - Advertiser portal uses Supabase Auth (email/password).

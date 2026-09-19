@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import Link from "next/link";
 import { createPartner } from "./actions";
 
@@ -48,7 +49,10 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminPartnersPage() {
-  const { supabase } = await requireAdmin();
+  // partners has RLS + no client policies (bd_contact_email, notes).
+  // requireAdmin() checks the user JWT; data access is service_role.
+  await requireAdmin();
+  const supabase = createSupabaseAdmin();
 
   // All partners from the CRM table
   const { data: partnersData } = await supabase
