@@ -208,6 +208,8 @@ Upgrading inferred → verified requires a partner server-to-server callback (P2
 **Access:** `reporting-api` `attribution` report type. UI: `/reporting` Attribution panel (click "View" on any campaign row).
 
 **Advertiser-facing pages:**
+- `/advertisers` — public self-serve landing page
+- `/advertise` — permanent redirect to `/advertisers` (marketing CTA `getnorma.app/advertise`; trailing slash included). Configured in `web/next.config.ts`.
 - `/dashboard` — campaign overview, key metrics
 - `/campaigns` — campaign list with status badges
 - `/campaigns/new` — create new campaign (name, budget, targeting, flight dates)

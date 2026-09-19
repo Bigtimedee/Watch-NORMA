@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Public marketing CTA getnorma.app/advertise must keep working.
+      // Portal page stays at /advertisers; do not rename that route.
+      // permanent: true is a 308 in Next.js (method-preserving 301 equivalent).
+      { source: "/advertise", destination: "/advertisers", permanent: true },
+      { source: "/advertise/", destination: "/advertisers", permanent: true },
       { source: "/api-docs", destination: "/api-docs/index.html", permanent: false },
     ];
   },

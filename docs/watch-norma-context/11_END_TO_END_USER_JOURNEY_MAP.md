@@ -90,7 +90,7 @@ Thirteen human types across three classes, plus machine actors. Auth column stat
 
 | # | Type | Auth state | Primary surface |
 |---|---|---|---|
-| A1 | Anonymous web visitor | none | `web/src/app/page.tsx`, `/demo`, `/status`, `/developers`, `/advertisers` |
+| A1 | Anonymous web visitor | none | `web/src/app/page.tsx`, `/demo`, `/status`, `/developers`, `/advertisers` (public CTA `/advertise` 308s here) |
 | A2 | Prospect installing the app | none, may carry `?ref=` | App Store, `app/(auth)/welcome.tsx` |
 | A3 | Fan (the base type) | Supabase session | `app/(tabs)/games`, `app/(tabs)/alerts` |
 | A4 | Bettor | session plus `wagers` rows | game detail, `AddWagerSheet` |

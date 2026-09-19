@@ -226,7 +226,8 @@ Previously noted risks that have been resolved:
 
 - **Framework:** Next.js 15 with App Router
 - **Build:** `npm run build` in `web/` directory
-- **Deployment:** Presumably Vercel (`.next` build output present, Next.js standard)
+- **Deployment:** Vercel. `www.getnorma.app` is this `web/` app (`x-matched-path`, `x-nextjs-prerender`). Apex `getnorma.app` 307s to `www.getnorma.app`. `Bigtimedee/norma-site` is GitHub Pages for privacy/terms only — not this host.
+- **Public CTA:** `/advertise` and `/advertise/` permanently redirect to `/advertisers` (`web/next.config.ts`). Keep `/advertisers` as the real page.
 - **Environment:** Requires Supabase URL, anon key, and service role key for SSR
 
 **Admin pages** (require `app_metadata.role = 'admin'` on the Supabase user):

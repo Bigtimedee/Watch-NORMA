@@ -143,6 +143,8 @@ Based on the repository, the app has the following screens and components:
 - `PreferencesSheet` — favorite teams, quiet hours, alert limits, notification channels
 
 **Advertiser Portal (web/):**
+- `/advertisers` — public advertiser landing page (real route)
+- `/advertise`, `/advertise/` — permanent redirect (308) to `/advertisers`; public marketing CTA, do not drop
 - `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password`
 - `/dashboard` — advertiser overview
 - `/campaigns` — campaign list, `/campaigns/new` — create campaign
