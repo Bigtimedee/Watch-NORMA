@@ -122,6 +122,12 @@ jobs:
       - name: PATCH hosted Auth mailer templates
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: node scripts/apply-auth-email-templates.mjs
+      - name: Dashboard fallback if Management API rejected the token
+        if: failure()
+        run: |
+          echo "::error::Hosted Auth templates were NOT applied. Management API 401 means SUPABASE_ACCESS_TOKEN is expired or lacks project access (same as Deploy Edge Functions)."
+          echo "::error::Rotate the PAT (https://supabase.com/dashboard/account/tokens), update the GitHub secret, then Actions → Apply Auth email templates."
+          echo "::error::Immediate unblock: paste supabase/templates/*.html into https://supabase.com/dashboard/project/shijrazlzawjpobrpmnt/auth/templates"
 
   ota-update:
     name: OTA Update (EAS)

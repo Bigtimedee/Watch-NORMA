@@ -66,9 +66,24 @@ async function managementRequest(method, projectRef, token, body) {
     json = { raw: text };
   }
   if (!res.ok) {
-    fail(
-      `${method} ${url} failed (${res.status}): ${typeof json === "object" ? JSON.stringify(json) : text}`
-    );
+    const detail =
+      typeof json === "object" ? JSON.stringify(json) : text;
+    if (res.status === 401 || res.status === 403) {
+      fail(
+        [
+          `${method} ${url} failed (${res.status}): ${detail}`,
+          "",
+          "The GitHub secret SUPABASE_ACCESS_TOKEN was present but the Management API rejected it.",
+          "This is the same 401 that fails `supabase functions deploy` on main.",
+          "Rotate a personal access token at https://supabase.com/dashboard/account/tokens",
+          "(needs Auth config write on project shijrazlzawjpobrpmnt), then update repo secret SUPABASE_ACCESS_TOKEN.",
+          "Re-apply: Actions → Apply Auth email templates → Run workflow.",
+          `Until then, paste supabase/templates/*.html into https://supabase.com/dashboard/project/${projectRef}/auth/templates`,
+          "See docs/operations/auth-email-templates.md.",
+        ].join("\n")
+      );
+    }
+    fail(`${method} ${url} failed (${res.status}): ${detail}`);
   }
   return json;
 }

@@ -36,3 +36,8 @@ jobs:
           echo "Using project-ref (length ${#SUPABASE_PROJECT_REF})."
       - name: PATCH hosted Auth mailer templates
         run: node scripts/apply-auth-email-templates.mjs
+      - name: Dashboard fallback if Management API rejected the token
+        if: failure()
+        run: |
+          echo "::error::Hosted Auth templates were NOT applied. 401 = rotate SUPABASE_ACCESS_TOKEN, then re-run this workflow."
+          echo "::error::Immediate unblock: paste supabase/templates/*.html into https://supabase.com/dashboard/project/shijrazlzawjpobrpmnt/auth/templates"
