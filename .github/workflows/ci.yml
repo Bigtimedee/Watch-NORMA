@@ -101,6 +101,28 @@ jobs:
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: supabase functions list --project-ref "$SUPABASE_PROJECT_REF"
 
+  apply-auth-email-templates:
+    name: Apply Auth Email Templates
+    runs-on: ubuntu-latest
+    needs: [client]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Warn if secrets are missing
+        if: env.SUPABASE_ACCESS_TOKEN == '' || env.SUPABASE_PROJECT_REF == ''
+        run: |
+          echo "::warning::SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF not set."
+          echo "::warning::Auth email templates were NOT applied. Paste supabase/templates/*.html into the dashboard (docs/operations/auth-email-templates.md)."
+      - name: PATCH hosted Auth mailer templates
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
+        run: node scripts/apply-auth-email-templates.mjs
+
   ota-update:
     name: OTA Update (EAS)
     runs-on: ubuntu-latest

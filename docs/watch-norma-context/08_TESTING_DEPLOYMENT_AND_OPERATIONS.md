@@ -62,6 +62,7 @@ deno test --allow-env --allow-net=none supabase/functions/
 - Studio on port 54323
 - Auth: Apple Sign-In enabled
 - Deep link callback: `norma://auth-callback` (password reset + magic link; custom scheme, no App Store Connect associated-domains change)
+- Auth email HTML: `supabase/templates/` via `[auth.email.template.*]` (local only). Hosted apply: `docs/operations/auth-email-templates.md`
 
 ## Testing Strategy
 
@@ -71,6 +72,7 @@ deno test --allow-env --allow-net=none supabase/functions/
 - `lib/__tests__/auth-signin-errors.test.ts` — invalid-credentials → Sign in with Apple / forgot-password CTA mapping
 - `lib/__tests__/auth-callback.test.ts` — `norma://auth-callback` parse + URL helper
 - `lib/__tests__/auth-recovery-state.test.ts` — password-recovery flag for AuthGate
+- `lib/__tests__/auth-email-templates.test.ts` — every Auth email that says follow-this-link / reset must have `<a href="{{ .ConfirmationURL }}">` plus a raw URL fallback; clones the 2026-09-19 broken recovery body as a failing fixture
 - `lib/__tests__/deep-links.test.ts` — deep link URL resolution and fallback chain
 - `lib/__tests__/watch-provider-selection.test.ts` — best watch provider selection logic
 - `lib/__tests__/alert-helpers.test.ts` — alert type labels, colors, icons, urgency, time formatting
@@ -254,7 +256,8 @@ Previously noted risks that have been resolved:
 2. **Deno job:** Type-check key logic files → `deno test --allow-env --allow-net=none supabase/functions/`
 3. **Migrations job:** `supabase start` → `supabase stop` (verifies migrations apply cleanly against a throwaway local DB — does NOT push to production)
 4. **Deploy Edge Functions job** (added 2026-08-19, main branch push only): `supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"`. Gated on `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` GitHub secrets. If either is missing, the job emits a warning and skips (keeps the pipeline green but flags drift). Closes the drift described in `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.5.
-5. **OTA Update job:** (main branch push only) `eas update --auto --channel production --non-interactive`. Now depends on `deploy-functions` so the client bundle never ships to devices before the backend it depends on.
+5. **Apply Auth Email Templates job** (added 2026-09-19, main branch push only): `node scripts/apply-auth-email-templates.mjs` PATCHes hosted GoTrue mailer subjects/bodies from `supabase/templates/`. Gated on the same `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` secrets as function deploy. Missing secrets warn and skip (dashboard paste is the fallback). Dispatch-only re-apply: `.github/workflows/apply-auth-email-templates.yml`.
+6. **OTA Update job:** (main branch push only) `eas update --auto --channel production --non-interactive`. Now depends on `deploy-functions` so the client bundle never ships to devices before the backend it depends on.
 
 **One-off LinkedIn secrets (manual dispatch only):** `.github/workflows/set-linkedin-secrets.yml` does **not** run on push or pull_request. After it is on `main`, use **Actions → Set LinkedIn Supabase secrets → Run workflow**. It uses repo secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` to run `npx supabase secrets set LINKEDIN_ORGANIZATION_ID=146336141 --project-ref "$SUPABASE_PROJECT_REF"` (company page https://www.linkedin.com/company/watch-norma/). That org-id secret is optional in code (`cmo-publish-linkedin` already defaults to `146336141`); the workflow pins it explicitly. Optionally paste `linkedin_access_token` in the dispatch form to also set the **required** `LINKEDIN_ACCESS_TOKEN` — do not put any LinkedIn token in the YAML. This job is not part of CI; PR checks on this file are not required. Delete the workflow after a successful run if you do not want it to linger.
 

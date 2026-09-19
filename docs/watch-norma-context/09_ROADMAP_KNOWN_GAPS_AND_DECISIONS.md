@@ -4,6 +4,8 @@
 
 Based on repository inspection and the outage report:
 
+0. ~~**Password reset email CTA was not a link.**~~ **Closed (2026-09-19).** Admin forgot-password (`getnorma.app/auth/forgot-password`) sent subject "Reset Your Password" with body heading "Reset Password" and non-clickable text "Reset Password" — no href, no URL (Gmail mobile). Cause: hosted Supabase Auth recovery template (project `shijrazlzawjpobrpmnt`) had no `<a href="{{ .ConfirmationURL }}">`. In-repo templates + Management API apply + Jest lint: `docs/operations/auth-email-templates.md`. Re-test: trigger reset from `/admin` login, confirm a blue link and a raw verify URL.
+
 1. **ESPN status field regression risk.** The May 2026 P0 outage was caused by reading `status.type.name` (machine code) instead of `status.type.description` (human-readable) from ESPN. This was fixed, but the risk of regression remains high. A CHECK constraint on the `games` table (migration 057/060) now prevents invalid status values, but the constraint is a safety net — the root fix is in the status mapping code. See `OUTAGE-REPORT-2026-05-16.md`.
 
 2. **YouTube TV deep link instability.** Multiple migrations (052, 053, 054) were needed to fix YouTube TV's scheme and universal link. The universal link must point to `https://tv.youtube.com` (watch/login URL), not a marketing page. This is monitored by `deep-link-health-check` but has been a recurring issue.

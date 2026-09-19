@@ -318,7 +318,7 @@ The third clause is a compatibility path for v1 candidates and is the most commo
 
 ### B1. Self serve advertiser
 
-**Gate.** `web/src/middleware.ts` protects `/dashboard`, `/campaigns`, `/reporting`, `/billing`, `/inventory`, `/settings`, `/onboarding`, `/admin`, redirecting unauthenticated requests to `/auth/login`. Authenticated users hitting an auth page are bounced forward to `/dashboard`, or `/admin/dashboard` if they hold the admin role. `/auth/reset-password` is deliberately exempt because it needs a live session to call `updateUser`.
+**Gate.** `web/src/middleware.ts` protects `/dashboard`, `/campaigns`, `/reporting`, `/billing`, `/inventory`, `/settings`, `/onboarding`, `/admin`, redirecting unauthenticated requests to `/auth/login`. Authenticated users hitting an auth page are bounced forward to `/dashboard`, or `/admin/dashboard` if they hold the admin role. `/auth/reset-password` is deliberately exempt because it needs a live session to call `updateUser`. Forgot-password email is the hosted GoTrue recovery template (`supabase/templates/recovery.html`); the CTA must be `<a href="{{ .ConfirmationURL }}">` plus a raw URL (`docs/operations/auth-email-templates.md`).
 
 | Step | Route | Notes |
 |---|---|---|

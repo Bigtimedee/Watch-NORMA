@@ -36,6 +36,7 @@ Core principles:
 - Sessions managed via JWTs. Tokens stored in `expo-secure-store` (encrypted native storage on device).
 - Automatic token refresh handled by Supabase JS client.
 - Apple-linked email identities have historically existed without a usable `encrypted_password`. Supabase then returns generic "Invalid login credentials" for email/password. The client (`lib/auth-signin-errors.ts`) must never treat that as a dead end — it offers Sign in with Apple (iOS) plus Forgot password / magic link. Recovery emails return to `norma://auth-callback`.
+- Auth emails (reset, confirm signup, invite, magic link, email change, reauthentication OTP) are GoTrue templates. A recovery body that says "follow this link" but prints bare text "Reset Password" (no `<a href="{{ .ConfirmationURL }}">`, no raw URL) is a security/ops failure — the user cannot complete reset. Source of truth and apply steps: `docs/operations/auth-email-templates.md`. Jest `lib/__tests__/auth-email-templates.test.ts` fails CI if that class of template regresses.
 
 **Row-Level Security (RLS):**
 - All user-facing tables have RLS enabled with policies restricting access to the user's own rows (e.g., `auth.uid() = user_id`).
