@@ -29,6 +29,35 @@ secret = "env(APPLE_SECRET)"
 [auth.external.google]
 enabled = false
 
+# Auth email templates (source of truth: supabase/templates/).
+# Local `supabase start` reads these. Hosted production does not —
+# apply with scripts/apply-auth-email-templates.mjs or the dashboard.
+# See docs/operations/auth-email-templates.md.
+
+[auth.email.template.recovery]
+subject = "Reset Your Password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm Your Signup"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You have been invited"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your Magic Link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Confirm Email Change"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.reauthentication]
+subject = "{{ .Token }} is your verification code"
+content_path = "./supabase/templates/reauthentication.html"
+
 # ---------------------------------------------------------------------------
 # Edge Function JWT verification
 #

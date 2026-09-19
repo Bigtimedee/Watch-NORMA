@@ -19,9 +19,10 @@ Watch-NORMA/
 │   └── __tests__/                    # Client-side unit tests
 ├── __tests__/                        # Component/screen tests
 ├── assets/                           # App icons, splash, logos
-├── scripts/                          # Utility scripts (Twitter OAuth, etc.)
+├── scripts/                          # Utility scripts (Twitter OAuth, apply-auth-email-templates, etc.)
 ├── supabase/
-│   ├── config.toml                   # Local Supabase config
+│   ├── config.toml                   # Local Supabase config (auth email content_path → templates/)
+│   ├── templates/                    # Auth mailer HTML (recovery, confirm, invite, magic link, email change, OTP)
 │   ├── seed.sql                      # Seed data
 │   ├── migrations/                   # 68 Postgres migrations (001–066 + 4 timestamped)
 │   ├── functions/                    # Deno Edge Functions (38 functions)
@@ -101,6 +102,8 @@ All items verified from repository files.
 **App entry point:** `app/_layout.tsx` is the root layout. It wraps the app in ErrorBoundary, QueryClientProvider (React Query), TapToStreamProvider (global streaming animation context), and AuthGate (redirects unauthenticated users to welcome screen). It also registers for push notifications and handles `gameId` deep links from push payloads.
 
 **Routing:** Expo Router 6 (file-based). Routes map to filesystem under `app/`. Auth routes under `(auth)/`, authenticated routes under `(tabs)/`. Deep link scheme: `norma://`. Auth recovery / magic-link emails use the existing `norma://auth-callback` site URL (`supabase/config.toml`). `AuthGate` leaves `/auth-callback` and `/(auth)/reset-password` alone during `PASSWORD_RECOVERY` so a recovery session is not bounced to Games before the user sets a password.
+
+**Auth emails:** Bodies are Supabase Auth mailer templates, not a custom NORMA sender. In-repo HTML lives in `supabase/templates/` and is wired for local CLI via `[auth.email.template.*]` in `config.toml`. Hosted production (`shijrazlzawjpobrpmnt`) is updated with `scripts/apply-auth-email-templates.mjs` (Management API) or a dashboard paste — see `docs/operations/auth-email-templates.md`. Every link-based template must use `<a href="{{ .ConfirmationURL }}">` plus a raw URL line. The web admin reset flow (`/auth/forgot-password`) still calls `resetPasswordForEmail` with `redirectTo` `/auth/callback?next=/auth/reset-password`.
 
 **Major screens:** Games list (date + sport filter, live/following tabs), Game detail (scores, odds, wagers, positions, watch button), Alerts feed (real-time insertion), Connections hub (4 categories), Profile (settings, preferences, account management).
 

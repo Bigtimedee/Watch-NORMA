@@ -1,0 +1,61 @@
+{
+  "description": "Source of truth for Watch NORMA Supabase Auth email templates. Hosted projects do not read these files automatically — apply with scripts/apply-auth-email-templates.mjs or paste into the dashboard. See docs/operations/auth-email-templates.md.",
+  "projectRef": "shijrazlzawjpobrpmnt",
+  "templates": [
+    {
+      "id": "recovery",
+      "label": "Reset password",
+      "subject": "Reset Your Password",
+      "file": "recovery.html",
+      "requiresConfirmationUrl": true,
+      "mailerSubjectKey": "mailer_subjects_recovery",
+      "mailerContentKey": "mailer_templates_recovery_content"
+    },
+    {
+      "id": "confirmation",
+      "label": "Confirm signup",
+      "subject": "Confirm Your Signup",
+      "file": "confirmation.html",
+      "requiresConfirmationUrl": true,
+      "mailerSubjectKey": "mailer_subjects_confirmation",
+      "mailerContentKey": "mailer_templates_confirmation_content"
+    },
+    {
+      "id": "invite",
+      "label": "Invite user",
+      "subject": "You have been invited",
+      "file": "invite.html",
+      "requiresConfirmationUrl": true,
+      "mailerSubjectKey": "mailer_subjects_invite",
+      "mailerContentKey": "mailer_templates_invite_content"
+    },
+    {
+      "id": "magic_link",
+      "label": "Magic link",
+      "subject": "Your Magic Link",
+      "file": "magic_link.html",
+      "requiresConfirmationUrl": true,
+      "mailerSubjectKey": "mailer_subjects_magic_link",
+      "mailerContentKey": "mailer_templates_magic_link_content"
+    },
+    {
+      "id": "email_change",
+      "label": "Change email address",
+      "subject": "Confirm Email Change",
+      "file": "email_change.html",
+      "requiresConfirmationUrl": true,
+      "mailerSubjectKey": "mailer_subjects_email_change",
+      "mailerContentKey": "mailer_templates_email_change_content"
+    },
+    {
+      "id": "reauthentication",
+      "label": "Reauthentication OTP",
+      "subject": "{{ .Token }} is your verification code",
+      "file": "reauthentication.html",
+      "requiresConfirmationUrl": false,
+      "requiresToken": true,
+      "mailerSubjectKey": "mailer_subjects_reauthentication",
+      "mailerContentKey": "mailer_templates_reauthentication_content"
+    }
+  ]
+}
