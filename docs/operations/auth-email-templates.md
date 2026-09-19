@@ -50,6 +50,8 @@ SUPABASE_PROJECT_REF=shijrazlzawjpobrpmnt \
 
 On merge to `main`, `.github/workflows/ci.yml` job **Apply Auth Email Templates** runs the same script. To re-apply without a code change: **Actions → Apply Auth email templates → Run workflow** (`.github/workflows/apply-auth-email-templates.yml`).
 
+**2026-09-19:** merge of PR #43 did run that job ([run 35466153457](https://github.com/Bigtimedee/Watch-NORMA/actions/runs/35466153457)). Secrets were present, but `GET /v1/projects/:ref/config/auth` returned **401 Unauthorized**. `Deploy Edge Functions` on the same run (and on the #42 main push) failed the same way. The GitHub secret is set but rejected — rotate a PAT at [account tokens](https://supabase.com/dashboard/account/tokens), update `SUPABASE_ACCESS_TOKEN`, then dispatch **Apply Auth email templates**. Until that lands, **hosted recovery mail is still the broken body**; paste `supabase/templates/recovery.html` in the dashboard to unblock reset.
+
 The script PATCHes only `mailer_subjects_*` and `mailer_templates_*_content`. It does not change `site_url`, redirect allowlists, SMTP, or providers. Redirect / vanity work is a separate change (PR #42).
 
 ### Dashboard fallback (if the API cannot run)
