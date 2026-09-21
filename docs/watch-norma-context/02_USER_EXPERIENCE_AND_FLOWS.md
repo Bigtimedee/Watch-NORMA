@@ -145,7 +145,7 @@ Based on the repository, the app has the following screens and components:
 **Advertiser Portal (web/):**
 - `/advertisers` — public advertiser landing page (real route). No fabricated CTR / spend proof chrome; early-access copy until real delivery volume exists.
 - `/advertise`, `/advertise/` — permanent redirect to `/advertisers` (Vercel 301 / Next.js 308); public marketing CTA, do not drop
-- `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password` — forgot-password sends the Supabase recovery template (must be a real `<a href="{{ .ConfirmationURL }}">`, see `docs/operations/auth-email-templates.md`)
+- `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/reset-password` (admin/advertiser set-password page — recovery emails must land here, never marketing `/`) — forgot-password sends the Supabase recovery template (must be a real `<a href="{{ .ConfirmationURL }}">`, see `docs/operations/auth-email-templates.md`)
 - `/dashboard` — advertiser overview
 - `/campaigns` — campaign list, `/campaigns/new` — create campaign
 - `/campaigns/[id]` — campaign detail, bidding, creatives, targeting, reporting sub-pages

@@ -50,7 +50,7 @@ SUPABASE_PROJECT_REF=shijrazlzawjpobrpmnt \
 
 On merge to `main`, `.github/workflows/ci.yml` job **Apply Auth Email Templates** runs the same script. To re-apply without a code change: **Actions → Apply Auth email templates → Run workflow** (`.github/workflows/apply-auth-email-templates.yml`).
 
-The script PATCHes only `mailer_subjects_*` and `mailer_templates_*_content`. It does not change `site_url`, redirect allowlists, SMTP, or providers. Redirect / vanity work is a separate change (PR #42).
+The script PATCHes only `mailer_subjects_*` and `mailer_templates_*_content`. It does not change `site_url`, redirect allowlists, SMTP, or providers. Hosted URL config (`site_url` + allowlist) is `scripts/apply-auth-redirects.mjs` — see `docs/operations/auth-redirects.md`. Never point `site_url` at marketing `/`.
 
 ### Dashboard fallback (if the API cannot run)
 
@@ -77,10 +77,11 @@ The script PATCHes only `mailer_subjects_*` and `mailer_templates_*_content`. It
    - Subject still **Reset Your Password**
    - Blue, clickable **Reset Password**
    - A second line with the full `https://<ref>.supabase.co/auth/v1/verify?...` URL
-5. Tap the link. It should land on `/auth/reset-password` (via `/auth/callback?next=/auth/reset-password`).
-6. Set a new password and sign in to `/admin/dashboard`.
+5. Tap the link. It must land on `/auth/reset-password` (same-origin `redirectTo`, hosted `site_url`). **Not** the marketing homepage.
+6. Set a new password. Admins go to `/admin`; advertisers go to `/dashboard`.
+7. Re-open a used/expired link: expect the expired-link message and a path back to `/auth/forgot-password`.
 
-Mobile app recovery still uses `norma://auth-callback` (`redirectTo` / site URL). Do not change that in this apply.
+Mobile app recovery still uses `norma://auth-callback` (`redirectTo`). Do not change that in this apply. Hosted `site_url` is the web set-password page — mobile must keep passing its own `redirectTo`.
 
 ## Guardrails
 

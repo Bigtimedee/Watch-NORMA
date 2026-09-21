@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { getWebRecoveryRedirectTo } from "@/lib/auth-recovery-landing";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -16,7 +17,10 @@ export default function ForgotPasswordPage() {
     setError("");
 
     const supabase = createSupabaseBrowser();
-    const redirectTo = `${window.location.origin}/auth/callback?next=/auth/reset-password`;
+    // HARD RULE: redirectTo must be /auth/reset-password on this origin — never
+    // marketing `/`. Do not put `?next=` on redirectTo; GoTrue allowlist matching
+    // often rejects query strings and silently falls back to site_url.
+    const redirectTo = getWebRecoveryRedirectTo(window.location.origin);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,

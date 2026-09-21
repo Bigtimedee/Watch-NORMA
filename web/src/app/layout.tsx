@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
+import { AuthRecoveryLandingGuard } from "@/components/auth-recovery-landing-guard";
 import "./globals.css";
 
 const bebasNeue = Bebas_Neue({
@@ -67,7 +68,10 @@ export default function RootLayout({
       <head>
         <link rel="adagents" type="application/json" href="/adagents.json" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthRecoveryLandingGuard />
+        {children}
+      </body>
     </html>
   );
 }

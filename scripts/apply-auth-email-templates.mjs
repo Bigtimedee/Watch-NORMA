@@ -7,7 +7,8 @@
  *     node scripts/apply-auth-email-templates.mjs
  *
  * Only PATCHes mailer subject/content fields. Does not touch site_url,
- * redirect allowlist, SMTP, or providers.
+ * redirect allowlist, SMTP, or providers. URL config is
+ * scripts/apply-auth-redirects.mjs (never point site_url at marketing /).
  *
  * Docs: docs/operations/auth-email-templates.md
  */

@@ -616,6 +616,9 @@ already supports external_bet_id dedup and provider_key tracking.
   by RLS (only user's own row accessible). For v2, add pgcrypto column-level
   encryption for access_token/refresh_token fields when partner APIs are added.
 - **No token logging**: Edge Functions must never console.log tokens or API keys.
+- **Auth recovery landing**: Hosted `site_url` and web `redirectTo` must be
+  `https://getnorma.app/auth/reset-password`, never marketing `/`. Mobile stays
+  `norma://auth-callback`. See hard rule 23 and `docs/operations/auth-redirects.md`.
 - **Rate limiting**: Supabase Edge Functions have built-in rate limiting via the
   Supabase platform. For additional per-user limits, use the alert_throttle table.
 - **Audit logging**: Connection changes (connect/disconnect) logged via a

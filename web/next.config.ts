@@ -30,6 +30,20 @@ const nextConfig: NextConfig = {
       // permanent: true is a 308 in Next.js (method-preserving 301 equivalent).
       { source: "/advertise", destination: "/advertisers", permanent: true },
       { source: "/advertise/", destination: "/advertisers", permanent: true },
+      // HARD RULE: GoTrue error/PKCE dumps on marketing `/` must reach the
+      // set-password page. Do not 301 — auth query strings must not be cached.
+      {
+        source: "/",
+        has: [{ type: "query", key: "error" }],
+        destination: "/auth/reset-password",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [{ type: "query", key: "error_code" }],
+        destination: "/auth/reset-password",
+        permanent: false,
+      },
       { source: "/api-docs", destination: "/api-docs/index.html", permanent: false },
     ];
   },

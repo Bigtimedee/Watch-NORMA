@@ -9,6 +9,18 @@
       "source": "/advertise/",
       "destination": "/advertisers",
       "statusCode": 301
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "error" }],
+      "destination": "/auth/reset-password",
+      "statusCode": 302
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "error_code" }],
+      "destination": "/auth/reset-password",
+      "statusCode": 302
     }
   ]
 }
