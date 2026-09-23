@@ -178,6 +178,8 @@ The `BetNowButton` component and `_shared/sportsbook-links.ts` provide deep-link
 - `impressions` — ad impressions with clearing price, tap status, conversion tracking
 - `conversions` — post-impression actions (stream_open, sportsbook_open, wager_placed, cta_tap)
 - `ad_fraud_events` — detected fraud signals
+- `crm_prospects` — prospective advertiser companies (contact, phone, email the admin entered, social handles JSON, last contact date, optional link to `advertisers`). Admin CRM only.
+- `crm_outreach_emails` — drafts and sent outreach for a prospect (status, subject, body, snippet, drafted_at, sent_at, provider message id, error). Not a paying-account table.
 
 ## Integration Status Table
 

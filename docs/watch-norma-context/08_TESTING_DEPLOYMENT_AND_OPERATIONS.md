@@ -238,6 +238,7 @@ Expected: `relrowsecurity = true`, `relforcerowsecurity = false` (so `service_ro
 - **Secrets:** Set via `supabase secrets set` for each environment variable.
 - **pg_cron jobs:** Configured in migration SQL files (004, 007, 013, 018, 022, 027, 029, 034, 035, 040, 044, 045, 046, 047, 056, 057, 063, 064, 067, 068, 069, `20260307000001_cmo_agent.sql`, and `20260706000003_report_log.sql`).
 - **`advertiser-weekly-report` function:** Requires `RESEND_API_KEY` secret (`supabase secrets set RESEND_API_KEY=re_...`). Runs Mondays 13:00 UTC. Sends HTML performance emails via Resend; logs outcome to `report_log` table.
+- **Admin CRM live send (optional):** `/admin/crm` can send a saved draft through Resend only when an admin clicks Send. That path reads `RESEND_API_KEY` from the **web** deployment (Vercel), not from the Edge Function secret. Optional `CRM_OUTREACH_FROM` overrides the From mailbox; it must be an email such as `NORMA <reports@getnorma.app>`, never `https://getnorma.app/advertise`. If the web key is unset, drafts and Mark sent still work and nothing is emailed. Apply migration `20260923210000_advertiser_crm.sql` before using the page. Verify `relrowsecurity = true` and zero policies on `crm_prospects` and `crm_outreach_emails`.
 - **`growth-weekly-report` function:** Requires `RESEND_API_KEY` and optionally `GROWTH_REPORT_EMAIL` (defaults to `admin@getnorma.app`) and `PUBLIC_APP_URL` (defaults to `https://getnorma.app`). Runs Mondays 12:00 UTC (8 AM ET summer/DST). Compiles trailing-7-day vs prior-7-day internal growth report: signups, DAU, D1/D7 retention, alerts delivered, watch taps, share events, referral signups, rating prompt fires, intent moments by type, auction fill rate, avg clearing CPM, revenue, active advertiser count. Stores full JSON in `growth_reports` table (migration `20260706000007_growth_reports.sql`); results are displayed in the `/admin/growth` portal. Idempotent — skips if a row for the period already exists.
 
 ### Advertiser Portal (web/)
@@ -250,9 +251,10 @@ Expected: `relrowsecurity = true`, `relforcerowsecurity = false` (so `service_ro
 - **Environment:** Requires Supabase URL, anon key, and service role key for SSR
 
 **Admin pages** (require `app_metadata.role = 'admin'` on the Supabase user):
-- `/admin/dashboard` — platform KPIs (users, revenue, spend, campaigns)
+- `/admin/dashboard` — platform KPIs (users, revenue, spend, campaigns) and a CRM pipeline section
+- `/admin/crm` — prospective advertiser CRM. List, create, and `/admin/crm/[id]` for the contact plus drafted/sent outreach. Reads and writes use `createSupabaseAdmin()` after `requireAdmin()` because `crm_prospects` / `crm_outreach_emails` have no client policies (migration `20260923210000`).
 - `/admin/users` — mobile user list
-- `/admin/advertisers` — advertiser management
+- `/admin/advertisers` — paying advertiser accounts (not the prospect pipeline)
 - `/admin/campaigns` — campaign review and approval
 - `/admin/campaigns/direct-deals` — guaranteed inventory deals
 - `/admin/revenue` — transaction history and revenue breakdown

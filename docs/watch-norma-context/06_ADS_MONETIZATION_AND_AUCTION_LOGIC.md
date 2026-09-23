@@ -221,7 +221,8 @@ Upgrading inferred → verified requires a partner server-to-server callback (P2
 - `/onboarding` — new advertiser setup flow
 
 **Admin-only pages:**
-- `/admin/dashboard` — system-wide metrics
+- `/admin/dashboard` — system-wide metrics, plus a CRM section that links to the prospect pipeline
+- `/admin/crm` — prospective advertiser CRM (company, contact, email, phone, socials, last contact, outreach drafts). `/admin/crm/[id]` edits a prospect and its email timeline. Paying accounts stay on `/admin/advertisers`.
 - `/admin/advertisers` — advertiser management (approve, suspend)
 - `/admin/campaigns` — all campaigns (approve, reject, pause)
 - `/admin/fraud` — fraud event review and resolution
