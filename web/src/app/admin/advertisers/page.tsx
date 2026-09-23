@@ -25,7 +25,11 @@ export default async function AdminAdvertisersPage() {
     <>
       <h1 className="text-2xl font-bold text-white">Advertisers</h1>
       <p className="mt-1 text-sm text-slate-400">
-        Manage advertiser accounts
+        Paying advertiser accounts. Prospective companies live in{" "}
+        <Link href="/admin/crm" className="text-orange-400 hover:text-orange-300">
+          CRM
+        </Link>
+        .
       </p>
 
       <div className="mt-6 overflow-hidden rounded-xl border border-slate-800">

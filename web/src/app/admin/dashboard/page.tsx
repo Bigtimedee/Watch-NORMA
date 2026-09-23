@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { KpiCard } from "@/components/kpi-card";
+import { CRM_STAGES } from "@/lib/crm";
 import { formatCents, formatNumber } from "@/lib/utils";
 
 export default async function AdminDashboardPage() {
@@ -75,9 +78,43 @@ export default async function AdminDashboardPage() {
   const grossMargin =
     totalRevenue > 0 ? ((totalRevenue - totalAdSpend) / totalRevenue) * 100 : 0;
 
+  const crm = await loadCrmSummary();
+
   return (
     <>
       <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+
+      <section className="mt-6 rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">CRM</h2>
+            <p className="mt-1 max-w-xl text-sm text-slate-400">
+              Prospective advertisers. This is the revenue pipeline before a company has a paying
+              account.
+            </p>
+          </div>
+          <Link
+            href="/admin/crm"
+            className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-400"
+          >
+            Open CRM
+          </Link>
+        </div>
+        {crm.available ? (
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {CRM_STAGES.map((stage) => (
+              <div key={stage}>
+                <dt className="text-xs capitalize text-slate-500">{stage}</dt>
+                <dd className="text-xl font-semibold text-white">{crm.counts[stage] ?? 0}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">
+            Prospect counts appear after the advertiser CRM migration is applied.
+          </p>
+        )}
+      </section>
 
       {/* Row 1: User Stats */}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -120,4 +157,22 @@ export default async function AdminDashboardPage() {
       </div>
     </>
   );
+}
+
+async function loadCrmSummary(): Promise<
+  { available: false } | { available: true; counts: Record<string, number> }
+> {
+  const counts = Object.fromEntries(CRM_STAGES.map((stage) => [stage, 0]));
+  try {
+    const admin = createSupabaseAdmin();
+    const { data, error } = await admin.from("crm_prospects").select("stage");
+    if (error || !data) return { available: false };
+    for (const row of data) {
+      const stage = typeof row.stage === "string" ? row.stage : "";
+      if (stage in counts) counts[stage] += 1;
+    }
+    return { available: true, counts };
+  } catch {
+    return { available: false };
+  }
 }

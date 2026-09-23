@@ -373,8 +373,9 @@ campaigns:read   campaigns:write   reporting:read   inventory:read
 
 | Console | Route | Responsibility |
 |---|---|---|
-| Overview | `/admin/dashboard` | System state |
-| Advertisers | `/admin/advertisers`, `/[id]` | Account management |
+| Overview | `/admin/dashboard` | System state, plus the CRM pipeline section |
+| CRM | `/admin/crm`, `/admin/crm/[id]` | Prospective advertiser companies, contacts, and outreach drafts. Service role after `requireAdmin()`. |
+| Advertisers | `/admin/advertisers`, `/[id]` | Paying account management |
 | Campaigns | `/admin/campaigns`, `/[id]` | Approve and reject campaigns and creatives |
 | Direct deals | `/admin/campaigns/direct-deals` | Negotiated inventory |
 | Auction engine | `/admin/auction-engine`, `/live` | Configuration plus live auction view (`components/live-auction-dashboard.tsx`) |
