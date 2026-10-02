@@ -2,19 +2,21 @@
 // cmo-publish: late / empty-media guards, claim idempotency, dry run
 // Incident 2026-09-26..10-02: daily 09:00 UTC sweep posted 11:00 CT rows at
 // 04:00 CT next day; 3347826d posted text-only (empty media_urls).
+// Semantics mirror the SQL stale guard in cron job cmo-publish-content
+// (migration 20261002170100): hold as status='paused' + human_notes line.
 // =============================================================================
 
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 import {
-  EMPTY_MEDIA_GRACE_MS,
-  HOLD_EMPTY_MEDIA_WAITING,
-  SKIP_REASON_EMPTY_MEDIA,
-  SKIP_REASON_STALE,
+  GUARD_HOLD_STATUS,
+  GUARD_REASON_EMPTY_MEDIA,
+  GUARD_REASON_STALE,
   STALE_AFTER_MS,
   appendNote,
-  autoSkipNote,
   classifyPublishCandidate,
+  formatChicago,
+  guardHoldNote,
   hasMedia,
   interpretClaim,
   isStale,
@@ -40,67 +42,66 @@ function row(overrides: Partial<CalendarPublishCandidate> = {}): CalendarPublish
   };
 }
 
+Deno.test("guards hold with paused (same as SQL cron guard)", () => {
+  assertEquals(GUARD_HOLD_STATUS, "paused");
+});
+
 Deno.test("on-time twitter row with media publishes (5-min cron tick)", () => {
   for (const off of [0, 1 * MIN, 5 * MIN, 29 * MIN, 2 * 60 * MIN]) {
     assertEquals(classifyPublishCandidate(row(), at(off)).kind, "publish", `+${off / MIN}m`);
   }
 });
 
-Deno.test("stale: > 3h past scheduled_for is marked skipped, never published", () => {
+Deno.test("stale: > 3h past scheduled_for is held paused, never published", () => {
   const d = classifyPublishCandidate(row(), at(STALE_AFTER_MS + 1));
-  assertEquals(d.kind, "mark_skipped");
-  if (d.kind === "mark_skipped") assertEquals(d.reason, SKIP_REASON_STALE);
+  assertEquals(d.kind, "pause");
+  if (d.kind === "pause") assertEquals(d.reason, GUARD_REASON_STALE);
   assertEquals(mayMutateCalendarStatus(d), true);
 });
 
-Deno.test("stale boundary: exactly 3h is still publishable", () => {
+Deno.test("stale boundary: exactly 3h is still publishable (SQL uses < now()-3h)", () => {
   assertEquals(classifyPublishCandidate(row(), at(STALE_AFTER_MS)).kind, "publish");
 });
 
-Deno.test("regression: 04:00 CT next-day sweep (~17h late) is skipped as stale", () => {
+Deno.test("regression: 04:00 CT next-day sweep (~17h late) is held as stale", () => {
   // f7c0d4ed: scheduled 2026-09-26 11:00 CT, posted 2026-09-27 04:00 CT
   const d = classifyPublishCandidate(
     row({ scheduled_for: "2026-09-26T16:00:00Z" }),
     new Date("2026-09-27T09:00:03Z"),
   );
-  assertEquals(d.kind, "mark_skipped");
-  if (d.kind === "mark_skipped") assertEquals(d.reason, "stale");
+  assertEquals(d.kind, "pause");
+  if (d.kind === "pause") assertEquals(d.reason, "stale");
 });
 
-Deno.test("empty media: held (no write) inside the grace window", () => {
+Deno.test("empty media: held paused immediately, never tweeted text-only (3347826d)", () => {
   for (const media of [[], null, undefined, [""], ["   "]]) {
-    const d = classifyPublishCandidate(row({ media_urls: media as string[] | null }), at(5 * MIN));
-    assertEquals(d.kind, "skip", JSON.stringify(media));
-    if (d.kind === "skip") assertEquals(d.reason, HOLD_EMPTY_MEDIA_WAITING);
-    assertEquals(mayMutateCalendarStatus(d), false);
+    const d = classifyPublishCandidate(row({ media_urls: media as string[] | null }), at(0));
+    assertEquals(d.kind, "pause", JSON.stringify(media));
+    if (d.kind === "pause") assertEquals(d.reason, GUARD_REASON_EMPTY_MEDIA);
+    assertEquals(mayMutateCalendarStatus(d), true);
   }
 });
 
-Deno.test("empty media: marked skipped after grace, never tweeted text-only (3347826d)", () => {
-  const d = classifyPublishCandidate(row({ media_urls: [] }), at(EMPTY_MEDIA_GRACE_MS + 1));
-  assertEquals(d.kind, "mark_skipped");
-  if (d.kind === "mark_skipped") assertEquals(d.reason, SKIP_REASON_EMPTY_MEDIA);
-});
-
-Deno.test("empty media + stale reports stale", () => {
+Deno.test("empty media + stale reports empty_media first (SQL CASE order)", () => {
   const d = classifyPublishCandidate(row({ media_urls: [] }), at(STALE_AFTER_MS + MIN));
-  assertEquals(d.kind, "mark_skipped");
-  if (d.kind === "mark_skipped") assertEquals(d.reason, SKIP_REASON_STALE);
-});
-
-Deno.test("media attached late (within grace) publishes", () => {
-  assertEquals(classifyPublishCandidate(row(), at(EMPTY_MEDIA_GRACE_MS - MIN)).kind, "publish");
+  assertEquals(d.kind, "pause");
+  if (d.kind === "pause") assertEquals(d.reason, GUARD_REASON_EMPTY_MEDIA);
 });
 
 Deno.test("paused rows still skip untouched, even if stale or media-less", () => {
-  for (const r of [
-    row({ status: "paused" }),
-    row({ status: "paused", media_urls: [] }),
-  ]) {
+  for (const r of [row({ status: "paused" }), row({ status: "paused", media_urls: [] })]) {
     const d = classifyPublishCandidate(r, at(STALE_AFTER_MS + MIN));
     assertEquals(d.kind, "skip");
     if (d.kind === "skip") assertEquals(d.reason, "status_paused");
     assertEquals(mayMutateCalendarStatus(d), false);
+  }
+});
+
+Deno.test("claimed/published/failed rows skip untouched", () => {
+  for (const status of ["publishing", "published", "failed", "skipped"]) {
+    const d = classifyPublishCandidate(row({ status, media_urls: [] }), at(STALE_AFTER_MS + MIN));
+    assertEquals(d.kind, "skip", status);
+    assertEquals(mayMutateCalendarStatus(d), false, status);
   }
 });
 
@@ -123,14 +124,19 @@ Deno.test("hasMedia / isStale helpers", () => {
   assertEquals(isStale(SLOT, at(-60 * MIN)), false);
 });
 
-Deno.test("auto-skip note is appended, not overwriting Content notes", () => {
-  const note = autoSkipNote("stale", SLOT, at(4 * 60 * MIN));
-  assert(note.startsWith("[AUTO-SKIP "));
-  assert(note.includes("reason=stale"));
-  assert(note.includes("240 min"));
+Deno.test("hold note mirrors SQL guard wording and is appended, not overwriting", () => {
+  assertEquals(formatChicago(new Date("2026-10-03T16:05:00Z")), "2026-10-03 11:05");
+  assertEquals(formatChicago(new Date("2026-12-01T05:30:00Z")), "2026-11-30 23:30");
+  const note = guardHoldNote("empty_media", new Date("2026-10-03T16:05:00Z"));
+  assertEquals(
+    note,
+    "[2026-10-03 11:05 CT stale-guard] Held by cmo-publish: media_urls empty (reason=empty_media). " +
+      "Attach media / reschedule and set status=draft to publish.",
+  );
+  assert(guardHoldNote("stale", at(0)).includes("more than 3h past scheduled_for"));
   const merged = appendNote("[campaign W2] Creative: norma-x-20261003-slate-cfb.png", note);
   assert(merged.startsWith("[campaign W2]"));
-  assert(merged.endsWith(note));
+  assert(merged.endsWith("\n" + note));
   assertEquals(appendNote(null, note), note);
 });
 
@@ -159,19 +165,32 @@ Deno.test("dry run: as_of honoured only when dry_run is true", () => {
   assertEquals(parseRunOptions({ dry_run: true, as_of: "junk" }, now).asOf, now);
 });
 
-Deno.test("index.ts: dry run returns before upload/claim/tweet; guards wired", async () => {
+Deno.test("index.ts: dry run returns before hold/upload/claim/tweet; guards wired", async () => {
   const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
   const loopStart = src.indexOf("classifyPublishCandidate(post, asOf)");
   const dryAt = src.indexOf("if (dryRun) {", loopStart);
   const uploadAt = src.indexOf("await uploadMediaToTwitter(", loopStart);
   const claimAt = src.indexOf("await claimForPublish(", loopStart);
   const tweetAt = src.indexOf("await postTweet(", loopStart);
-  const skipAt = src.indexOf("await markSkipped(", loopStart);
+  const holdAt = src.indexOf("await markGuardHold(", loopStart);
   assert(loopStart > 0 && dryAt > loopStart);
-  assert(dryAt < skipAt && dryAt < uploadAt && dryAt < claimAt && dryAt < tweetAt);
-  // no text-only fallback: upload failure holds the row
+  assert(dryAt < holdAt && dryAt < uploadAt && dryAt < claimAt && dryAt < tweetAt);
   assert(src.includes("HOLD_MEDIA_UPLOAD_FAILED"));
-  assert(!src.includes("mediaIds.length > 0 ? mediaIds : undefined"));
-  // markPublished only from the claimed state
+  assert(!src.includes("mediaIds.length > 0 ? mediaIds : undefined"), "no text-only fallback");
   assert(src.includes('.in("status", [...POST_CLAIM_STATUSES])'));
+});
+
+Deno.test("cron migration mirrors the SQL guard this logic matches", async () => {
+  const sql = await Deno.readTextFile(
+    new URL(
+      "../../migrations/20261002170100_cmo_publish_every_5_min_stale_guard.sql",
+      import.meta.url,
+    ),
+  );
+  assert(sql.includes("'*/5 * * * *'"));
+  assert(sql.includes("SET status = 'paused'"));
+  assert(sql.includes("coalesce(cardinality(media_urls), 0) = 0"));
+  assert(sql.includes("scheduled_for < now() - interval '3 hours'"));
+  assert(sql.includes("/functions/v1/cmo-publish'"));
+  assert(!sql.includes("cron.unschedule"), "upsert by name keeps job id 48");
 });

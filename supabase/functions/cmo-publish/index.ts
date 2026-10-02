@@ -4,12 +4,14 @@
 // to X (Twitter) v2 API. Non-X content_calendar rows (linkedin, instagram,
 // tiktok, facebook) are never selected and must never be tweeted.
 // Invoked by pg_cron every 5 minutes (cmo-publish-content, migration
-// 20261002170100) and optionally via HTTP. POST {"dry_run":true,"as_of":ISO}
+// 20261002170100_cmo_publish_every_5_min_stale_guard) and optionally via HTTP. POST {"dry_run":true,"as_of":ISO}
 // classifies due rows without uploading, claiming, tweeting or writing.
 //
-// Guards (logic.ts): paused rows skip untouched; rows > 3h late are marked
-// status='skipped' (stale); rows with empty media_urls are held 30 min then
-// marked skipped (empty_media) and never tweeted text-only; each row is
+// The cron job also runs a SQL stale guard before calling this function.
+// Guards here (logic.ts) match it so hand-made POSTs are covered: paused rows
+// skip untouched; due rows with empty media_urls or > 3h past scheduled_for
+// are held (status='paused' + human_notes line) and never tweeted; a media
+// upload failure holds without falling back to text-only; each row is
 // atomically claimed (draft|scheduled -> publishing) before the X call so
 // overlapping runs cannot double-post.
 // =============================================================================
@@ -28,11 +30,11 @@ import {
   HOLD_MEDIA_UPLOAD_FAILED,
   POST_CLAIM_STATUSES,
   PUBLISHING_STATUS,
-  SKIPPED_STATUS,
+  GUARD_HOLD_STATUS,
   STUCK_PUBLISHING_AFTER_MS,
   TWITTER_STATUS_MUTATION_FILTER,
   appendNote,
-  autoSkipNote,
+  guardHoldNote,
   classifyPublishCandidate,
   describePossibleOrphanTweet,
   interpretClaim,
@@ -40,7 +42,7 @@ import {
   markPublishedMissError,
   parseRunOptions,
   preflightPublishRow,
-  type SkipReason,
+  type GuardReason,
 } from "./logic.ts";
 
 // ---------------------------------------------------------------------------
@@ -86,8 +88,8 @@ interface PublishResult {
   id: string;
   success: boolean;
   skipped?: boolean;
-  /** Set when a guard wrote status='skipped' (stale | empty_media). */
-  marked_skipped?: boolean;
+  /** Set when a guard held the row as status='paused' (stale | empty_media). */
+  held_paused?: boolean;
   tweet_id?: string;
   error?: string;
   /** Dry run only: what a live run would do with this row. */
@@ -518,21 +520,22 @@ async function claimForPublish(
 }
 
 /**
- * Guard skip (stale | empty_media): status -> 'skipped' plus an [AUTO-SKIP]
- * note appended to human_notes. Only from twitter draft|scheduled, so a row
- * paused/claimed in the meantime is left alone. Rows are never deleted.
+ * Guard hold (empty_media | stale): status -> 'paused' plus a stale-guard
+ * line appended to human_notes, same as the cron's SQL guard. Only from
+ * twitter draft|scheduled, so a row paused/claimed in the meantime is left
+ * alone. Rows are never deleted.
  */
-async function markSkipped(
+async function markGuardHold(
   supabase: Db,
   post: ContentCalendarRow,
-  reason: SkipReason,
+  reason: GuardReason,
   now: Date,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("content_calendar")
     .update({
-      status: SKIPPED_STATUS,
-      human_notes: appendNote(post.human_notes, autoSkipNote(reason, post.scheduled_for, now)),
+      status: GUARD_HOLD_STATUS,
+      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now)),
     })
     .eq("id", post.id)
     .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
@@ -541,7 +544,7 @@ async function markSkipped(
     .maybeSingle();
 
   if (error) {
-    console.error(`[cmo-publish] Failed to mark post ${post.id} skipped (${reason}): ${error.message}`);
+    console.error(`[cmo-publish] Failed to hold post ${post.id} (${reason}): ${error.message}`);
     return false;
   }
   return !!data;
@@ -755,17 +758,17 @@ serve(async (req: Request): Promise<Response> => {
       continue;
     }
 
-    if (disposition.kind === "mark_skipped") {
-      const wrote = await markSkipped(supabase, post, disposition.reason, now);
+    if (disposition.kind === "pause") {
+      const wrote = await markGuardHold(supabase, post, disposition.reason, now);
       console.log(
         `[cmo-publish] Post ${post.id} NOT posted (${disposition.reason}); ` +
-          (wrote ? "marked status='skipped'." : "row changed concurrently; left as-is."),
+          (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
       );
       results.push({
         id: post.id,
         success: false,
         skipped: true,
-        marked_skipped: wrote,
+        held_paused: wrote,
         error: disposition.reason,
       });
       continue;
@@ -806,7 +809,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // classifyPublishCandidate guarantees media_urls is non-empty here.
       // Upload failure holds the row (no tweet, no status change) so the next
-      // 5-minute run retries; the stale guard ends it after 3h. Never fall
+      // 5-minute run retries; the stale guard holds it after 3h. Never fall
       // back to a text-only tweet for a row that carries a creative.
       const mediaIds: string[] = [];
       const firstMedia = (post.media_urls ?? []).find((u) => typeof u === "string" && u.trim().length > 0);

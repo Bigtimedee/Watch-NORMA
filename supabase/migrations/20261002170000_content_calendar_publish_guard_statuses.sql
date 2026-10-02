@@ -1,12 +1,11 @@
 -- Migration 20261002170000: allow cmo-publish guard statuses on content_calendar.
 --
--- Adds two statuses used by cmo-publish (twitter publisher):
---   skipped     terminal. Written by the stale guard (scheduled_for > 3h past)
---               and the empty-media guard (media_urls empty 30 min after
---               scheduled_for). An [AUTO-SKIP ...] reason=stale|empty_media
---               note is appended to human_notes. Rows are never deleted.
---               To retry: fix the row and set status back to 'draft' with a
---               current scheduled_for.
+-- Adds two statuses for cmo-publish (twitter publisher). Applied to prod
+-- 2026-10-02 ~11:50 CT.
+--   skipped     reserved (allowed, currently unused). The stale / empty-media
+--               guards hold rows with status='paused' + a human_notes line,
+--               matching the SQL guard in cron job cmo-publish-content
+--               (20261002170100).
 --   publishing  transient claim. cmo-publish atomically flips
 --               draft|scheduled -> publishing before calling the X API so two
 --               overlapping runs cannot double-post. A row left in publishing

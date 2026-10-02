@@ -51,31 +51,29 @@ export type PublishDisposition =
   | { kind: "publish"; tweetBody: string }
   | { kind: "skip"; reason: string; mutateStatus: false }
   | { kind: "fail"; reason: string; mutateStatus: true }
-  | { kind: "mark_skipped"; reason: SkipReason; mutateStatus: true };
+  | { kind: "pause"; reason: GuardReason; mutateStatus: true };
 
 // ---------------------------------------------------------------------------
 // Late / empty-media guards (incident 2026-09-26..10-02)
 //
 // cmo-publish ran only from a 09:00 UTC daily pg_cron sweep, so 11:00 CT slate
 // posts went out ~17h late at 04:00 CT the next day, and 3347826d tweeted
-// text-only because its creative was never attached. Once the cron runs every
-// 5 minutes these guards make sure a late or creative-less row is never
-// tweeted:
-//   - stale:        scheduled_for is more than STALE_AFTER_MS in the past.
-//                   Marked status='skipped' with an [AUTO-SKIP] note.
-//   - empty_media:  media_urls null/empty. Held (no mutation) for
-//                   EMPTY_MEDIA_GRACE_MS after scheduled_for so a creative
-//                   attached a few minutes late still ships, then marked
-//                   status='skipped'. Never tweeted text-only.
-// To re-run a skipped row: attach media and/or bump scheduled_for, then set
-// status back to 'draft'.
+// text-only because its creative was never attached.
+//
+// Same semantics as the SQL stale guard in pg_cron job cmo-publish-content
+// (migration 20261002170100): a due twitter draft/scheduled row is HELD with
+// status='paused' plus a human_notes line when
+//   - media_urls is empty                 (reason empty_media; checked first)
+//   - scheduled_for is > 3h in the past   (reason stale)
+// The cron usually catches these first; these checks cover hand-made POSTs and
+// rows that change between the cron's UPDATE and the function's select.
+// To publish a held row: attach media / reschedule, then set status='draft'.
 // ---------------------------------------------------------------------------
 
 export const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
-export const EMPTY_MEDIA_GRACE_MS = 30 * 60 * 1000;
 
-/** Terminal status written by the stale / empty-media guards. */
-export const SKIPPED_STATUS = "skipped";
+/** Status the guards write. paused is never tweeted and never auto-failed. */
+export const GUARD_HOLD_STATUS = PAUSED_STATUS;
 
 /**
  * Transient claim status. The publisher atomically flips a row
@@ -86,12 +84,11 @@ export const SKIPPED_STATUS = "skipped";
  */
 export const PUBLISHING_STATUS = "publishing";
 
-export const SKIP_REASON_STALE = "stale";
-export const SKIP_REASON_EMPTY_MEDIA = "empty_media";
-export type SkipReason = typeof SKIP_REASON_STALE | typeof SKIP_REASON_EMPTY_MEDIA;
+export const GUARD_REASON_EMPTY_MEDIA = "empty_media";
+export const GUARD_REASON_STALE = "stale";
+export type GuardReason = typeof GUARD_REASON_EMPTY_MEDIA | typeof GUARD_REASON_STALE;
 
-/** Hold reasons (skip with no status change; re-evaluated next run). */
-export const HOLD_EMPTY_MEDIA_WAITING = "empty_media_waiting";
+/** Hold reason (skip, no status change; retried next run) when the X media upload fails. */
 export const HOLD_MEDIA_UPLOAD_FAILED = "media_upload_failed";
 
 export function hasMedia(mediaUrls: string[] | null | undefined): boolean {
@@ -118,19 +115,28 @@ export function isStale(
   return late !== null && late > STALE_AFTER_MS;
 }
 
-/** Note appended to human_notes when a guard marks a row skipped. */
-export function autoSkipNote(
-  reason: SkipReason,
-  scheduledFor: string | null | undefined,
-  now: Date,
-): string {
-  const late = lateByMs(scheduledFor, now);
-  const lateMin = late === null ? "?" : Math.round(late / 60000).toString();
-  const detail = reason === SKIP_REASON_STALE
-    ? `scheduled_for ${scheduledFor} is ${lateMin} min past due (> ${STALE_AFTER_MS / 60000} min); not posting late`
-    : `media_urls empty ${lateMin} min after scheduled_for (grace ${EMPTY_MEDIA_GRACE_MS / 60000} min); not posting text-only`;
-  return `[AUTO-SKIP ${now.toISOString()}] cmo-publish reason=${reason}: ${detail}. ` +
-    `To retry: fix and set status back to 'draft' with a current scheduled_for.`;
+/** "YYYY-MM-DD HH:MM" in America/Chicago, matching the SQL guard's to_char. */
+export function formatChicago(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "??";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+/** human_notes line for a guard hold; mirrors the SQL guard's wording. */
+export function guardHoldNote(reason: GuardReason, now: Date): string {
+  const what = reason === GUARD_REASON_EMPTY_MEDIA
+    ? "media_urls empty"
+    : "more than 3h past scheduled_for";
+  return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${what} (reason=${reason}). ` +
+    `Attach media / reschedule and set status=draft to publish.`;
 }
 
 export function appendNote(existing: string | null | undefined, note: string): string {
@@ -206,10 +212,13 @@ export function classifyPublishCandidate(
     };
   }
 
-  // Late guard: a row that missed its slot by more than STALE_AFTER_MS is
-  // never tweeted (the 04:00 CT next-day sweep incident).
+  // Guards (same order as the SQL guard's CASE): empty media first, then
+  // stale. Both hold the row as paused; neither ever tweets.
+  if (!hasMedia(post.media_urls)) {
+    return { kind: "pause", reason: GUARD_REASON_EMPTY_MEDIA, mutateStatus: true };
+  }
   if (isStale(post.scheduled_for, now)) {
-    return { kind: "mark_skipped", reason: SKIP_REASON_STALE, mutateStatus: true };
+    return { kind: "pause", reason: GUARD_REASON_STALE, mutateStatus: true };
   }
 
   if (!post.body || post.body.trim().length === 0) {
@@ -220,21 +229,11 @@ export function classifyPublishCandidate(
     };
   }
 
-  // Creative guard: never tweet text-only (incident 3347826d). Hold through
-  // a short grace window for a late attach, then mark skipped.
-  if (!hasMedia(post.media_urls)) {
-    const late = lateByMs(post.scheduled_for, now);
-    if (late !== null && late > EMPTY_MEDIA_GRACE_MS) {
-      return { kind: "mark_skipped", reason: SKIP_REASON_EMPTY_MEDIA, mutateStatus: true };
-    }
-    return { kind: "skip", reason: HOLD_EMPTY_MEDIA_WAITING, mutateStatus: false };
-  }
-
   const tweetBody = post.body.length > 280 ? post.body.slice(0, 280) : post.body;
   return { kind: "publish", tweetBody };
 }
 
-/** True when the publisher may write status (fail/mark_skipped now, or publish after a tweet). Skip never writes. */
+/** True when the publisher may write status (fail/pause now, or publish after a tweet). Skip never writes. */
 export function mayMutateCalendarStatus(disposition: PublishDisposition): boolean {
   return disposition.kind !== "skip";
 }
