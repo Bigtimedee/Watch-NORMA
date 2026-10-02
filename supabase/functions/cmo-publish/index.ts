@@ -3,27 +3,54 @@
 // Queries twitter-only draft/scheduled posts due for publishing and posts them
 // to X (Twitter) v2 API. Non-X content_calendar rows (linkedin, instagram,
 // tiktok, facebook) are never selected and must never be tweeted.
-// Invoked by pg_cron every 30 minutes and optionally via HTTP.
+// Invoked by pg_cron every 5 minutes (cmo-publish-content, migration
+// 20261002170100) and optionally via HTTP. POST {"dry_run":true,"as_of":ISO}
+// classifies due rows without uploading, claiming, tweeting or writing.
+//
+// Guards (logic.ts): paused rows skip untouched; rows > 3h late are marked
+// status='skipped' (stale); rows with empty media_urls are held 30 min then
+// marked skipped (empty_media) and never tweeted text-only; each row is
+// atomically claimed (draft|scheduled -> publishing) before the X call so
+// overlapping runs cannot double-post.
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { crypto } from "https://deno.land/std@0.208.0/crypto/mod.ts";
 import { encodeHex } from "https://deno.land/std@0.208.0/encoding/hex.ts";
 import {
+  CLAIM_FILTER,
   CONTENT_CALENDAR_TWITTER_PLATFORM,
   DUE_POSTS_QUERY,
+  HOLD_MEDIA_UPLOAD_FAILED,
+  POST_CLAIM_STATUSES,
+  PUBLISHING_STATUS,
+  SKIPPED_STATUS,
+  STUCK_PUBLISHING_AFTER_MS,
   TWITTER_STATUS_MUTATION_FILTER,
+  appendNote,
+  autoSkipNote,
   classifyPublishCandidate,
   describePossibleOrphanTweet,
+  interpretClaim,
   isMarkPublishedMiss,
   markPublishedMissError,
+  parseRunOptions,
   preflightPublishRow,
+  type SkipReason,
 } from "./logic.ts";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+// Untyped DB client (no generated types). ReturnType<typeof createClient>
+// resolved to SupabaseClient<unknown, never> and made every .update() `never`.
+// deno-lint-ignore no-explicit-any
+type Db = SupabaseClient<any, "public", any>;
 
 interface ContentCalendarRow {
   id: string;
@@ -59,8 +86,12 @@ interface PublishResult {
   id: string;
   success: boolean;
   skipped?: boolean;
+  /** Set when a guard wrote status='skipped' (stale | empty_media). */
+  marked_skipped?: boolean;
   tweet_id?: string;
   error?: string;
+  /** Dry run only: what a live run would do with this row. */
+  would?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +373,7 @@ async function postTweet(
 // ---------------------------------------------------------------------------
 
 async function countPublishedToday(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   platform: string,
 ): Promise<number> {
   const startOfDayET = new Date();
@@ -381,10 +412,11 @@ async function countPublishedToday(
 // ---------------------------------------------------------------------------
 
 async function fetchDuePosts(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   limit: number,
+  asOf: Date,
 ): Promise<ContentCalendarRow[]> {
-  const now = new Date().toISOString();
+  const now = asOf.toISOString();
 
   const { data, error } = await supabase
     .from(DUE_POSTS_QUERY.table)
@@ -407,7 +439,7 @@ async function fetchDuePosts(
 // ---------------------------------------------------------------------------
 
 async function markPublished(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   postId: string,
   tweetId: string,
 ): Promise<void> {
@@ -420,7 +452,7 @@ async function markPublished(
     })
     .eq("id", postId)
     .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
-    .in("status", [...TWITTER_STATUS_MUTATION_FILTER.statuses])
+    .in("status", [...POST_CLAIM_STATUSES])
     .select("id")
     .maybeSingle();
 
@@ -438,7 +470,7 @@ async function markPublished(
  * no markFailed.
  */
 async function revalidateDuePost(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   postId: string,
 ): Promise<ReturnType<typeof preflightPublishRow>> {
   const { data, error } = await supabase
@@ -461,24 +493,106 @@ async function revalidateDuePost(
   );
 }
 
-async function markFailed(
-  supabase: ReturnType<typeof createClient>,
+/**
+ * Atomic claim: draft|scheduled -> publishing for exactly one caller. This is
+ * the idempotency gate; a second overlapping run (or a pause that landed after
+ * revalidate) matches zero rows and must not tweet.
+ */
+async function claimForPublish(
+  supabase: Db,
   postId: string,
+): Promise<ReturnType<typeof interpretClaim>> {
+  const { data, error } = await supabase
+    .from("content_calendar")
+    .update({ status: CLAIM_FILTER.toStatus })
+    .eq("id", postId)
+    .eq("platform", CLAIM_FILTER.platform)
+    .in("status", [...CLAIM_FILTER.fromStatuses])
+    .select("id")
+    .maybeSingle();
+  return interpretClaim(
+    (data as { id: string } | null) ?? null,
+    error ? { message: error.message } : null,
+    postId,
+  );
+}
+
+/**
+ * Guard skip (stale | empty_media): status -> 'skipped' plus an [AUTO-SKIP]
+ * note appended to human_notes. Only from twitter draft|scheduled, so a row
+ * paused/claimed in the meantime is left alone. Rows are never deleted.
+ */
+async function markSkipped(
+  supabase: Db,
+  post: ContentCalendarRow,
+  reason: SkipReason,
+  now: Date,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("content_calendar")
+    .update({
+      status: SKIPPED_STATUS,
+      human_notes: appendNote(post.human_notes, autoSkipNote(reason, post.scheduled_for, now)),
+    })
+    .eq("id", post.id)
+    .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
+    .in("status", [...TWITTER_STATUS_MUTATION_FILTER.statuses])
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[cmo-publish] Failed to mark post ${post.id} skipped (${reason}): ${error.message}`);
+    return false;
+  }
+  return !!data;
+}
+
+/**
+ * fromStatuses: draft|scheduled for pre-claim failures (empty body),
+ * publishing for failures after the claim (X API error). The failure note is
+ * appended so Content's creative/caption notes are preserved.
+ */
+async function markFailed(
+  supabase: Db,
+  post: ContentCalendarRow,
   reason: string,
+  fromStatuses: readonly string[] = TWITTER_STATUS_MUTATION_FILTER.statuses,
 ): Promise<void> {
   const { error } = await supabase
     .from("content_calendar")
     .update({
       status: "failed",
-      human_notes: `[AUTO-FAIL ${new Date().toISOString()}] ${reason.slice(0, 500)}`,
+      human_notes: appendNote(
+        post.human_notes,
+        `[AUTO-FAIL ${new Date().toISOString()}] ${reason.slice(0, 500)}`,
+      ),
     })
-    .eq("id", postId)
+    .eq("id", post.id)
     .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
-    .in("status", [...TWITTER_STATUS_MUTATION_FILTER.statuses]);
+    .in("status", [...fromStatuses]);
 
   if (error) {
-    console.error(`[cmo-publish] Failed to mark post ${postId} as failed: ${error.message}`);
+    console.error(`[cmo-publish] Failed to mark post ${post.id} as failed: ${error.message}`);
   }
+}
+
+/** Rows claimed but never resolved (run died mid-flight). Reported, never auto-retried. */
+async function findStuckPublishing(
+  supabase: Db,
+  now: Date,
+): Promise<string[]> {
+  const cutoff = new Date(now.getTime() - STUCK_PUBLISHING_AFTER_MS).toISOString();
+  const { data, error } = await supabase
+    .from("content_calendar")
+    .select("id")
+    .eq("platform", CONTENT_CALENDAR_TWITTER_PLATFORM)
+    .eq("status", PUBLISHING_STATUS)
+    .lt("updated_at", cutoff);
+  if (error) {
+    console.error(`[cmo-publish] stuck_publishing check failed: ${error.message}`);
+    return [];
+  }
+  return ((data as { id: string }[]) ?? []).map((r) => r.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -540,8 +654,10 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const now = new Date();
+  const { dryRun, asOf } = parseRunOptions(requestPayload, now);
   console.log(
-    `[cmo-publish] Run started at ${now.toISOString()}, source=${requestPayload.source ?? "direct"}`,
+    `[cmo-publish] Run started at ${now.toISOString()}, source=${requestPayload.source ?? "direct"}` +
+      (dryRun ? `, DRY RUN as_of=${asOf.toISOString()}` : ""),
   );
 
   const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
@@ -555,6 +671,13 @@ serve(async (req: Request): Promise<Response> => {
   // ---------------------------------------------------------------------------
   // Check daily post limit
   // ---------------------------------------------------------------------------
+  const stuckPublishing = await findStuckPublishing(supabase, now);
+  if (stuckPublishing.length > 0) {
+    console.warn(
+      `[cmo-publish] stuck_publishing: ${stuckPublishing.join(", ")} claimed > ${STUCK_PUBLISHING_AFTER_MS / 60000} min ago with no outcome. Check X before resetting.`,
+    );
+  }
+
   const publishedTodayCount = await countPublishedToday(supabase, PLATFORM);
   console.log(`[cmo-publish] Published today: ${publishedTodayCount}/${MAX_POSTS_PER_DAY}`);
 
@@ -567,6 +690,8 @@ serve(async (req: Request): Promise<Response> => {
         reason: "daily_limit_reached",
         published_today: publishedTodayCount,
         limit: MAX_POSTS_PER_DAY,
+        dry_run: dryRun,
+        stuck_publishing: stuckPublishing,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -579,7 +704,7 @@ serve(async (req: Request): Promise<Response> => {
   // ---------------------------------------------------------------------------
   let duePosts: ContentCalendarRow[];
   try {
-    duePosts = await fetchDuePosts(supabase, remainingSlots);
+    duePosts = await fetchDuePosts(supabase, remainingSlots, asOf);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cmo-publish] Failed to fetch due posts: ${message}`);
@@ -592,7 +717,14 @@ serve(async (req: Request): Promise<Response> => {
   if (duePosts.length === 0) {
     console.log("[cmo-publish] No posts due for publishing.");
     return new Response(
-      JSON.stringify({ success: true, published: 0, message: "No posts due" }),
+      JSON.stringify({
+        success: true,
+        published: 0,
+        message: "No posts due",
+        dry_run: dryRun,
+        as_of: asOf.toISOString(),
+        stuck_publishing: stuckPublishing,
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -609,7 +741,35 @@ serve(async (req: Request): Promise<Response> => {
 
     // Defense in depth: never tweet (or mutate) a non-X calendar row even if
     // the due-posts query regresses and drops the platform filter.
-    const disposition = classifyPublishCandidate(post);
+    const disposition = classifyPublishCandidate(post, asOf);
+
+    // Dry run: report the disposition and stop. No media upload, no claim,
+    // no tweet, no status write.
+    if (dryRun) {
+      results.push({
+        id: post.id,
+        success: false,
+        skipped: true,
+        would: disposition.kind === "publish" ? "publish" : `${disposition.kind}:${disposition.reason}`,
+      });
+      continue;
+    }
+
+    if (disposition.kind === "mark_skipped") {
+      const wrote = await markSkipped(supabase, post, disposition.reason, now);
+      console.log(
+        `[cmo-publish] Post ${post.id} NOT posted (${disposition.reason}); ` +
+          (wrote ? "marked status='skipped'." : "row changed concurrently; left as-is."),
+      );
+      results.push({
+        id: post.id,
+        success: false,
+        skipped: true,
+        marked_skipped: wrote,
+        error: disposition.reason,
+      });
+      continue;
+    }
 
     if (disposition.kind === "skip") {
       console.log(
@@ -626,7 +786,7 @@ serve(async (req: Request): Promise<Response> => {
 
     if (disposition.kind === "fail") {
       console.error(`[cmo-publish] Post ${post.id} ${disposition.reason}, marking failed.`);
-      await markFailed(supabase, post.id, disposition.reason);
+      await markFailed(supabase, post, disposition.reason);
       results.push({ id: post.id, success: false, error: disposition.reason });
       continue;
     }
@@ -638,19 +798,27 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    let claimed = false;
     try {
       console.log(
         `[cmo-publish] Publishing post ${post.id}: "${tweetBody.slice(0, 60)}..."`,
       );
 
-      // Attempt to upload the first media attachment if present
+      // classifyPublishCandidate guarantees media_urls is non-empty here.
+      // Upload failure holds the row (no tweet, no status change) so the next
+      // 5-minute run retries; the stale guard ends it after 3h. Never fall
+      // back to a text-only tweet for a row that carries a creative.
       const mediaIds: string[] = [];
-      if (Array.isArray(post.media_urls) && post.media_urls.length > 0) {
-        const mediaId = await uploadMediaToTwitter(post.media_urls[0], credentials);
-        if (mediaId) {
-          mediaIds.push(mediaId);
-        }
+      const firstMedia = (post.media_urls ?? []).find((u) => typeof u === "string" && u.trim().length > 0);
+      const mediaId = firstMedia ? await uploadMediaToTwitter(firstMedia, credentials) : null;
+      if (!mediaId) {
+        console.warn(
+          `[cmo-publish] Post ${post.id} held (${HOLD_MEDIA_UPLOAD_FAILED}). Not tweeting text-only; will retry next run.`,
+        );
+        results.push({ id: post.id, success: false, skipped: true, error: HOLD_MEDIA_UPLOAD_FAILED });
+        continue;
       }
+      mediaIds.push(mediaId);
 
       // Re-select immediately before the X API call. A pause after fetchDuePosts
       // (or during media upload) must skip — never tweet, never markFailed.
@@ -668,7 +836,18 @@ serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      const { tweetId } = await postTweet(tweetBody, credentials, mediaIds.length > 0 ? mediaIds : undefined);
+      // Idempotency gate: only the run that wins the claim may tweet.
+      const claim = await claimForPublish(supabase, post.id);
+      if (!claim.ok) {
+        console.log(
+          `[cmo-publish] Post ${post.id} skipped at claim (${claim.reason}). Another run owns it or it changed; not tweeting.`,
+        );
+        results.push({ id: post.id, success: false, skipped: true, error: claim.reason });
+        continue;
+      }
+      claimed = true;
+
+      const { tweetId } = await postTweet(tweetBody, credentials, mediaIds);
 
       try {
         await markPublished(supabase, post.id, tweetId);
@@ -701,8 +880,15 @@ serve(async (req: Request): Promise<Response> => {
       console.error(`[cmo-publish] Failed to publish post ${post.id}: ${message}`);
 
       // Mark as failed so it doesn't get stuck in a retry loop.
-      // Preflight skip and markPublished-miss-on-paused never reach here.
-      await markFailed(supabase, post.id, message);
+      // Preflight skip, claim loss and markPublished-miss-on-paused never
+      // reach here. Pre-claim errors fail from draft|scheduled, post-claim
+      // errors (X API) fail from publishing.
+      await markFailed(
+        supabase,
+        post,
+        message,
+        claimed ? POST_CLAIM_STATUSES : TWITTER_STATUS_MUTATION_FILTER.statuses,
+      );
 
       results.push({ id: post.id, success: false, error: message });
     }
@@ -713,6 +899,20 @@ serve(async (req: Request): Promise<Response> => {
     if (i < duePosts.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
+  }
+
+  if (dryRun) {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        dry_run: true,
+        as_of: asOf.toISOString(),
+        due: results.length,
+        results,
+        stuck_publishing: stuckPublishing,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const publishedCount = results.filter((r) => r.success).length;
@@ -731,6 +931,7 @@ serve(async (req: Request): Promise<Response> => {
       skipped: skippedCount,
       total_today: publishedTodayCount + publishedCount,
       results,
+      stuck_publishing: stuckPublishing,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
