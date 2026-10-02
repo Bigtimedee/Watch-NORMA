@@ -26,6 +26,8 @@ export const SKIP_WITHOUT_MUTATION_STATUSES = [
   PAUSED_STATUS,
   "failed",
   "published",
+  "skipped",
+  "publishing",
 ] as const;
 
 /**
@@ -39,12 +41,108 @@ export interface CalendarPublishCandidate {
   platform: string;
   status: string;
   body: string | null;
+  /** ISO timestamp. Rows without one are never selected by fetchDuePosts. */
+  scheduled_for?: string | null;
+  /** Creative URLs. Null/empty means no creative is attached yet. */
+  media_urls?: string[] | null;
 }
 
 export type PublishDisposition =
   | { kind: "publish"; tweetBody: string }
   | { kind: "skip"; reason: string; mutateStatus: false }
-  | { kind: "fail"; reason: string; mutateStatus: true };
+  | { kind: "fail"; reason: string; mutateStatus: true }
+  | { kind: "pause"; reason: GuardReason; mutateStatus: true };
+
+// ---------------------------------------------------------------------------
+// Late / empty-media guards (incident 2026-09-26..10-02)
+//
+// cmo-publish ran only from a 09:00 UTC daily pg_cron sweep, so 11:00 CT slate
+// posts went out ~17h late at 04:00 CT the next day, and 3347826d tweeted
+// text-only because its creative was never attached.
+//
+// Same semantics as the SQL stale guard in pg_cron job cmo-publish-content
+// (migration 20261002170100): a due twitter draft/scheduled row is HELD with
+// status='paused' plus a human_notes line when
+//   - media_urls is empty                 (reason empty_media; checked first)
+//   - scheduled_for is > 3h in the past   (reason stale)
+// The cron usually catches these first; these checks cover hand-made POSTs and
+// rows that change between the cron's UPDATE and the function's select.
+// To publish a held row: attach media / reschedule, then set status='draft'.
+// ---------------------------------------------------------------------------
+
+export const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
+
+/** Status the guards write. paused is never tweeted and never auto-failed. */
+export const GUARD_HOLD_STATUS = PAUSED_STATUS;
+
+/**
+ * Transient claim status. The publisher atomically flips a row
+ * draft|scheduled -> publishing before calling the X API, so two overlapping
+ * runs (5-minute cron + a manual kick) can never both tweet the same row.
+ * A row stuck in publishing means a run died mid-flight; it is never retried
+ * automatically (at-most-once) and is reported as stuck_publishing.
+ */
+export const PUBLISHING_STATUS = "publishing";
+
+export const GUARD_REASON_EMPTY_MEDIA = "empty_media";
+export const GUARD_REASON_STALE = "stale";
+export type GuardReason = typeof GUARD_REASON_EMPTY_MEDIA | typeof GUARD_REASON_STALE;
+
+/** Hold reason (skip, no status change; retried next run) when the X media upload fails. */
+export const HOLD_MEDIA_UPLOAD_FAILED = "media_upload_failed";
+
+export function hasMedia(mediaUrls: string[] | null | undefined): boolean {
+  return Array.isArray(mediaUrls) &&
+    mediaUrls.some((u) => typeof u === "string" && u.trim().length > 0);
+}
+
+/** Milliseconds scheduled_for is in the past (negative if in the future, null if unparseable). */
+export function lateByMs(
+  scheduledFor: string | null | undefined,
+  now: Date,
+): number | null {
+  if (!scheduledFor) return null;
+  const t = Date.parse(scheduledFor);
+  if (Number.isNaN(t)) return null;
+  return now.getTime() - t;
+}
+
+export function isStale(
+  scheduledFor: string | null | undefined,
+  now: Date,
+): boolean {
+  const late = lateByMs(scheduledFor, now);
+  return late !== null && late > STALE_AFTER_MS;
+}
+
+/** "YYYY-MM-DD HH:MM" in America/Chicago, matching the SQL guard's to_char. */
+export function formatChicago(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "??";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+/** human_notes line for a guard hold; mirrors the SQL guard's wording. */
+export function guardHoldNote(reason: GuardReason, now: Date): string {
+  const what = reason === GUARD_REASON_EMPTY_MEDIA
+    ? "media_urls empty"
+    : "more than 3h past scheduled_for";
+  return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${what} (reason=${reason}). ` +
+    `Attach media / reschedule and set status=draft to publish.`;
+}
+
+export function appendNote(existing: string | null | undefined, note: string): string {
+  const base = (existing ?? "").trimEnd();
+  return base.length > 0 ? `${base}\n${note}` : note;
+}
 
 /** Query contract for due posts. Tests lock this so platform cannot be dropped. */
 export const DUE_POSTS_QUERY = {
@@ -88,6 +186,7 @@ export function isPausedStatus(status: string | null | undefined): boolean {
  */
 export function classifyPublishCandidate(
   post: CalendarPublishCandidate,
+  now: Date = new Date(),
 ): PublishDisposition {
   if (!isTwitterPlatform(post.platform)) {
     return {
@@ -113,6 +212,15 @@ export function classifyPublishCandidate(
     };
   }
 
+  // Guards (same order as the SQL guard's CASE): empty media first, then
+  // stale. Both hold the row as paused; neither ever tweets.
+  if (!hasMedia(post.media_urls)) {
+    return { kind: "pause", reason: GUARD_REASON_EMPTY_MEDIA, mutateStatus: true };
+  }
+  if (isStale(post.scheduled_for, now)) {
+    return { kind: "pause", reason: GUARD_REASON_STALE, mutateStatus: true };
+  }
+
   if (!post.body || post.body.trim().length === 0) {
     return {
       kind: "fail",
@@ -125,7 +233,7 @@ export function classifyPublishCandidate(
   return { kind: "publish", tweetBody };
 }
 
-/** True when the publisher may write status (fail now, or publish after a tweet). Skip never writes. */
+/** True when the publisher may write status (fail/pause now, or publish after a tweet). Skip never writes. */
 export function mayMutateCalendarStatus(disposition: PublishDisposition): boolean {
   return disposition.kind !== "skip";
 }
@@ -181,9 +289,64 @@ export function preflightPublishRow(
   return { ok: true };
 }
 
-/** Substring thrown when markPublished matches zero twitter draft/scheduled rows. */
+/** Substring thrown when markPublished matches zero claimed (publishing) twitter rows. */
 export const MARK_PUBLISHED_MISS_DETAIL =
-  "no matching twitter draft/scheduled row";
+  "no matching claimed twitter row";
+
+/**
+ * Predicates for the atomic claim (draft|scheduled -> publishing). The UPDATE
+ * only succeeds for one caller; everyone else gets zero rows and must skip.
+ */
+export const CLAIM_FILTER = {
+  platform: CONTENT_CALENDAR_TWITTER_PLATFORM,
+  fromStatuses: PUBLISHABLE_STATUSES,
+  toStatus: PUBLISHING_STATUS,
+} as const;
+
+/** Statuses markPublished / post-claim markFailed may transition from. */
+export const POST_CLAIM_STATUSES = [PUBLISHING_STATUS] as const;
+
+/** A claim older than this with no publish/fail outcome means a run died mid-flight. */
+export const STUCK_PUBLISHING_AFTER_MS = 15 * 60 * 1000;
+
+export type ClaimResult =
+  | { ok: true }
+  | { ok: false; skipped: true; reason: string };
+
+/** Interpret the result of the claim UPDATE ... RETURNING id. */
+export function interpretClaim(
+  claimed: { id: string } | null,
+  error: { message: string } | null,
+  expectedId: string,
+): ClaimResult {
+  if (error) return { ok: false, skipped: true, reason: `claim_error:${error.message}` };
+  if (!claimed) return { ok: false, skipped: true, reason: "claim_lost" };
+  if (claimed.id !== expectedId) return { ok: false, skipped: true, reason: "claim_id_mismatch" };
+  return { ok: true };
+}
+
+/**
+ * Dry run: classify only. Never uploads media, claims, tweets or writes.
+ * `as_of` (ISO) lets an operator ask "what would happen at 11:00 CT Sat?".
+ * as_of is honoured ONLY in dry runs.
+ */
+export interface RunOptions {
+  dryRun: boolean;
+  asOf: Date;
+}
+
+export function parseRunOptions(
+  payload: Record<string, unknown>,
+  now: Date,
+): RunOptions {
+  const dryRun = payload.dry_run === true || payload.dry_run === "true";
+  let asOf = now;
+  if (dryRun && typeof payload.as_of === "string") {
+    const t = Date.parse(payload.as_of);
+    if (!Number.isNaN(t)) asOf = new Date(t);
+  }
+  return { dryRun, asOf };
+}
 
 export function markPublishedMissError(postId: string): string {
   return `Failed to mark post ${postId} as published: ${MARK_PUBLISHED_MISS_DETAIL}`;
@@ -201,7 +364,7 @@ export function isMarkPublishedMiss(error: unknown): boolean {
 export function describePossibleOrphanTweet(postId: string, tweetId: string): string {
   return (
     `possible_orphan_tweet: tweet ${tweetId} posted for ${postId} but the ` +
-    `calendar row is no longer twitter draft/scheduled (paused mid-flight?). ` +
+    `calendar row is no longer claimed (publishing) for twitter (paused mid-flight?). ` +
     `Not marking failed.`
   );
 }

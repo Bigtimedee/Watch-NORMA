@@ -8,6 +8,9 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 import {
+  CLAIM_FILTER,
+  POST_CLAIM_STATUSES,
+  PUBLISHING_STATUS,
   CONTENT_CALENDAR_TWITTER_PLATFORM,
   DUE_POSTS_QUERY,
   MARK_PUBLISHED_MISS_DETAIL,
@@ -33,6 +36,13 @@ function candidate(
     status: overrides.status ?? "draft",
     body: overrides.body ?? "Watch NORMA tells you when to tune in.",
     platform: overrides.platform,
+    // Default: due right now with a creative attached (publishable).
+    scheduled_for: "scheduled_for" in overrides
+      ? overrides.scheduled_for
+      : new Date().toISOString(),
+    media_urls: "media_urls" in overrides
+      ? overrides.media_urls
+      : ["https://cdn.example.com/norma-x-slate.png"],
   };
 }
 
@@ -56,6 +66,15 @@ Deno.test("paused is a skip-without-mutation status, not a publishable one", () 
 Deno.test("status mutations are constrained to twitter draft/scheduled rows", () => {
   assertEquals(TWITTER_STATUS_MUTATION_FILTER.platform, "twitter");
   assertEquals([...TWITTER_STATUS_MUTATION_FILTER.statuses], ["draft", "scheduled"]);
+});
+
+Deno.test("claim is twitter draft|scheduled -> publishing; post-claim writes only from publishing", () => {
+  assertEquals(CLAIM_FILTER.platform, "twitter");
+  assertEquals([...CLAIM_FILTER.fromStatuses], ["draft", "scheduled"]);
+  assertEquals(CLAIM_FILTER.toStatus, PUBLISHING_STATUS);
+  assertEquals([...POST_CLAIM_STATUSES], ["publishing"]);
+  // publishing is never re-selected as due -> a claimed row cannot be re-tweeted
+  assert(!([...DUE_POSTS_QUERY.statuses] as string[]).includes(PUBLISHING_STATUS));
 });
 
 Deno.test("isTwitterPlatform: twitter and x only", () => {
@@ -164,7 +183,7 @@ Deno.test("paused twitter row is skipped without mutation (incident 310441ec)", 
 });
 
 Deno.test("paused/published twitter rows are skipped without mutation", () => {
-  for (const status of ["paused", "published", "failed", "deleted"]) {
+  for (const status of ["paused", "published", "failed", "deleted", "skipped", "publishing"]) {
     const disposition = classifyPublishCandidate(
       candidate({ platform: "twitter", status }),
     );
@@ -280,13 +299,13 @@ Deno.test("tweet body over 280 is truncated only for publishable twitter rows", 
 Deno.test("cmo-publish/index.ts filters platform in the due-posts query", async () => {
   const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
   assert(src.includes('.eq("platform", DUE_POSTS_QUERY.platform)'));
-  assert(src.includes("classifyPublishCandidate(post)"));
+  assert(src.includes("classifyPublishCandidate(post, asOf)"));
   assert(
     src.includes('.eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)'),
     "markPublished/markFailed must constrain platform",
   );
   // postTweet must not run before the platform gate
-  const classifyAt = src.indexOf("classifyPublishCandidate(post)");
+  const classifyAt = src.indexOf("classifyPublishCandidate(post, asOf)");
   const tweetAt = src.indexOf("await postTweet(");
   assert(classifyAt >= 0 && tweetAt >= 0 && classifyAt < tweetAt);
 });
@@ -300,7 +319,9 @@ Deno.test("cmo-publish/index.ts revalidates the live row before postTweet (31044
   assert(src.includes("310441ec"));
 
   const preflightAt = src.indexOf("await revalidateDuePost(");
+  const claimAt = src.indexOf("await claimForPublish(");
   const tweetAt = src.indexOf("await postTweet(");
+  assert(claimAt >= 0 && preflightAt < claimAt && claimAt < tweetAt, "claim must sit between revalidate and postTweet");
   const markFailedAt = src.lastIndexOf("await markFailed(");
   assert(preflightAt >= 0 && tweetAt >= 0 && preflightAt < tweetAt);
   // markPublished miss must skip markFailed
