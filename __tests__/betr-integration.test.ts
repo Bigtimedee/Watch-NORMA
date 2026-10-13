@@ -143,11 +143,9 @@ describe("Betr iOS scheme is not registered", () => {
 });
 
 describe("Betr Phase B — slip enum + gated email", () => {
-  it("parse-bet-slip vision prompt enumerates betr and warns about BetRivers", () => {
+  it("parse-bet-slip scanning is disabled (manual entry fallback)", () => {
     const src = readRepo("supabase/functions/parse-bet-slip/index.ts");
-    expect(src).toContain('"betr"');
-    expect(src).toContain("Betr Picks");
-    expect(src).toContain("BetRivers");
+    expect(src).toContain("enter your wager manually");
   });
 
   it("ReviewScannedWagersSheet can assign provider betr via PICKEM_PROVIDER_KEYS", () => {
