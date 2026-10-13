@@ -21,7 +21,7 @@ export const CONTENT_THEMES = [
   "football_two_minute_warning",
   "football_overtime_moment",
   "football_fourth_quarter_comeback",
-  // SM-02 additions — generated separately, not via Claude theme rotation
+  // SM-02 additions — generated separately, not via theme rotation
   "alert_called_it",
   "norma_in_numbers",
 ] as const;

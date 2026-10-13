@@ -3,7 +3,7 @@
 // Priority:
 //   1. Identify sportsbook from sender domain
 //   2. Apply per-sportsbook regex parser for known email formats
-//   3. Fall back to Claude Sonnet if regex extraction yields nothing
+//   3. If regex extraction yields nothing, return no wagers
 //
 // Returns an array because confirmation emails sometimes include parlays
 // with multiple legs listed as separate wagers, or multiple individual bets.
@@ -331,68 +331,6 @@ function extractTeamName(text: string): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Claude fallback parser
-// ---------------------------------------------------------------------------
-
-async function parseWithClaude(
-  subject: string,
-  body: string,
-  sportsbook: string | null,
-): Promise<EmailParseResult[]> {
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) return [];
-
-  const prompt = `You are parsing a sportsbook or DFS pick'em entry confirmation email.
-Sportsbook (if known): ${sportsbook ?? "unknown"}
-Subject: ${subject}
-Body (first 1500 chars): ${body.slice(0, 1500)}
-
-PrizePicks and Underdog emails list player projections (More/Less + a stat line), not spreads. Treat those as player_prop legs.
-
-Extract all bets from this email. Return a JSON array where each element has:
-{
-  "description": "full bet description",
-  "wager_type": "spread|moneyline|total|player_prop|parlay|futures",
-  "market_type": "spread|moneyline|total|player_prop|parlay|futures",
-  "team_name": "team name if applicable or null",
-  "line": numeric line value or null,
-  "odds": american odds string like "-110" or "+150" or null,
-  "stake": numeric stake amount or null,
-  "potential_payout": numeric total payout or null,
-  "external_bet_id": "bet ID from email or null",
-  "legs": [] // for parlays: array of {description, market_type, team_name, line, odds}
-}
-
-Return ONLY valid JSON array. No explanation.`;
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type":    "application/json",
-      "x-api-key":       anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model:      "claude-sonnet-4-6",
-      max_tokens: 1024,
-      messages:   [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  const text = data?.content?.[0]?.text ?? "";
-
-  try {
-    const parsed = JSON.parse(text.trim());
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -422,10 +360,7 @@ export async function parseEmailWagers(
     if (raw) results = [raw];
   }
 
-  // Fall back to Claude if regex yielded nothing
-  if (results.length === 0 || !results[0].description) {
-    results = await parseWithClaude(subject, body, sportsbook);
-  }
+  // Regex-only: unparsed emails yield no wagers (no AI fallback).
 
   // Convert to NormalizedWager[]
   return results

@@ -122,7 +122,7 @@ function hasFreshAutoPublishMedia(mediaUrl: string | null): boolean {
  *
  * alert_called_it may still insert on an otherwise thin calendar day if it
  * carries fresh media (the game just resolved — that is the moment).
- * Claude brand posts and norma_in_numbers do not.
+ * Brand posts and norma_in_numbers do not.
  */
 export function decideCalendarInsert(
   candidate: CalendarInsertCandidate,

@@ -171,7 +171,7 @@ Deno.test("thin slate + stock game-detail does not emit draft+stock", () => {
   assertEquals(decision.reason, "thin_slate");
 });
 
-Deno.test("thin slate + fresh media still skips Claude brand posts", () => {
+Deno.test("thin slate + fresh media still skips brand posts", () => {
   const decision = decideCalendarInsert(
     brandPost({ mediaUrl: FRESH_WHY_NOW }),
     thinSlate(),
@@ -283,15 +283,15 @@ Deno.test("shouldSkipEmptySlateConsumerPosts: no games → skip app_promo", () =
   assertEquals(shouldSkipEmptySlateConsumerPosts(3), false);
 });
 
-Deno.test("generate-social-content skips thin-slate app_promo before Claude", async () => {
+Deno.test("generate-social-content skips thin-slate app_promo before generation", async () => {
   const src = await Deno.readTextFile(
     new URL("../generate-social-content/index.ts", import.meta.url),
   );
   assert(src.includes("shouldSkipEmptySlateConsumerPosts"));
   assert(src.includes("skipped_thin_slate"));
   const skipAt = src.indexOf("shouldSkipEmptySlateConsumerPosts(games.length)");
-  const claudeAt = src.indexOf("await generatePostContent(");
-  assert(skipAt >= 0 && claudeAt > skipAt);
+  const genAt = src.indexOf("await generatePostContent(");
+  assert(skipAt >= 0 && genAt > skipAt);
 });
 
 Deno.test("selectConsumerMediaUrl: stock game-detail cannot win without allowStockFallback", () => {

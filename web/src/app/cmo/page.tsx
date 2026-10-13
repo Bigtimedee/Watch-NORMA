@@ -1086,7 +1086,7 @@ export default function CMODashboardPage() {
 
         {/* Footer */}
         <footer className="mt-12 pt-6 border-t border-slate-800 flex items-center justify-between text-xs text-slate-600">
-          <span>NORMA CMO Agent — Powered by Claude Opus 4.5</span>
+          <span>NORMA CMO Agent</span>
           <span>
             Content generated every 6h · Published via 𝕏 API v2 · Vickrey auction ad engine
           </span>

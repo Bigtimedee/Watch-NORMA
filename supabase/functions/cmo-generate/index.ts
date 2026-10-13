@@ -1,6 +1,6 @@
 // =============================================================================
 // NORMA CMO Agent — cmo-generate Edge Function
-// Generates social posts via Claude only when there is a strong live/slate
+// Generates templated social posts only when there is a strong live/slate
 // moment AND non-stock media. Thin-slate days (Wed non-sports-day, empty
 // Alerts) skip rather than inserting draft+due rows with catalog game-detail
 // screenshots that cmo-publish would auto-ship. Invoked by pg_cron every 6h.
@@ -48,22 +48,12 @@ interface GeneratedPost {
   partner_mention: string | null;
 }
 
-interface AnthropicMessage {
-  role: string;
-  content: string;
-}
-
-interface AnthropicResponse {
-  content: Array<{ type: string; text: string }>;
-  usage?: { input_tokens: number; output_tokens: number };
-}
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const PLATFORM = "twitter";
-const ANTHROPIC_MODEL = "claude-opus-4-5";
+const GENERATOR_ID = "template-v1";
 const MAX_TWEET_LENGTH = 280;
 
 // Target posting windows in Central Time (CT)
@@ -76,144 +66,11 @@ const CT_POSTING_HOURS = [7, 11, 15, 19]; // 7 AM, 11 AM, 3 PM, 7 PM CT
 // Brand voice system prompt
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(): string {
-  return `You are the CMO of NORMA, a real-time sports intent advertising platform that is about to launch on the App Store.
-
-## NORMA at a Glance
-NORMA is a mobile app that tells sports bettors and fans EXACTLY when to tune into live games based on their:
-- Active wagers (spread, moneyline, totals, props)
-- Prediction market positions
-- Team loyalties
-
-We track 11 proprietary "moment types" that trigger push notifications:
-1. Bet Resolved — your bet just hit or missed
-2. Close Game — within 1 possession/run/goal in the final stretch
-3. Overtime — game is going to OT
-4. Spread Alert — game within your spread threshold
-5. Moneyline Alert — live odds swing favoring your pick
-6. Total Alert — pace to go over/under your total bet
-7. Prop Alert — player prop is in play
-8. Position Alert — your prediction market position is moving
-9. Foul Trouble — key player in foul trouble affecting your prop
-10. Prediction Resolved — your prediction market position settled
-11. Follow Alert — a team or player you follow hits a key moment
-
-## For Bettors & Fans
-- Never miss the moment your bet resolves or swings
-- Don't watch 3 hours of game — tune in for YOUR 5 minutes
-- Works across NFL, NBA, MLB, NHL, college, and more
-- App Store launch coming soon — join the waitlist at getnorma.app
-
-## For Advertisers (B2B value prop)
-- 10-50x higher CTRs than standard display advertising
-- Push notification ad units delivered at the exact moment of peak sports intent
-- Vickrey second-price auction engine ensures fair, efficient pricing
-- Thompson sampling for intelligent ad rotation and optimization
-- 95%+ viewability (push notifications are seen, not scrolled past)
-- Audience: bettors and fans in highest emotional engagement state
-- No banner blindness — ads appear in the context of a moment that matters
-
-## Brand Voice
-- CONFIDENT. We know we built something that didn't exist before.
-- INSIDER. We speak sports culture fluently — we're not a generic ad tech company.
-- TECH-FORWARD. We mention our real technology (Vickrey auction, Thompson sampling) without being boring about it.
-- DIRECT. Short sentences. Punchy. No fluff.
-- SMART-CASUAL. We'd say "that last-second cover" not "a positive wager outcome."
-- DUAL AUDIENCE. Posts alternate between speaking to bettors/fans and speaking to advertisers/brands.
-- HYPE WITHOUT CRINGE. We build anticipation for our App Store launch without being desperate.
-
-## Twitter Handle
-@watchNORMA
-
-## Formatting Rules
-1. Every tweet MUST be ≤ 280 characters INCLUDING hashtags.
-2. Hashtags go at the end of the body, separated by a space from the main text.
-3. Use 2-4 hashtags max per tweet.
-4. No emojis unless they add genuine punch (1 max per tweet).
-5. No hyperbole without backing — if you say "10x CTR" it's because we actually have that data.
-6. Never use corporate jargon: "leverage", "synergy", "disruptive", "game-changer" (say it, don't describe it).
-7. Call-to-action when appropriate: getnorma.app or @watchNORMA
-
-Return ONLY a valid JSON array. No markdown, no explanation, no preamble.`;
-}
 
 // ---------------------------------------------------------------------------
 // Theme-specific user prompt builder
 // ---------------------------------------------------------------------------
 
-function buildUserPrompt(themes: ContentTheme[], count: number): string {
-  const themeInstructions: Record<ContentTheme, string> = {
-    user_benefit_never_miss: `Write a tweet about the core user benefit: bettors and fans never have to watch a full 3-hour game — NORMA tells them exactly when their moment is happening. Speak to the frustration of watching a blowout when you have a spread bet on a different game.`,
-
-    user_benefit_bet_resolved: `Write a tweet about the "Bet Resolved" moment — that rush when you find out if your bet hit. NORMA sends the notification the instant it resolves, with a push ad that actually fits the moment. Make the bettor FEEL it.`,
-
-    advertiser_highest_intent: `Write a tweet aimed at sports marketing professionals and brand advertisers. The insight: the highest-intent sports audience moment isn't the Super Bowl — it's the second a bettor's bet resolves. NORMA owns that moment. CTRs are 10-50x display. Keep it sharp and B2B-credible.`,
-
-    advertiser_viewability: `Write a tweet for advertisers about viewability. Push notifications have 95%+ viewability by nature — they're seen, not scrolled past. NORMA's ad units appear at the exact moment a bettor checks their notification. Contrast this with banner ad blindness.`,
-
-    tech_vickrey_auction: `Write a tweet explaining NORMA's Vickrey second-price auction engine in plain language. Advertisers bid for moments. The winner pays the second-highest bid. Fair, efficient, transparent. This is how AdWords changed search — NORMA does it for real-time sports moments.`,
-
-    tech_thompson_sampling: `Write a tweet about Thompson sampling for ad optimization. Our system learns which ad creatives perform best for each moment type and automatically shifts budget toward winners. Frame it as "your sports ad gets smarter every game."`,
-
-    cultural_sports_moment: `Write a tweet that taps into sports betting culture. Reference the feeling of a backdoor cover, a last-minute prop push, sweating a money line in overtime. NORMA exists because those moments deserve a notification. Be specific, be a fan.`,
-
-    app_launch_hype: `Write a tweet building hype for the App Store launch. NORMA is "coming soon" — the waitlist is at getnorma.app. Make it feel like something the sports world has been waiting for without being generic. Reference a specific moment type or use case.`,
-
-    referral_growth: `Write a tweet encouraging sports bettors to tell their group chat about NORMA. Angle: your crew deserves to know when the game matters for their bets, not just yours. Community / word-of-mouth angle. Drive to getnorma.app.`,
-
-    moment_types_showcase: `Write a tweet that showcases 2-3 of NORMA's 11 moment types. Examples to draw from: Foul Trouble (your prop bet is in danger), Spread Alert (game just got into your number), Overtime (your moneyline is alive). Be specific and make the bettor feel each scenario.`,
-
-    social_proof_engagement: `Write a tweet that invites engagement — ask a sports betting question, a "would you rather" for bettors, or a poll-style hook. The goal is replies and retweets from the sports betting community. Keep it on-brand and tie it back to NORMA's core premise.`,
-
-    // Football ad moment themes — high-intent moments unique to football
-    football_kickoff_moment: `Write a tweet about the kickoff moment in football — when the slate is about to begin and bettors are all locked in at once. NORMA sends the alert the second your game kicks off. Capture the collective energy of NFL Sunday or NCAAF Saturday kickoffs. Reference the NFL primetime slate or the NCAAF Saturday slate if appropriate.`,
-
-    football_red_zone_moment: `Write a tweet about the red-zone stand moment in football — your team (or the team covering your spread) is inside the 20, and everything depends on what happens next. NORMA sends the alert the second they cross the 20. Use "red-zone stand" vocabulary. Make the bettor feel the tension.`,
-
-    football_two_minute_warning: `Write a tweet about the two-minute warning moment — the last two minutes of a half in football when leads evaporate and spreads swing. NORMA's two-minute warning alert tells bettors to watch NOW. Reference "backdoor cover" — the late score that changes everything.`,
-
-    football_overtime_moment: `Write a tweet about overtime in football — sudden death or 10-minute OT where any score ends it. Moneylines come alive, spreads are already won or lost, and the only reason to keep watching is NORMA telling you to. Be dramatic but specific.`,
-
-    football_fourth_quarter_comeback: `Write a tweet about the fourth-quarter comeback moment — down two scores with 8 minutes left, covers the spread, the crowd goes insane. NORMA called it. She sent the alert at the start of Q4. Use "covers the spread" and "fourth-quarter comeback" vocabulary. This is the NORMA flex moment.`,
-
-    // SM-02 themes — generated by dedicated functions, not via Claude theme rotation.
-    // These placeholders satisfy the exhaustive Record<ContentTheme, string> type.
-    // They should never be selected by selectThemes() because they are absent from
-    // the weights objects, but they must be present to satisfy TypeScript.
-    alert_called_it: `(SM-02 auto-generated from DB — not selected via theme rotation)`,
-    norma_in_numbers: `(SM-02 auto-generated from DB — not selected via theme rotation)`,
-  };
-
-  const selectedThemes = themes.slice(0, count);
-  const instructions = selectedThemes
-    .map((theme, i) => `Post ${i + 1} theme — ${theme}:\n${themeInstructions[theme]}`)
-    .join("\n\n");
-
-  return `Generate exactly ${count} tweets for @watchNORMA using the following themes:
-
-${instructions}
-
-Return a JSON array with exactly ${count} objects. Each object must have:
-- "body": string — the full tweet text INCLUDING hashtags, max 280 characters total
-- "hashtags": string[] — hashtags used in the body (without the # symbol), e.g. ["SportsBetting", "NORMA"]
-- "content_type": "post"
-- "theme": the theme key used
-
-Example format:
-[
-  {
-    "body": "Your bet just hit. NORMA told you to check in 30 seconds before it resolved. That\u2019s the app. #SportsBetting #NORMA",
-    "hashtags": ["SportsBetting", "NORMA"],
-    "content_type": "post",
-    "theme": "user_benefit_bet_resolved"
-  }
-]
-
-Rules:
-- Every "body" field MUST be ≤ 280 characters. Count carefully.
-- Hashtags are already included in the body string.
-- Return ONLY the JSON array. No other text.`;
-}
 
 // ---------------------------------------------------------------------------
 // Calculate next optimal posting windows in Central Time (DST-aware)
@@ -271,87 +128,37 @@ function getNextPostingWindows(count: number): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Call Anthropic Claude API
+// Deterministic template posts (no external AI provider)
+// Consumer-safe copy only: no AdTech language, max 2 hashtags.
 // ---------------------------------------------------------------------------
 
-async function generatePostsWithClaude(
-  themes: ContentTheme[],
-  count: number,
-  apiKey: string,
-): Promise<GeneratedPost[]> {
-  const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(themes, count);
+const TEMPLATE_COPY: Record<string, { body: string; hashtags: string[] }> = {
+  user_benefit_never_miss: { body: "The game-changing play happens once. NORMA makes sure you see it. Real-time alerts the second it matters.", hashtags: ["NORMA"] },
+  user_benefit_bet_resolved: { body: "Your bet settles, NORMA tells you. No refreshing five apps to find out if you cashed.", hashtags: ["NORMA"] },
+  cultural_sports_moment: { body: "Some moments you have to see live. NORMA pings you before the replay hits your timeline.", hashtags: ["NORMA"] },
+  app_launch_hype: { body: "Every game. Every alert. One app. NORMA is ready for gameday.", hashtags: ["NORMA"] },
+  referral_growth: { body: "Your group chat is always a play behind. Put them on NORMA.", hashtags: ["NORMA"] },
+  moment_types_showcase: { body: "Close game late. Upset brewing. Overtime. NORMA knows which moments are worth your attention.", hashtags: ["NORMA"] },
+  social_proof_engagement: { body: "Fans on NORMA saw it first. Where were you when it happened?", hashtags: ["NORMA"] },
+  football_kickoff_moment: { body: "Kickoff is close. NORMA has your games lined up and your alerts armed.", hashtags: ["NORMA", "NFL"] },
+  football_red_zone_moment: { body: "Red zone. Your team. NORMA pings you before the snap.", hashtags: ["NORMA", "NFL"] },
+  football_two_minute_warning: { body: "Two-minute warning in a one-score game. NORMA makes sure you're watching.", hashtags: ["NORMA", "NFL"] },
+  football_overtime_moment: { body: "Free football. NORMA sends the overtime alert so you never miss a sudden ending.", hashtags: ["NORMA", "NFL"] },
+  football_fourth_quarter_comeback: { body: "Comeback brewing in the fourth. NORMA saw it coming. Turn the game on.", hashtags: ["NORMA", "NFL"] },
+};
+const DEFAULT_TEMPLATE = TEMPLATE_COPY.app_launch_hype;
 
-  const requestBody = {
-    model: ANTHROPIC_MODEL,
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: userPrompt,
-      } as AnthropicMessage,
-    ],
-  };
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(requestBody),
+function generateTemplatePosts(themes: ContentTheme[], count: number): GeneratedPost[] {
+  return themes.slice(0, count).map((theme) => {
+    const t = TEMPLATE_COPY[theme] ?? DEFAULT_TEMPLATE;
+    return {
+      body: t.body.slice(0, MAX_TWEET_LENGTH),
+      hashtags: t.hashtags.slice(0, 2),
+      content_type: "post",
+      theme,
+      partner_mention: null,
+    };
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${errorText}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-  const rawText = data.content?.[0]?.text?.trim() ?? "";
-
-  if (!rawText) {
-    throw new Error("Anthropic returned empty content");
-  }
-
-  // Strip any accidental markdown code fences
-  const jsonText = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .trim();
-
-  let posts: GeneratedPost[];
-  try {
-    posts = JSON.parse(jsonText);
-  } catch (parseErr) {
-    throw new Error(
-      `Failed to parse Claude response as JSON: ${parseErr}\nRaw: ${jsonText.slice(0, 500)}`,
-    );
-  }
-
-  if (!Array.isArray(posts)) {
-    throw new Error("Claude response is not a JSON array");
-  }
-
-  // Validate and sanitize each post
-  const validated: GeneratedPost[] = posts
-    .filter((p) => p && typeof p.body === "string" && p.body.length > 0)
-    .map((p) => ({
-      body: p.body.slice(0, MAX_TWEET_LENGTH),
-      hashtags: Array.isArray(p.hashtags) ? p.hashtags.filter((h: unknown) => typeof h === "string") : [],
-      content_type: p.content_type ?? "post",
-      theme: p.theme ?? "unknown",
-      partner_mention: null, // Standard Claude-generated posts have no partner mention
-    }));
-
-  console.log(
-    `[cmo-generate] Claude returned ${posts.length} posts, ${validated.length} valid. ` +
-      `Tokens: in=${data.usage?.input_tokens ?? "?"} out=${data.usage?.output_tokens ?? "?"}`,
-  );
-
-  return validated;
 }
 
 // ---------------------------------------------------------------------------
@@ -674,13 +481,11 @@ serve(async (req: Request): Promise<Response> => {
   // Read environment variables
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-  if (!supabaseUrl || !supabaseServiceKey || !anthropicApiKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     const missing = [
       !supabaseUrl && "SUPABASE_URL",
       !supabaseServiceKey && "SUPABASE_SERVICE_ROLE_KEY",
-      !anthropicApiKey && "ANTHROPIC_API_KEY",
     ]
       .filter(Boolean)
       .join(", ");
@@ -725,30 +530,15 @@ serve(async (req: Request): Promise<Response> => {
       `recentAlerts=${slate.recentAlertCount}`,
   );
 
-  // Thin slate (Wed non-sports-day, empty Alerts): do not invent Claude brand
+  // Thin slate (Wed non-sports-day, empty Alerts): do not invent brand
   // tweets that would attach stock game-detail and auto-ship via cmo-publish.
   let generatedPosts: GeneratedPost[] = [];
   if (shouldGenerateBrandPosts(slate)) {
     const themes = selectThemes(now, postCount);
     console.log(`[cmo-generate] Selected themes: ${themes.join(", ")}`);
-    try {
-      generatedPosts = await generatePostsWithClaude(themes, postCount, anthropicApiKey);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[cmo-generate] Claude generation failed: ${message}`);
-      return new Response(
-        JSON.stringify({ error: "Content generation failed", details: message }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    if (generatedPosts.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Claude returned no valid posts" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
-      );
-    }
+    generatedPosts = await generateTemplatePosts(themes, postCount);
   } else {
-    console.log("[cmo-generate] Skipping Claude brand posts — thin slate");
+    console.log("[cmo-generate] Skipping brand posts — thin slate");
   }
 
   // ---------------------------------------------------------------------------
@@ -769,7 +559,7 @@ serve(async (req: Request): Promise<Response> => {
 
   console.log(
     `[cmo-generate] Candidate posts: ${allPosts.length} ` +
-    `(claude=${generatedPosts.length}, alert_called_it=${alertCalledItPosts.length}, norma_in_numbers=${normaInNumbersPost ? 1 : 0})`,
+    `(brand=${generatedPosts.length}, alert_called_it=${alertCalledItPosts.length}, norma_in_numbers=${normaInNumbersPost ? 1 : 0})`,
   );
 
   const mediaUrls: (string | null)[] = await Promise.all(
@@ -819,7 +609,7 @@ serve(async (req: Request): Promise<Response> => {
     status: "draft",
     scheduled_for: postingWindows[idx] ?? postingWindows[postingWindows.length - 1],
     generation_prompt:
-      `theme:${post.theme} | model:${ANTHROPIC_MODEL} | run:${now.toISOString()} | slate:${slate.hasStrongMoment ? "strong" : "thin_alert_called_it"}`,
+      `theme:${post.theme} | model:${GENERATOR_ID} | run:${now.toISOString()} | slate:${slate.hasStrongMoment ? "strong" : "thin_alert_called_it"}`,
     partner_mention: post.partner_mention,
   }));
 

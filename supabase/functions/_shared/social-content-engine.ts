@@ -1,8 +1,7 @@
 // social-content-engine.ts
-// Claude API integration + NORMA brand voice for social media content generation
+// Template-based NORMA brand voice for social media content generation
 //
 // Enhancement Pack (migration 030):
-//   - Model upgraded: claude-haiku → claude-sonnet-4-6
 //   - Platform-optimal publish times
 //   - Image style A/B variants (cinematic | graphic | lifestyle)
 //   - Platform-native format support (carousel | poll | link | standard)
@@ -318,7 +317,7 @@ export interface GameData {
 export interface CarouselSlide {
   caption: string;
   /**
-   * DISPLAY ONLY — stored as DB metadata from Claude's JSON response.
+   * DISPLAY ONLY — stored as DB metadata.
    * NEVER pass this to an image generation API (DALL-E, Stable Diffusion, etc.).
    * All images come exclusively from real NORMA app screenshots via selectScreenshotUrl().
    */
@@ -329,7 +328,7 @@ export interface CarouselSlide {
 export interface GeneratedContent {
   text: string;
   /**
-   * DISPLAY ONLY — stored as DB metadata from Claude's JSON response.
+   * DISPLAY ONLY — stored as DB metadata.
    * NEVER pass this to an image generation API (DALL-E, Stable Diffusion, etc.).
    * All images come exclusively from real NORMA app screenshots via selectScreenshotUrl().
    */
@@ -343,7 +342,7 @@ export interface GeneratedContent {
 }
 
 // ---------------------------------------------------------------------------
-// generatePostContent — calls Claude Sonnet to produce platform-native copy
+// generatePostContent — deterministic template copy (no external AI provider)
 // ---------------------------------------------------------------------------
 
 export async function generatePostContent(
@@ -360,8 +359,6 @@ export async function generatePostContent(
   // Derive the active sport from the override, then from the first game, then null.
   const activeSport: string | null =
     sportOverride ?? gameData[0]?.sport ?? null;
-
-  const systemPrompt = buildSystemPrompt(platform, format, topHashtags, activeSport);
 
   const gamesText = gameData.length > 0
     ? gameData
@@ -383,76 +380,33 @@ export async function generatePostContent(
         .join("\n")
     : "No games scheduled today — general NORMA content day";
 
-  const scenarioLabel = scenario.replace(/_/g, " ");
-  const angleDescriptions: Record<CharacterAngle, string> = {
-    hero:            "THE HERO — the person who used NORMA and won (celebrate them, make readers want to be them)",
-    jealous_partner: "THE JEALOUS PARTNER — watching someone else use NORMA with barely concealed envy",
-    late_friend:     "THE LATE FRIEND — the one who skipped NORMA and suffered the completely predictable consequences",
+  const sportLabel = getSportLabel(activeSport);
+  const lead = gameData[0]
+    ? `${gameData[0].away_team ?? "Away"} @ ${gameData[0].home_team ?? "Home"}`
+    : null;
+  const tag = topHashtags[0] ? ` #${topHashtags[0].replace(/^#/, "")}` : "";
+  const lines: Record<string, string> = {
+    game_preview: lead
+      ? `${sportLabel} slate is set. ${lead} leads the board. NORMA pings you the moment it matters.${tag}`
+      : `Big ${sportLabel} day. NORMA pings you the moment it matters.${tag}`,
+    norma_knew: `NORMA flagged it before the broadcast did. Real-time alerts, zero refreshing.${tag}`,
+    recap: `That's a wrap on today's ${sportLabel} action. NORMA had every swing covered.${tag}`,
+    app_promo: `Alerts, live odds and every wager in one place. That's NORMA.${tag}`,
   };
-
-  // Sport-conditional section header for the user prompt (item 2)
-  const sportSectionLabel = getSportLabel(activeSport).toUpperCase() + " GAMES";
-
-  const userPrompt = `Generate a ${platform} post for NORMA.
-
-TODAY'S ${sportSectionLabel}:
-${gamesText}
-
-POST TYPE: ${postType}
-${postType === "game_preview" ? "Write a preview post hyping today's games through NORMA's perspective." : ""}
-${postType === "norma_knew"  ? "Write a post about NORMA correctly predicting something — she knew before anyone else did. Use actual scores if provided above." : ""}
-${postType === "recap"       ? "Write a post recapping today's completed games from NORMA's 'I told you so' perspective. Reference actual scores." : ""}
-${postType === "app_promo"   ? "Write a post promoting NORMA — what she does, why you need her." : ""}
-
-SCENARIO: ${scenarioLabel}
-The scene is set at a ${scenarioLabel}. Ground the NORMA moment in this real-life context.
-
-CHARACTER ANGLE: ${angleDescriptions[characterAngle]}
-
-Create content that feels completely native to ${platform}. The scenario sets the scene. The character angle tells you whose story this is. Make it feel real, not like an ad.`;
-
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Claude API ${res.status}: ${body.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
-  const rawText: string = data.content?.[0]?.text ?? "";
-
-  // Strip markdown fences if Claude wraps the JSON
-  const jsonText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-
-  let parsed: {
+  const rawText = lines[postType] ?? lines.app_promo;
+  void gamesText; void characterAngle; void scenario; void platform;
+  const parsed: {
     text?: string;
     image_prompt?: string | null;
     slides?: CarouselSlide[];
     poll_options?: string[];
     link_title?: string;
+  } = {
+    text: rawText,
+    image_prompt: null,
+    poll_options: format === "poll" ? ["Locked in", "Sweating it", "Not watching"] : undefined,
+    link_title: format === "link" ? `NORMA: ${sportLabel} today` : undefined,
   };
-
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    parsed = { text: rawText.trim(), image_prompt: null };
-  }
 
   // Carousel format
   if (format === "carousel" && parsed.slides && parsed.slides.length > 0) {

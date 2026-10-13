@@ -2,7 +2,7 @@
 -- Migration 029: three pg_cron jobs for the social media pipeline
 
 -- 1. Generate content daily at 6:00 AM UTC
---    Calls Claude (text only) + selects real NORMA app screenshots from Supabase Storage.
+--    Builds templated text + selects real NORMA app screenshots from Supabase Storage.
 --    No AI image generation. Inserts rows into social_posts with status='generated'
 SELECT cron.schedule(
   'generate-social-content',

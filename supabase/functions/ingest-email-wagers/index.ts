@@ -16,7 +16,6 @@
 //   GMAIL_SERVICE_ACCOUNT_JSON   — Google service account JSON (stringified)
 //   GMAIL_WATCHED_ADDRESS        — e.g. bets@getnorma.app
 //   PUBSUB_VERIFICATION_TOKEN    — shared secret in webhook URL ?token=
-//   ANTHROPIC_API_KEY            — for Claude fallback in email-parser
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";

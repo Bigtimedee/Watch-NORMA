@@ -1,10 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
-  buildPrescreenPrompt,
   flagPickEmBetNowCopy,
   mergePrescreenResults,
-  parsePrescreenResponse,
 } from "./rubric.ts";
 
 Deno.serve(async (req) => {
@@ -45,60 +43,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) {
-      await supabase
-        .from("creatives")
-        .update({ prescreen_status: "error", prescreen_at: new Date().toISOString() })
-        .eq("id", creative_id);
-      return new Response(
-        JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     const demandType = (creative.campaigns as any)?.demand_type ?? null;
-    const prompt = buildPrescreenPrompt({
-      sponsor_text: creative.sponsor_text,
-      cta_text: creative.cta_text,
-      cta_url: creative.cta_url,
-      demand_type: demandType,
-    });
-
-    const claudeController = new AbortController();
-    const claudeTimer = setTimeout(() => claudeController.abort(), 20000);
-    let rawText = "";
-    try {
-      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        signal: claudeController.signal,
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 256,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      clearTimeout(claudeTimer);
-      const claudeJson = await claudeRes.json();
-      rawText = claudeJson?.content?.[0]?.text ?? "";
-    } catch (err) {
-      clearTimeout(claudeTimer);
-      await supabase
-        .from("creatives")
-        .update({ prescreen_status: "error", prescreen_at: new Date().toISOString() })
-        .eq("id", creative_id);
-      return new Response(
-        JSON.stringify({ error: "Claude API call failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const llm = parsePrescreenResponse(rawText);
+    // Deterministic rule-based prescreen only (no external AI provider).
+    // Non-rule checks are not automated; flag for human review.
+    const llm = { verdict: "flag" as const, reasons: ["Manual review required (automated copy review disabled)"] };
     const result = mergePrescreenResults(
       flagPickEmBetNowCopy({
         sponsor_text: creative.sponsor_text,
