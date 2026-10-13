@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 
 export const VALID_MOMENT_TYPES = [
   "bet_resolved", "close_game", "overtime", "spread_alert", "moneyline_alert",
@@ -64,30 +63,6 @@ const FLOOR_PRICES: Record<string, number> = {
   follow_alert: 0.10,
 };
 
-function buildExtractionPrompt(brief: string): string {
-  return `You are an advertising campaign parameter extractor for NORMA, a push notification ad platform for sports bettor audiences.
-
-Available moment types: ${VALID_MOMENT_TYPES.join(", ")}
-Available sports: ${VALID_SPORTS.join(", ")}
-
-Extract campaign parameters from this brief. Return valid JSON only, no explanation.
-Omit null/empty fields. Use ISO 8601 dates (YYYY-MM-DD).
-
-Brief: ${brief}
-
-Return exactly this JSON structure:
-{
-  "moment_types": [],
-  "sports": [],
-  "total_budget_usd": null,
-  "daily_budget_usd": null,
-  "target_cpa_usd": null,
-  "start_date": null,
-  "end_date": null,
-  "campaign_name_hint": null,
-  "notes": []
-}`;
-}
 
 function keywordParseBrief(brief: string): ParsedBrief {
   const moment_types: ValidMomentType[] = [];
@@ -153,41 +128,7 @@ function keywordParseBrief(brief: string): ParsedBrief {
   return { moment_types, sports, total_budget_usd, daily_budget_usd: null, target_cpa_usd, start_date, end_date, campaign_name_hint: null, notes };
 }
 
-async function llmParseBrief(brief: string): Promise<ParsedBrief> {
-  const client = new Anthropic();
-  const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 512,
-    messages: [{ role: "user", content: buildExtractionPrompt(brief) }],
-  });
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("LLM returned non-JSON");
-
-  const raw = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-  const moment_types = ((raw.moment_types as string[]) ?? []).filter(
-    (m): m is ValidMomentType => (VALID_MOMENT_TYPES as readonly string[]).includes(m)
-  );
-  const sports = ((raw.sports as string[]) ?? []).filter(
-    (s): s is ValidSport => (VALID_SPORTS as readonly string[]).includes(s)
-  );
-  return {
-    moment_types,
-    sports,
-    total_budget_usd: typeof raw.total_budget_usd === "number" ? raw.total_budget_usd : null,
-    daily_budget_usd: typeof raw.daily_budget_usd === "number" ? raw.daily_budget_usd : null,
-    target_cpa_usd: typeof raw.target_cpa_usd === "number" ? raw.target_cpa_usd : null,
-    start_date: typeof raw.start_date === "string" ? raw.start_date : null,
-    end_date: typeof raw.end_date === "string" ? raw.end_date : null,
-    campaign_name_hint: typeof raw.campaign_name_hint === "string" ? raw.campaign_name_hint : null,
-    notes: (raw.notes as string[]) ?? [],
-  };
-}
-
 export async function parseBrief(brief: string): Promise<ParsedBrief> {
-  if (process.env.ANTHROPIC_API_KEY) {
-    try { return await llmParseBrief(brief); } catch { /* fall through */ }
-  }
   return keywordParseBrief(brief);
 }
 

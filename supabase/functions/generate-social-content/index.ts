@@ -1,4 +1,4 @@
-// generate-social-content: Daily 6am UTC — build platform-native posts via Claude
+// generate-social-content: Daily 6am UTC — build platform-native posts from templates
 // Trigger: pg_cron job 'generate-social-content' (migration 029)
 //
 // Enhancement Pack (migration 030):
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
         // Fetch top-performing hashtags for this platform
         const topHashtags = await getTopHashtags(supabase, platform);
 
-        // Generate text + image prompt via Claude Sonnet (sport-aware)
+        // Generate templated text (sport-aware)
         const generated = await generatePostContent(
           platform,
           games,

@@ -1,9 +1,5 @@
 import { parseBrief, buildPlan, getClarifyingQuestions } from "../lib/brief-parser";
 
-// Force keyword fallback by ensuring no ANTHROPIC_API_KEY during these tests
-const originalKey = process.env.ANTHROPIC_API_KEY;
-beforeAll(() => { delete process.env.ANTHROPIC_API_KEY; });
-afterAll(() => { if (originalKey) process.env.ANTHROPIC_API_KEY = originalKey; });
 
 // ─── parseBrief (keyword fallback) ───────────────────────────────────────────
 

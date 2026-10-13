@@ -95,15 +95,9 @@ describe("app.json LSApplicationQueriesSchemes", () => {
 describe("parse-bet-slip live source", () => {
   const src = readRepo("supabase/functions/parse-bet-slip/index.ts");
 
-  it("enumerates prizepicks, underdog, and betr", () => {
-    expect(src).toContain("prizepicks");
-    expect(src).toContain("underdog");
-    expect(src).toContain('"betr"');
-  });
-
-  it("asks vision for pick'em legs", () => {
-    expect(src).toContain("entry_fee");
-    expect(src).toContain("payout_multiplier");
+  it("is disabled and returns manual-entry fallback", () => {
+    expect(src).toContain("enter your wager manually");
+    expect(src).not.toMatch(/fetch\(/);
   });
 });
 

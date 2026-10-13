@@ -21,7 +21,7 @@
 --      and no posts are ever created.
 --
 --      The placeholder rows have is_active = true so the generation pipeline
---      runs immediately (Claude only needs ANTHROPIC_API_KEY, not platform
+--      runs immediately (generation needs no external API key, not platform
 --      tokens).  Publishing will fail gracefully until real OAuth tokens are
 --      written into each access_token column.
 --

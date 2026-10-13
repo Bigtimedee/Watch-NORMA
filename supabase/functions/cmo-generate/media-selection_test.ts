@@ -138,19 +138,19 @@ Deno.test("GET /cmo-generate: returns 200 status ok", () => {
   assertEquals(expectedShape.function, "cmo-generate");
 });
 
-Deno.test("cmo-generate/index.ts gates Claude + insert behind slate/media helpers", async () => {
+Deno.test("cmo-generate/index.ts gates brand posts + insert behind slate/media helpers", async () => {
   const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
   assert(src.includes("fetchSlateSignals"));
   assert(src.includes("shouldGenerateBrandPosts(slate)"));
   assert(src.includes("decideCalendarInserts"));
-  assert(src.includes("Skipping Claude brand posts — thin slate"));
+  assert(src.includes("Skipping brand posts — thin slate"));
   assert(!src.includes("allowStockFallback: true"));
 
   const slateAt = src.indexOf("await fetchSlateSignals");
-  const claudeAt = src.indexOf("await generatePostsWithClaude");
+  const genAt = src.indexOf("await generateTemplatePosts");
   const decideAt = src.indexOf("decideCalendarInserts(candidates");
   const insertAt = src.indexOf('.from("content_calendar")\n    .insert(records)');
-  assert(slateAt >= 0 && claudeAt > slateAt, "slate must be assessed before Claude");
+  assert(slateAt >= 0 && genAt > slateAt, "slate must be assessed before generation");
   assert(decideAt >= 0 && insertAt > decideAt, "insert must run after decideCalendarInserts");
 });
 
