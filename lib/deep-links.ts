@@ -135,11 +135,17 @@ export interface LinkCandidate {
 
 /** Build a WatchGameContext from a Game row. */
 export function toWatchGameContext(
-  game: { espn_id?: string | null; sport?: SportKey | null; mlb_game_pk?: number | string | null } | null | undefined
+  game:
+    | { id?: string | null; espn_id?: string | null; sport?: SportKey | null; mlb_game_pk?: number | string | null }
+    | null
+    | undefined
 ): WatchGameContext | null {
   if (!game) return null;
+  // Prod rows leave espn_id NULL and encode the ESPN event id in the primary
+  // key ("espn-nfl-401872995"), so fall back to parsing it.
+  const fromId = typeof game.id === "string" ? /^espn-[a-z]+-(\d+)$/.exec(game.id)?.[1] ?? null : null;
   return {
-    espnEventId: game.espn_id ?? null,
+    espnEventId: game.espn_id ?? fromId,
     sport: game.sport ?? null,
     mlbGamePk: game.mlb_game_pk ?? null,
   };

@@ -101,6 +101,11 @@ describe("deriveGameLink", () => {
     expect(toWatchGameContext({ espn_id: "9", sport: "nfl" })).toEqual({ espnEventId: "9", sport: "nfl", mlbGamePk: null });
     expect(toWatchGameContext(null)).toBeNull();
   });
+
+  it("toWatchGameContext parses the ESPN id from prod-style game ids", () => {
+    expect(toWatchGameContext({ id: "espn-nfl-401872995", espn_id: null, sport: "nfl" })?.espnEventId).toBe("401872995");
+    expect(toWatchGameContext({ id: "sdio-123", espn_id: null, sport: "nfl" })?.espnEventId).toBeNull();
+  });
 });
 
 describe("resolution order", () => {
