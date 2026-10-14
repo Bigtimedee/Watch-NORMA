@@ -17,7 +17,7 @@ import {
 import { useMarkAlertRead } from "../hooks/useAlerts";
 import { trackEvent } from "../lib/analytics";
 import { maybeRequestReview } from "../lib/review-prompt";
-import { getBestWatchProvider } from "../lib/deep-links";
+import { getBestWatchProvider, toWatchGameContext } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
   useStreamingProviders,
@@ -95,7 +95,7 @@ export function AlertCard({ alert }: AlertCardProps) {
       markRead.mutate(alert.id);
     }
     trackEvent("watch_tap", { source: "alert_card", alert_type: alert.alert_type, provider: bestProvider.key });
-    triggerStream(bestProvider);
+    triggerStream(bestProvider, { game: toWatchGameContext(alert.game as any) });
   };
 
   const handleFeedback = (rating: "up" | "down") => {

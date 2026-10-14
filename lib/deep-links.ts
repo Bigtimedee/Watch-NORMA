@@ -1,5 +1,5 @@
 import { Platform, Linking } from "react-native";
-import type { StreamingProvider } from "./types";
+import type { SportKey, StreamingProvider } from "./types";
 import { supabase } from "./supabase";
 
 // ---------------------------------------------------------------------------
@@ -9,6 +9,7 @@ import { supabase } from "./supabase";
 interface DeepLinkEventPayload {
   provider_key: string;
   method: "native_scheme" | "universal_link" | "app_store" | "no_fallback";
+  link_level: LinkLevel;
   success: boolean;
   fallback_triggered: boolean;
   url_scheme: string | null;
@@ -42,11 +43,12 @@ function maskUrlToSchemeHost(url: string): string {
  * never throws, never blocks the deep link opening.
  */
 function logDeepLinkEvent(payload: DeepLinkEventPayload): void {
-  const { data: sessionData } = supabase.auth.getSession() as any;
-  const userId: string | null = sessionData?.session?.user?.id ?? null;
-
   void (async () => {
     try {
+      const { data: sessionData } = (await supabase.auth.getSession()) as any;
+      const userId: string | null = sessionData?.session?.user?.id ?? null;
+      // RLS requires auth.uid() = user_id; skip anonymous taps.
+      if (!userId) return;
       await supabase
         .from("deep_link_events")
         .insert({
@@ -57,6 +59,7 @@ function logDeepLinkEvent(payload: DeepLinkEventPayload): void {
           fallback_triggered: payload.fallback_triggered,
           url_scheme: payload.url_scheme,
           platform: payload.platform,
+          link_level: payload.link_level,
         });
     } catch {
       // Intentionally a no-op — logging must never surface to the user.
@@ -101,115 +104,248 @@ function logAffiliateEvent(providerKey: string, affiliateTag: string): void {
   })();
 }
 
+// ---------------------------------------------------------------------------
+// Game-level resolution (Phase 1, streaming-deeplink-research.md §6)
+// ---------------------------------------------------------------------------
+
+/** Per-game context used to build a game-level deep link. All optional. */
+export interface WatchGameContext {
+  espnEventId?: string | null;
+  sport?: SportKey | null;
+  /** MLB StatsAPI gamePk, when known. */
+  mlbGamePk?: number | string | null;
+}
+
+export type LinkLevel =
+  | "stored_game"
+  | "derived_game"
+  | "app_universal"
+  | "scheme"
+  | "app_store"
+  | "none";
+
+export interface LinkCandidate {
+  url: string;
+  level: LinkLevel;
+  /** Legacy method label returned to callers. */
+  method: string;
+  /** True for the legacy streaming_providers.universal_link fallback. */
+  legacy?: boolean;
+}
+
+/** Build a WatchGameContext from a Game row. */
+export function toWatchGameContext(
+  game:
+    | { id?: string | null; espn_id?: string | null; sport?: SportKey | null; mlb_game_pk?: number | string | null }
+    | null
+    | undefined
+): WatchGameContext | null {
+  if (!game) return null;
+  // Prod rows leave espn_id NULL and encode the ESPN event id in the primary
+  // key ("espn-nfl-401872995"), so fall back to parsing it.
+  const fromId = typeof game.id === "string" ? /^espn-[a-z]+-(\d+)$/.exec(game.id)?.[1] ?? null : null;
+  return {
+    espnEventId: game.espn_id ?? fromId,
+    sport: game.sport ?? null,
+    mlbGamePk: game.mlb_game_pk ?? null,
+  };
+}
+
+/** ESPN web league slugs; www.espn.com/<slug>/game/_/gameId/* is AASA-claimed by the ESPN app. */
+const ESPN_LEAGUE_SLUGS: Record<SportKey, string> = {
+  nfl: "nfl",
+  ncaaf: "college-football",
+  nba: "nba",
+  ncaam: "mens-college-basketball",
+  mlb: "mlb",
+};
+
+/** Providers whose games are watched inside the ESPN app. */
+const ESPN_FAMILY_PROVIDER_KEYS = new Set(["espn_plus", "espn"]);
+
 /**
- * Attempt to open a streaming app for a given provider.
- * Fallback chain:
- *   1. Native app (iOS scheme / Android deep link)
- *   2. Universal link (from DB) — only if non-null
- *   3. App Store / Play Store (fallback_store_url or ios_app_store_url)
- *   4. Nothing available
+ * Build a game-level URL from data NORMA already has, without any lookup.
+ * Returns null when the provider has no derivable game link.
  */
-export async function openStreamingApp(
-  provider: StreamingProvider,
-  _gameTitle?: string
-): Promise<{ opened: boolean; fallback: boolean; method: string }> {
-  // Step 1: Try native app deep link.
-  // Skip canOpenURL — it requires the scheme in LSApplicationQueriesSchemes in
-  // the compiled binary, which may lag behind app.json changes. openURL itself
-  // has no such restriction and will open the app if installed, throwing if not.
-  if (Platform.OS === "ios" && provider.ios_scheme) {
-    try {
-      await Linking.openURL(provider.ios_scheme);
-      return { opened: true, fallback: false, method: "native_app" };
-    } catch {
-      // App not installed — fall through to universal link
+export function deriveGameLink(
+  provider: Pick<StreamingProvider, "key">,
+  game?: WatchGameContext | null
+): string | null {
+  if (!game) return null;
+  if (ESPN_FAMILY_PROVIDER_KEYS.has(provider.key)) {
+    const slug = game.sport ? ESPN_LEAGUE_SLUGS[game.sport] : undefined;
+    const id = game.espnEventId ? String(game.espnEventId).trim() : "";
+    if (slug && /^\d+$/.test(id)) {
+      return `https://www.espn.com/${slug}/game/_/gameId/${id}`;
     }
   }
-
-  if (Platform.OS === "android" && provider.android_deep_link) {
-    try {
-      await Linking.openURL(provider.android_deep_link);
-      return { opened: true, fallback: false, method: "native_app" };
-    } catch {
-      // Fall through to universal link
-    }
+  if (provider.key === "mlb_tv" && game.mlbGamePk != null) {
+    const pk = String(game.mlbGamePk).trim();
+    if (/^\d+$/.test(pk)) return `https://www.mlb.com/tv/g${pk}`;
   }
-
-  // Step 2: Try universal link (DB field) only when explicitly set.
-  // Subscriber-only web URLs (tv.youtube.com/live, etc.) are intentionally
-  // left NULL in the DB — they redirect unauthenticated mobile browsers to
-  // sign-up pages. When universal_link is NULL, skip directly to App Store.
-  const universalLink = provider.universal_link ?? null;
-  if (universalLink) {
-    try {
-      // Append affiliate_tag to web fallback only — not to ios_scheme or android deep links
-      const affiliateTag = provider.affiliate_tag ?? null;
-      const taggedUrl = affiliateTag
-        ? appendAffiliateTag(universalLink, provider.key, affiliateTag)
-        : universalLink;
-
-      if (affiliateTag) {
-        logAffiliateEvent(provider.key, affiliateTag);
-      }
-
-      await Linking.openURL(taggedUrl);
-      return { opened: true, fallback: true, method: "universal_link" };
-    } catch {
-      // Fall through to app store
-    }
-  }
-
-  // Step 3: Fallback to App Store (prefer fallback_store_url, then ios_app_store_url)
-  const storeUrl = provider.fallback_store_url ?? provider.ios_app_store_url ?? null;
-  if (storeUrl) {
-    try {
-      await Linking.openURL(storeUrl);
-      return { opened: true, fallback: true, method: "app_store" };
-    } catch {
-      // Nothing else to try
-    }
-  }
-
-  // Step 4: Nothing available
-  return { opened: false, fallback: false, method: "none" };
+  return null;
 }
 
 /**
- * Resolve the deep link URL for a provider without actually opening it.
- * Front-loads the ~50-100ms canOpenURL check into the Anticipation phase.
- * Returns { url, method } or null if nothing is available.
+ * Amazon Associates tag for Prime Video https links. Only applied when the
+ * provider row already carries an affiliate_tag; never invented.
+ */
+export function applyPrimeAffiliateTag(url: string, provider: StreamingProvider): string {
+  if (provider.key !== "prime_video" || !provider.affiliate_tag) return url;
+  if (!url.startsWith("https://")) return url;
+  return appendAffiliateTag(url, provider.key, provider.affiliate_tag);
+}
+
+// Stored game links: tiny in-memory cache so pre-resolve + open hit the DB once.
+const storedLinkCache = new Map<string, string | null>();
+
+export function __clearStoredGameLinkCache(): void {
+  storedLinkCache.clear();
+}
+
+export async function fetchStoredGameLink(
+  providerKey: string,
+  espnEventId?: string | null
+): Promise<string | null> {
+  if (!espnEventId) return null;
+  const cacheKey = `${espnEventId}:${providerKey}`;
+  if (storedLinkCache.has(cacheKey)) return storedLinkCache.get(cacheKey) ?? null;
+  try {
+    const { data, error } = await supabase
+      .from("game_watch_links")
+      .select("url")
+      .eq("espn_event_id", espnEventId)
+      .eq("provider_key", providerKey)
+      .maybeSingle();
+    const url =
+      !error && data && typeof (data as any).url === "string" && (data as any).url.startsWith("https://")
+        ? ((data as any).url as string)
+        : null;
+    storedLinkCache.set(cacheKey, url);
+    return url;
+  } catch {
+    return null; // never block a tap on the lookup
+  }
+}
+
+/**
+ * Ordered list of URLs to try:
+ *   1. stored game link (game_watch_links)
+ *   2. derived game link (ESPN game page / MLB.TV gamePk)
+ *   3. app universal link (streaming_providers.app_universal_link)
+ *   4. native scheme (ios_scheme / android_deep_link)
+ *   5. legacy universal_link (unchanged behavior, affiliate-tagged)
+ *   6. App Store
+ */
+export async function buildLinkCandidates(
+  provider: StreamingProvider,
+  game?: WatchGameContext | null
+): Promise<LinkCandidate[]> {
+  const out: LinkCandidate[] = [];
+  const push = (url: string | null | undefined, level: LinkLevel, method: string, legacy = false) => {
+    if (url && !out.some((c) => c.url === url)) out.push({ url, level, method, ...(legacy ? { legacy } : {}) });
+  };
+
+  const stored = await fetchStoredGameLink(provider.key, game?.espnEventId ?? null);
+  push(stored ? applyPrimeAffiliateTag(stored, provider) : null, "stored_game", "game_link");
+
+  const derived = deriveGameLink(provider, game);
+  push(derived ? applyPrimeAffiliateTag(derived, provider) : null, "derived_game", "game_link");
+
+  const appUl = provider.app_universal_link ?? null;
+  push(appUl ? applyPrimeAffiliateTag(appUl, provider) : null, "app_universal", "universal_link");
+
+  if (Platform.OS === "ios") push(provider.ios_scheme, "scheme", "native_app");
+  if (Platform.OS === "android") push(provider.android_deep_link, "scheme", "native_app");
+
+  // Legacy universal_link (subscriber-only URLs are NULL in the DB, mig 036).
+  const legacyUl = provider.universal_link ?? null;
+  if (legacyUl) {
+    const tag = provider.affiliate_tag ?? null;
+    push(tag ? appendAffiliateTag(legacyUl, provider.key, tag) : legacyUl, "app_universal", "universal_link", true);
+  }
+
+  push(provider.fallback_store_url ?? provider.ios_app_store_url ?? null, "app_store", "app_store");
+  return out;
+}
+
+function eventMethodFor(level: LinkLevel): DeepLinkEventPayload["method"] {
+  switch (level) {
+    case "scheme":
+      return "native_scheme";
+    case "app_store":
+      return "app_store";
+    case "none":
+      return "no_fallback";
+    default:
+      return "universal_link";
+  }
+}
+
+function currentPlatform(): DeepLinkEventPayload["platform"] {
+  return Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "web";
+}
+
+/**
+ * Attempt to open a streaming app for a given provider, game-level first.
+ * Every tap logs its resolved level to deep_link_events (link_level).
+ * Legacy callers may still pass a game title string; it is ignored.
+ */
+export async function openStreamingApp(
+  provider: StreamingProvider,
+  game?: WatchGameContext | string | null
+): Promise<{ opened: boolean; fallback: boolean; method: string; level: LinkLevel }> {
+  const ctx = typeof game === "object" ? game : null;
+  const candidates = await buildLinkCandidates(provider, ctx);
+
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    try {
+      await Linking.openURL(c.url);
+      const isLegacyUl = !!c.legacy;
+      const fallback = c.level === "app_store" || isLegacyUl;
+      const tagged =
+        !!provider.affiliate_tag &&
+        (isLegacyUl || (provider.key === "prime_video" && c.url.startsWith("https://") && c.level !== "app_store"));
+      if (tagged) logAffiliateEvent(provider.key, provider.affiliate_tag as string);
+      logDeepLinkEvent({
+        provider_key: provider.key,
+        method: eventMethodFor(c.level),
+        link_level: c.level,
+        success: true,
+        fallback_triggered: i > 0,
+        url_scheme: maskUrlToSchemeHost(c.url),
+        platform: currentPlatform(),
+      });
+      return { opened: true, fallback, method: c.method, level: c.level };
+    } catch {
+      // try next candidate
+    }
+  }
+
+  logDeepLinkEvent({
+    provider_key: provider.key,
+    method: "no_fallback",
+    link_level: "none",
+    success: false,
+    fallback_triggered: candidates.length > 0,
+    url_scheme: null,
+    platform: currentPlatform(),
+  });
+  return { opened: false, fallback: false, method: "none", level: "none" };
+}
+
+/**
+ * Resolve the deep link URL for a provider without opening it.
+ * Returns the first candidate in the resolution order, or null.
  */
 export async function resolveDeepLinkUrl(
-  provider: StreamingProvider
-): Promise<{ url: string; method: string } | null> {
-  // Step 1: Try native app scheme.
-  // Return the scheme directly — openURL (not canOpenURL) will be used at call
-  // time, bypassing the LSApplicationQueriesSchemes binary restriction.
-  if (Platform.OS === "ios" && provider.ios_scheme) {
-    return { url: provider.ios_scheme, method: "native_app" };
-  }
-
-  if (Platform.OS === "android" && provider.android_deep_link) {
-    return { url: provider.android_deep_link, method: "native_app" };
-  }
-
-  // Step 2: Try universal link (DB field) only when explicitly set.
-  // Subscriber-only web URLs are intentionally NULL in the DB — they redirect
-  // unauthenticated mobile browsers to sign-up pages. When universal_link is
-  // NULL, skip directly to App Store.
-  const universalLink = provider.universal_link ?? null;
-  if (universalLink) {
-    return { url: universalLink, method: "universal_link" };
-  }
-
-  // Step 3: Fallback to App Store
-  const storeUrl =
-    provider.fallback_store_url ?? provider.ios_app_store_url ?? null;
-  if (storeUrl) {
-    return { url: storeUrl, method: "app_store" };
-  }
-
-  return null;
+  provider: StreamingProvider,
+  game?: WatchGameContext | null
+): Promise<{ url: string; method: string; level: LinkLevel } | null> {
+  const candidates = await buildLinkCandidates(provider, game ?? null);
+  const first = candidates[0];
+  return first ? { url: first.url, method: first.method, level: first.level } : null;
 }
 
 // Known regional sports networks — these are local/regional RSN broadcasts
