@@ -242,6 +242,24 @@ export function isRegionalBroadcast(broadcast: string | null): boolean {
   return REGIONAL_BROADCAST_PATTERNS.some((p) => upper.includes(p));
 }
 
+// Linear (cable / broadcast) networks that live TV bundles carry.
+// "ESPN" not followed by "+" is linear ESPN; "ESPN+" alone is streaming-only.
+const LINEAR_NETWORK_RE =
+  /\b(ESPN(?!\+)|ESPN2|ESPNU|ABC|CBS|CBSSN|FOX|FS1|FS2|NBC|NBCSN|USA|TNT|TBS|TRUTV|NFL NETWORK|NFLNET|BTN|BIG TEN NETWORK|SEC NETWORK|SECN|ACC NETWORK|ACCN|NBA TV|NBATV|NHL NETWORK|NHLNET|MLB NETWORK|MLBN|CW)\b/;
+const STREAMING_EXCLUSIVE_RE =
+  /PRIME|AMAZON|THURSDAY NIGHT FOOTBALL|\bTNF\b|PEACOCK|NETFLIX|ESPN\+|APPLE TV|DAZN|YOUTUBE(?! ?TV)/;
+
+/**
+ * True when the game streams only on a streaming service (Prime Video,
+ * Peacock, Netflix, ESPN+, Apple TV+, DAZN) with no linear network listed, so
+ * live TV bundles like YouTube TV cannot carry it.
+ */
+export function isStreamingExclusiveBroadcast(broadcast: string | null): boolean {
+  if (!broadcast) return false;
+  const normalized = broadcast.toUpperCase().trim();
+  return STREAMING_EXCLUSIVE_RE.test(normalized) && !LINEAR_NETWORK_RE.test(normalized);
+}
+
 /**
  * Map broadcast network names to streaming provider keys.
  * Used to suggest which app to open for watching a game.
@@ -331,6 +349,9 @@ export function getBroadcastProviderKeys(
   if (normalized.includes("NHL NETWORK") || normalized.includes("NHLNET")) {
     providers.push("nhl_network");
   }
+  if (normalized.includes("NETFLIX")) {
+    providers.push("netflix");
+  }
   if (normalized.includes("DAZN")) {
     providers.push("dazn");
   }
@@ -339,7 +360,11 @@ export function getBroadcastProviderKeys(
   // carry most national feeds, but they cannot bypass regional blackouts —
   // linking to them for a blackout-prone RSN game leads the user to a dead end.
   // Only append them for non-regional broadcasts (H-6 in the 2026-08-23 audit).
-  if (!isRegionalBroadcast(broadcast)) {
+  //
+  // Streaming-exclusive games (Prime Video TNF, Peacock exclusives, Netflix,
+  // ESPN+, Apple TV+, DAZN) are NOT carried by live TV bundles, so appending
+  // them sent the CTA to YouTube TV for SEA@DEN on Prime (Design QA 10/14).
+  if (!isRegionalBroadcast(broadcast) && !isStreamingExclusiveBroadcast(broadcast)) {
     providers.push("youtube_tv", "hulu_live", "fubo", "sling", "directv_stream");
   }
 
