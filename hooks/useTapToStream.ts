@@ -11,6 +11,7 @@ import {
 } from "react-native-reanimated";
 import type { StreamingProvider } from "../lib/types";
 import { resolveDeepLinkUrl, openStreamingApp } from "../lib/deep-links";
+import type { WatchGameContext } from "../lib/deep-links";
 
 // Phase constants
 export const PHASE_IDLE = 0;
@@ -28,6 +29,8 @@ export const LINE_COLLAPSED = 3;
 
 interface TriggerOptions {
   skipAnticipation?: boolean;
+  /** Game context for game-level deep links (lib/deep-links.ts). */
+  game?: WatchGameContext | null;
 }
 
 const COLLAPSE_BEZIER = Easing.bezier(0.2, 0.8, 0.2, 1);
@@ -43,6 +46,7 @@ export function useTapToStreamEngine() {
 
   const resolvedUrlRef = useRef<{ url: string; method: string } | null>(null);
   const providerRef = useRef<StreamingProvider | null>(null);
+  const gameRef = useRef<WatchGameContext | null>(null);
   const providerNameRef = useRef<string>("");
   const failsafeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waitingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,7 +102,7 @@ export function useTapToStreamEngine() {
     let launchFailed = false;
     if (provider) {
       try {
-        const result = await openStreamingApp(provider);
+        const result = await openStreamingApp(provider, gameRef.current);
         // openStreamingApp returns { opened: false, method: "none" } when every
         // fallback in the chain failed. Previously that case animated
         // "Connecting..." for 5s and faded out with no error state, leaving the
@@ -148,6 +152,7 @@ export function useTapToStreamEngine() {
 
       providerNameRef.current = provider.name;
       providerRef.current = provider;
+      gameRef.current = options?.game ?? null;
       resolvedUrlRef.current = null;
 
       if (options?.skipAnticipation) {
@@ -156,7 +161,7 @@ export function useTapToStreamEngine() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         // Resolve URL in parallel
-        resolveDeepLinkUrl(provider).then((result) => {
+        resolveDeepLinkUrl(provider, gameRef.current).then((result) => {
           resolvedUrlRef.current = result;
         });
 
@@ -179,7 +184,7 @@ export function useTapToStreamEngine() {
       normaLineMode.value = LINE_GUIDE;
 
       // Pre-resolve deep link URL
-      resolveDeepLinkUrl(provider).then((result) => {
+      resolveDeepLinkUrl(provider, gameRef.current).then((result) => {
         resolvedUrlRef.current = result;
       });
 

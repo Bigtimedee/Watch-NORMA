@@ -191,6 +191,7 @@ export interface StreamingProvider {
   auth_mode?: string | null;
   category?: ProviderCategory | null;
   affiliate_tag?: string | null;
+  app_universal_link?: string | null;
 }
 
 export type ProviderCategory =

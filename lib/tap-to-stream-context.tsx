@@ -6,11 +6,12 @@ import {
 } from "../hooks/useTapToStream";
 import type { SharedValue } from "react-native-reanimated";
 import type { StreamingProvider } from "./types";
+import type { WatchGameContext } from "./deep-links";
 
 interface TapToStreamContextValue {
   triggerStream: (
     provider: StreamingProvider,
-    options?: { skipAnticipation?: boolean }
+    options?: { skipAnticipation?: boolean; game?: WatchGameContext | null }
   ) => Promise<void>;
   phase: SharedValue<number>;
   normaLineMode: SharedValue<number>;

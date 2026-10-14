@@ -7,6 +7,7 @@ import {
   getBroadcastProviderKeys,
   isRegionalBroadcast,
   resolveDeepLinkUrl,
+  toWatchGameContext,
 } from "../lib/deep-links";
 import {
   useConnectedProviderKeys,
@@ -56,7 +57,8 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
       // Pre-flight check: if no URL can be resolved for this provider, show an
       // actionable message instead of silently doing nothing. This surfaces the
       // no_fallback failure class to the user before the animation fires.
-      const resolved = await resolveDeepLinkUrl(bestProvider);
+      const gameCtx = toWatchGameContext(game);
+      const resolved = await resolveDeepLinkUrl(bestProvider, gameCtx);
       if (!resolved) {
         RNAlert.alert(
           `${bestProvider.name} app not found`,
@@ -64,8 +66,12 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
         );
         return;
       }
-      trackEvent("watch_tap", { source: "game_detail", provider: bestProvider.key });
-      triggerStream(bestProvider);
+      trackEvent("watch_tap", {
+        source: "game_detail",
+        provider: bestProvider.key,
+        link_level: resolved.level,
+      });
+      triggerStream(bestProvider, { game: gameCtx });
     } else if (game.broadcast) {
       const broadcastKeys = getBroadcastProviderKeys(game.broadcast);
       const availableProviders = (allProviders ?? []).filter((p) =>
