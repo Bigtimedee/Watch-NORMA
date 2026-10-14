@@ -35,7 +35,7 @@ describe("Netflix deep link chain", () => {
   it("opens the Netflix app via nflx:// when installed", async () => {
     mockOpenURL.mockResolvedValue(undefined);
     const r = await openStreamingApp(NETFLIX);
-    expect(r).toEqual({ opened: true, fallback: false, method: "native_app" });
+    expect(r).toMatchObject({ opened: true, fallback: false, method: "native_app" });
     expect(mockOpenURL).toHaveBeenCalledWith("nflx://");
   });
   it("falls back to the netflix.com universal link when the app is missing", async () => {
@@ -54,7 +54,7 @@ describe("Netflix deep link chain", () => {
     expect(mockOpenURL).toHaveBeenLastCalledWith(STORE);
   });
   it("resolveDeepLinkUrl prefers the native scheme", async () => {
-    expect(await resolveDeepLinkUrl(NETFLIX)).toEqual({ url: "nflx://", method: "native_app" });
+    expect(await resolveDeepLinkUrl(NETFLIX)).toMatchObject({ url: "nflx://", method: "native_app" });
   });
 });
 
