@@ -167,7 +167,7 @@ export default function AdvertisersPage() {
               </ul>
               <div className="mt-10">
                 <a
-                  href="https://www.getnorma.app/advertise"
+                  href="/auth/signup"
                   className="inline-block rounded-xl px-8 py-4 text-base font-bold text-white"
                   style={{ background: "#f97316" }}
                 >
