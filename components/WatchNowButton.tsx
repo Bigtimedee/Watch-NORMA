@@ -1,9 +1,8 @@
-import { View, Text, Pressable, Alert as RNAlert, StyleSheet } from "react-native";
+import { View, Text, Pressable, Alert as RNAlert, Linking, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import type { Game } from "../lib/types";
 import {
-  getBestWatchProvider,
   getBroadcastProviderKeys,
   isRegionalBroadcast,
   resolveDeepLinkUrl,
@@ -13,6 +12,8 @@ import {
   useConnectedProviderKeys,
   useStreamingProviders,
 } from "../hooks/useConnections";
+import { useInstalledApps } from "../hooks/useInstalledApps";
+import { appStoreUrlFor, resolveWatchChoice } from "../lib/installed-apps";
 import { LIVE_STATUSES } from "../lib/constants";
 import { useTapToStream } from "../lib/tap-to-stream-context";
 import { trackEvent } from "../lib/analytics";
@@ -31,26 +32,44 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
   const connectedKeys = useConnectedProviderKeys();
   const { data: allProviders } = useStreamingProviders();
   const { triggerStream, phase } = useTapToStream();
+  const installed = useInstalledApps(allProviders);
   const isLive = LIVE_STATUSES.includes(game.status as any);
 
   if (!game.broadcast && !isLive) return null;
 
-  const bestProvider = getBestWatchProvider(
+  // Prefer a connected provider whose app is installed; if the user's only
+  // connected provider(s) aren't installed, show "Get <Provider>" instead.
+  const choice = resolveWatchChoice(
     game.broadcast,
     connectedKeys,
-    allProviders ?? []
+    allProviders ?? [],
+    installed
   );
+  const bestProvider = choice?.mode === "watch" ? choice.provider : null;
+  const getProvider = choice?.mode === "get" ? choice.provider : null;
   const isRegional = isRegionalBroadcast(game.broadcast);
 
   // "Broadcast TBD" is informational only — nothing is actionable until the
   // schedule reveals a broadcaster. Rendering it as a pressable with no work
   // to do produces a mystery tap (audit item D / 2026-08-23 H-6).
-  const isBroadcastTbd = !bestProvider && !game.broadcast;
+  const isBroadcastTbd = !bestProvider && !getProvider && !game.broadcast;
 
   const handlePress = async () => {
     if (isBroadcastTbd) {
       // Guard: someone else adjusted styling to make this pressable again — do
       // nothing rather than fall into the else-if / no-op path.
+      return;
+    }
+    if (getProvider) {
+      const storeUrl = appStoreUrlFor(getProvider);
+      trackEvent("watch_get_app_tap", { source: "game_detail", provider: getProvider.key });
+      if (storeUrl) {
+        try {
+          await Linking.openURL(storeUrl);
+          return;
+        } catch {}
+      }
+      RNAlert.alert(`Get ${getProvider.name}`, `Search for "${getProvider.name}" in the App Store to watch.`);
       return;
     }
     if (bestProvider) {
@@ -108,29 +127,32 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
     <AnimatedPressable
       style={[
         s.button,
-        bestProvider ? s.buttonBrand : s.buttonDefault,
+        bestProvider || getProvider ? s.buttonBrand : s.buttonDefault,
         bestProvider ? animatedButtonStyle : undefined,
         isBroadcastTbd ? s.buttonDisabled : undefined,
       ]}
       onPress={handlePress}
       disabled={isBroadcastTbd}
-      accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Broadcast information not yet available"}
+      accessibilityLabel={bestProvider ? `Watch on ${bestProvider.name}` : getProvider ? `Get ${getProvider.name}` : game.broadcast ? `On ${game.broadcast}` : "Broadcast information not yet available"}
       accessibilityState={{ disabled: isBroadcastTbd }}
     >
       <Ionicons
-        name="play-circle"
+        name={getProvider ? "download-outline" : "play-circle"}
         size={24}
-        color={bestProvider ? "#fff" : "#94a3b8"}
+        color={bestProvider || getProvider ? "#fff" : "#94a3b8"}
       />
       <View style={s.textContainer}>
         <Text style={[s.label, bestProvider ? s.labelBrand : s.labelDefault]}>
           {bestProvider
             ? `Watch on ${bestProvider.name}`
-            : game.broadcast
+            : getProvider
+              ? `Get ${getProvider.name}`
+              : game.broadcast
               ? `On ${game.broadcast}`
               : "Broadcast TBD"}
         </Text>
         {bestProvider && <Text style={s.sub}>Tap to open app</Text>}
+        {getProvider && <Text style={s.sub}>App not installed · opens the App Store</Text>}
         {isRegional && (
           <Text testID="blackout-caveat" style={s.caveat}>May be subject to local blackout</Text>
         )}

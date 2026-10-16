@@ -7,11 +7,13 @@ import {
   useConnections,
 } from "../../../hooks/useConnections";
 import { ConnectionToggle } from "../../../components/ConnectionToggle";
+import { useInstalledApps } from "../../../hooks/useInstalledApps";
 
 export default function TVProviderScreen() {
   const router = useRouter();
   const { data: providers, isLoading } = useStreamingProviders("tv");
   const { data: connections } = useConnections();
+  const installed = useInstalledApps(providers);
 
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
@@ -39,7 +41,7 @@ export default function TVProviderScreen() {
             const conn = (connections ?? []).find(
               (c) => c.provider_key === item.key
             );
-            return <ConnectionToggle provider={item} connection={conn} />;
+            return <ConnectionToggle provider={item} connection={conn} appInstalled={installed[item.key]} />;
           }}
           contentContainerStyle={{ paddingBottom: 40 }}
         />
