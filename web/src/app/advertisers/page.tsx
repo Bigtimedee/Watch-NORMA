@@ -1,16 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "NORMA Advertising — Moment-Based Push Ads for Sports Fans",
-  description:
-    "Reach sports bettors at the exact moment their bet is covering. Self-serve ad platform with second-price auction and AI creative optimization. Early advertiser access — no fabricated delivery stats.",
-  openGraph: {
-    title: "NORMA Advertising — Ads Inside the Moment",
-    description:
-      "Your ad inside the push notification that creates the viewer. Self-serve portal, second-price auction, Thompson Sampling creative optimization.",
-  },
-};
+export const metadata: Metadata = pageMetadata("advertisers");
 
 const momentRows = [
   { name: "Prediction Resolved", desc: "Prediction market position just resolved", floor: "$0.60" },
@@ -157,29 +149,30 @@ export default function AdvertisersPage() {
               </div>
               <h1
                 className="font-display leading-none"
-                style={{ fontSize: "clamp(68px, 9vw, 110px)", color: "#F5F3EE", lineHeight: 0.92 }}
+                style={{ fontSize: "clamp(56px, 7vw, 96px)", color: "#F5F3EE", lineHeight: 0.92 }}
               >
-                ADS INSIDE
-                <br />
-                THE MOMENT.
-                <br />
-                <span style={{ color: "#64748b" }}>NOT A BANNER.</span>
+                Reach Fans in the Moment They Chose to Tune In
               </h1>
               <p
                 className="mt-8 leading-relaxed"
                 style={{ fontSize: 18, color: "#94a3b8", maxWidth: 480 }}
               >
-                NORMA doesn&apos;t interrupt attention. It creates it. Your brand appears inside the push notification that brings a fan back to a live game. Not a banner. Not a pre-roll.{" "}
-                <strong style={{ color: "#F5F3EE" }}>The moment itself.</strong>
+                NORMA tells fans when their game is worth watching. Your brand shows up right then, when attention is earned, not interrupted.
               </p>
+              <ul className="mt-6 space-y-2" style={{ fontSize: 16, color: "#cbd5e1", maxWidth: 520 }}>
+                <li><strong style={{ color: "#F5F3EE" }}>Chosen attention:</strong> your ad appears when a fan opens NORMA to tune in to a game they care about.</li>
+                <li><strong style={{ color: "#F5F3EE" }}>Celebration-moment commerce:</strong> after a big win, offer flowers, dinner delivery, a jersey or a gift the fan can buy in one tap.</li>
+                <li><strong style={{ color: "#F5F3EE" }}>Self-serve pilot:</strong> start with $100 and NORMA matches $250 + $250 so you can test with real budget.</li>
+                <li>Start today at getnorma.app/advertise.</li>
+              </ul>
               <div className="mt-10">
-                <Link
-                  href="/auth/signup"
+                <a
+                  href="https://www.getnorma.app/advertise"
                   className="inline-block rounded-xl px-8 py-4 text-base font-bold text-white"
                   style={{ background: "#f97316" }}
                 >
-                  Create Your Advertiser Account
-                </Link>
+                  Start your pilot
+                </a>
               </div>
             </div>
 
@@ -589,6 +582,8 @@ export default function AdvertisersPage() {
               <Link href="/auth/login" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Advertiser Portal</Link>
               <Link href="/developers" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Developers API</Link>
               <a href="mailto:ads@getnorma.app" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Contact</a>
+              <a href="/privacy-policy" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Privacy</a>
+              <a href="/terms-of-service" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Terms</a>
             </div>
           </div>
           <div

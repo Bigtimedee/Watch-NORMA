@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "NORMA for Developers | Agentic Ad Inventory API",
-  description:
-    "Programmatic access to NORMA push notification inventory on high-intent sports betting moments. REST API, MCP Server, and AdCP-compatible.",
+export const metadata: Metadata = pageMetadata("developers", {
   other: {
     "adcp:endpoint": "https://mcp.getnorma.app",
     "adcp:discovery": "https://getnorma.app/adagents.json",
     "aamp:seller": "true",
   },
-};
+});
 
 const MOMENT_TYPES = [
   { key: "bet_resolved",       display: "Bet Resolved",       when: "User's wager settles",                       floor: "$0.50" },
