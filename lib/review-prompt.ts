@@ -68,3 +68,44 @@ export async function maybeRequestReview(trigger: string): Promise<void> {
     // Non-critical — never surface to user
   }
 }
+
+const ALERT_OPENS_KEY = "norma.reviewAlertOpens";
+export const MIN_ALERT_OPENS = 3;
+export const ALERT_OPEN_MIN_DAYS_BETWEEN = 30;
+
+/**
+ * Happiest moment: the user just tapped a NORMA alert and landed in a game.
+ * Counts alert opens locally and asks for a review only after
+ * MIN_ALERT_OPENS opens, at most once every ALERT_OPEN_MIN_DAYS_BETWEEN days
+ * (shares the last-prompted timestamp with maybeRequestReview).
+ * iOS additionally caps SKStoreReviewController at 3 prompts / 365 days.
+ * Never throws.
+ */
+export async function maybeRequestReviewAfterAlertOpen(): Promise<boolean> {
+  try {
+    const rawOpens = await AsyncStorage.getItem(ALERT_OPENS_KEY);
+    const opens = (Number(rawOpens) || 0) + 1;
+    await AsyncStorage.setItem(ALERT_OPENS_KEY, String(opens));
+    if (opens < MIN_ALERT_OPENS) return false;
+
+    const rawLast = await AsyncStorage.getItem(LAST_PROMPT_KEY);
+    if (rawLast) {
+      const daysSinceLast =
+        (Date.now() - new Date(rawLast).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceLast < ALERT_OPEN_MIN_DAYS_BETWEEN) return false;
+    }
+
+    const [available, hasAction] = await Promise.all([
+      StoreReview.isAvailableAsync(),
+      StoreReview.hasAction(),
+    ]);
+    if (!available || !hasAction) return false;
+
+    await AsyncStorage.setItem(LAST_PROMPT_KEY, new Date().toISOString());
+    await StoreReview.requestReview();
+    console.log(JSON.stringify({ event: "review_prompt_shown", trigger: "alert_open", opens }));
+    return true;
+  } catch {
+    return false;
+  }
+}
