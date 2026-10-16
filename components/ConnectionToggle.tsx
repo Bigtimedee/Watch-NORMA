@@ -6,11 +6,14 @@ import { useToggleConnection } from "../hooks/useConnections";
 interface ConnectionToggleProps {
   provider: StreamingProvider;
   connection?: Connection;
+  /** iOS only: false when the provider's app is definitely not installed. */
+  appInstalled?: boolean;
 }
 
 export function ConnectionToggle({
   provider,
   connection,
+  appInstalled,
 }: ConnectionToggleProps) {
   const toggleMutation = useToggleConnection();
   const isConnected = connection?.connected ?? false;
@@ -31,6 +34,11 @@ export function ConnectionToggle({
         <View style={s.textCol}>
           <Text style={s.name}>{provider.name}</Text>
           <Text style={s.type}>{provider.provider_type}</Text>
+          {isConnected && appInstalled === false && (
+            <Text testID={`app-not-installed-${provider.key}`} style={s.hint}>
+              App not installed
+            </Text>
+          )}
         </View>
       </View>
 
@@ -70,4 +78,5 @@ const s = StyleSheet.create({
   textCol: { flex: 1 },
   name: { color: "#ffffff", fontSize: 16, fontWeight: "500" },
   type: { color: "#94a3b8", fontSize: 12, textTransform: "capitalize" },
+  hint: { color: "#fbbf24", fontSize: 12, marginTop: 2 },
 });
