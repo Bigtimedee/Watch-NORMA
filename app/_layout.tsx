@@ -12,7 +12,7 @@ import {
   setPasswordRecoveryPending,
   subscribePasswordRecovery,
 } from "../lib/auth-recovery-state";
-import { recordAppOpen } from "../lib/review-prompt";
+import { recordAppOpen, maybeRequestReviewAfterAlertOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
 import { SportProvider } from "../lib/sport-context";
 import { TransitionOverlay } from "../components/TransitionOverlay";
@@ -155,12 +155,15 @@ function AuthGate() {
           );
           if (provider) {
             tapToStream.triggerStream(provider, { skipAnticipation: true });
+            if (gameId) setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
             return;
           }
         }
 
         if (gameId) {
           router.push(`/games/${gameId}`);
+          // Let the game screen render, then maybe ask for a review.
+          setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
         }
       }
     );
