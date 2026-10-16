@@ -196,6 +196,33 @@ export function applyPrimeAffiliateTag(url: string, provider: StreamingProvider)
   return appendAffiliateTag(url, provider.key, provider.affiliate_tag);
 }
 
+const PRIME_GTI_RE = /amzn1\.dv\.gti\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Prefer Prime Video's playback form for stored links. Observed 2026-10-15:
+ * with an iPhone UA, https://app.primevideo.com/watch?gti=<event gti> 302s to
+ * /detail/<id>?deepLinkingRedirect=1&autoplay=1, while /detail/<id> lands on
+ * the detail page. Any Prime URL carrying a GTI is rewritten to the watch form;
+ * www.primevideo.com hosts move to app.primevideo.com (the AASA-claimed host).
+ * URLs without a GTI are otherwise left alone (ASIN→GTI needs the page HTML).
+ */
+export function preferPrimePlaybackLink(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (!/(^|\.)primevideo\.com$/i.test(parsed.hostname)) return url;
+  const gti = PRIME_GTI_RE.exec(decodeURIComponent(parsed.pathname + parsed.search))?.[0];
+  if (gti) return `https://app.primevideo.com/watch?gti=${gti}`;
+  if (parsed.hostname.toLowerCase() === "www.primevideo.com" && /^\/(region\/[a-z]+\/)?detail\//i.test(parsed.pathname)) {
+    parsed.hostname = "app.primevideo.com";
+    return parsed.toString();
+  }
+  return url;
+}
+
 // Stored game links: tiny in-memory cache so pre-resolve + open hit the DB once.
 const storedLinkCache = new Map<string, string | null>();
 
@@ -247,7 +274,9 @@ export async function buildLinkCandidates(
   };
 
   const stored = await fetchStoredGameLink(provider.key, game?.espnEventId ?? null);
-  push(stored ? applyPrimeAffiliateTag(stored, provider) : null, "stored_game", "game_link");
+  const storedPreferred =
+    stored && provider.key === "prime_video" ? preferPrimePlaybackLink(stored) : stored;
+  push(storedPreferred ? applyPrimeAffiliateTag(storedPreferred, provider) : null, "stored_game", "game_link");
 
   const derived = deriveGameLink(provider, game);
   push(derived ? applyPrimeAffiliateTag(derived, provider) : null, "derived_game", "game_link");
