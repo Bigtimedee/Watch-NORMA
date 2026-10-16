@@ -202,3 +202,35 @@ describe("openStreamingApp logs link_level", () => {
     expect(res.level).toBe("scheme");
   });
 });
+
+import { preferPrimePlaybackLink } from "../deep-links";
+
+describe("Prime playback preference", () => {
+  const G = "amzn1.dv.gti.0519bea8-4415-4b18-b309-d06ff66617cf";
+  it("keeps the watch?gti form", () => {
+    expect(preferPrimePlaybackLink(`https://app.primevideo.com/watch?gti=${G}`)).toBe(`https://app.primevideo.com/watch?gti=${G}`);
+  });
+  it("rewrites any GTI-bearing Prime URL to watch?gti", () => {
+    expect(preferPrimePlaybackLink(`https://www.primevideo.com/detail?gti=${G}&ref_=x`)).toBe(`https://app.primevideo.com/watch?gti=${G}`);
+    expect(preferPrimePlaybackLink(`https://www.primevideo.com/signup?cGTI=${encodeURIComponent(G)}`)).toBe(`https://app.primevideo.com/watch?gti=${G}`);
+  });
+  it("moves www detail links to the app host but cannot invent a GTI", () => {
+    expect(preferPrimePlaybackLink("https://www.primevideo.com/region/na/detail/0FGHAFOD3S5T3D6O1Z6TD6NFF3")).toBe(
+      "https://app.primevideo.com/region/na/detail/0FGHAFOD3S5T3D6O1Z6TD6NFF3"
+    );
+    expect(preferPrimePlaybackLink("https://app.primevideo.com/detail/0FGHAFOD3S5T3D6O1Z6TD6NFF3")).toBe(
+      "https://app.primevideo.com/detail/0FGHAFOD3S5T3D6O1Z6TD6NFF3"
+    );
+  });
+  it("ignores non-Prime hosts", () => {
+    expect(preferPrimePlaybackLink(`https://evil.example/watch?gti=${G}`)).toBe(`https://evil.example/watch?gti=${G}`);
+  });
+  it("resolver applies it to prime_video stored links only", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { url: `https://www.primevideo.com/detail?gti=${G}` }, error: null });
+    const r = await resolveDeepLinkUrl(
+      provider({ key: "prime_video", ios_scheme: "aiv://" }),
+      { espnEventId: "401872995", sport: "nfl" }
+    );
+    expect(r).toMatchObject({ level: "stored_game", url: `https://app.primevideo.com/watch?gti=${G}` });
+  });
+});
