@@ -5,12 +5,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "NORMA System Status",
-  description: "Live operational status for the NORMA sports alert platform.",
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = pageMetadata("status", { robots: { index: false, follow: false } });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

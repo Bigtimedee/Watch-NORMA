@@ -51,13 +51,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/terms-of-service",
-        destination:
-          "https://d10dave.github.io/norma/terms-of-service.html",
+        destination: "/legal/terms-of-service.html",
       },
       {
         source: "/privacy-policy",
-        destination:
-          "https://d10dave.github.io/norma/privacy-policy.html",
+        destination: "/legal/privacy-policy.html",
       },
     ];
   },

@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { DemoForm } from "./demo-form";
 
-export const metadata: Metadata = {
-  title: "Schedule a Demo — NORMA Advertising",
-  description:
-    "Book a 30-minute demo with the NORMA advertising team. Learn how moment-based push notification ads work for sportsbooks, streaming services, and commerce brands.",
-};
+export const metadata: Metadata = pageMetadata("demo");
 
 const whatYoullLearn = [
   "How NORMA's second-price auction works and how to bid for maximum ROI",

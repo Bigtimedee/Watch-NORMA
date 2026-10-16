@@ -2,7 +2,12 @@ import Link from "next/link";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { NormaDemo } from "@/components/norma-demo";
 
+import type { Metadata } from "next";
+import { pageMetadata, APP_STORE_URL } from "@/lib/seo";
+
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = pageMetadata("home");
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -11,10 +16,10 @@ const jsonLd = {
   operatingSystem: "iOS",
   applicationCategory: "SportsApplication",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  aggregateRating: { "@type": "AggregateRating", ratingValue: "5.0", ratingCount: "1" },
   description:
-    "Live game notifications for sports bettors and fans. Track NBA, MLB, NCAA wagers, parlays, and prediction markets. Never miss the moment that matters.",
-  url: "https://apps.apple.com/us/app/watch-norma/id6759508383",
+    "Live game notifications and where-to-watch for sports fans and bettors. Covers NFL, college football, NBA, MLB and NCAA basketball games, parlays, and prediction markets. Never miss the moment that matters.",
+  url: APP_STORE_URL,
+  publisher: { "@id": "https://www.getnorma.app/#organization" },
 };
 
 const momentTypes = [
@@ -157,14 +162,18 @@ export default function HomePage() {
               </div>
 
               {/* Headline */}
-              <h1
+              <h1 className="mb-4 text-lg font-semibold" style={{ color: "#94a3b8" }}>
+                Where to Watch NFL and College Football, Right When It Matters
+              </h1>
+              <div
+                aria-hidden="true"
                 className="font-display leading-none tracking-wide"
                 style={{ fontSize: "clamp(72px, 9vw, 120px)", color: "#F5F3EE", lineHeight: 0.93 }}
               >
                 WATCH AT THE<br />
                 <span style={{ color: "#f97316" }}>PERFECT</span><br />
                 MOMENT.
-              </h1>
+              </div>
 
               {/* Subheadline */}
               <p
