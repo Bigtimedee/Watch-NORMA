@@ -28,14 +28,43 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Load teams and active games for matching
-    const { data: dbTeams } = await supabase
-      .from("teams")
-      .select("id, name, market, abbreviation");
-    const { data: dbGames } = await supabase
-      .from("games")
-      .select("id, home_team_id, away_team_id, status, title")
-      .in("status", ["scheduled", "inprogress", "halftime", "closed"]);
+    // Load candidate games + only their teams for matching.
+    // Previously this loaded ALL teams and all scheduled/closed games
+    // unpaginated: PostgREST caps responses at 1000 rows (there are
+    // thousands of closed games), so upcoming NFL games/teams silently
+    // fell off the list, and a stale closed basketball game could win a
+    // both-teams match. Scope to live/upcoming games in a +/- window and
+    // fetch just the teams those games reference, in chunks.
+    const nowMs = Date.now();
+    const windowStart = new Date(nowMs - 24 * 3600 * 1000).toISOString();
+    const windowEnd = new Date(nowMs + 21 * 24 * 3600 * 1000).toISOString();
+    type GameRow = { id: string; home_team_id: string | null; away_team_id: string | null; status: string; title: string | null; scheduled_at: string | null };
+    const dbGames: GameRow[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data: page } = await supabase
+        .from("games")
+        .select("id, home_team_id, away_team_id, status, title, scheduled_at")
+        .in("status", ["scheduled", "inprogress", "halftime"])
+        .gte("scheduled_at", windowStart)
+        .lte("scheduled_at", windowEnd)
+        .order("scheduled_at", { ascending: true })
+        .range(offset, offset + 999);
+      if (!page || page.length === 0) break;
+      dbGames.push(...(page as GameRow[]));
+      if (page.length < 1000) break;
+    }
+    const candidateTeamIds = [...new Set(
+      (dbGames ?? []).flatMap((g) => [g.home_team_id, g.away_team_id]).filter(Boolean),
+    )] as string[];
+    type TeamRow = { id: string; name: string; market: string | null; abbreviation: string | null };
+    const dbTeams: TeamRow[] = [];
+    for (let i = 0; i < candidateTeamIds.length; i += 300) {
+      const { data: chunk } = await supabase
+        .from("teams")
+        .select("id, name, market, abbreviation")
+        .in("id", candidateTeamIds.slice(i, i + 300));
+      if (chunk) dbTeams.push(...(chunk as TeamRow[]));
+    }
 
     // Get all Kalshi connections
     const { data: kalshiConns } = await supabase

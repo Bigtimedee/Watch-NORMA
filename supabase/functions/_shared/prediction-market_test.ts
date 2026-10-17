@@ -26,6 +26,18 @@ Deno.test("match: 'Ohio State at Indiana' (at separator, full name)", () => {
 Deno.test("match: 'NOLA Saints vs NY Giants' resolves, not NY Jets", () => {
   assertEquals(matchMarketTitleToGame("NOLA Saints vs NY Giants", TEAMS, GAMES), "espn-nfl-401873000");
 });
+Deno.test("match: cross-sport duplicate picks soonest scheduled game", () => {
+  const teams = [
+    ...TEAMS,
+    { id: "espn-ncaab-osu", name: "Ohio State Buckeyes", market: "Ohio State", abbreviation: "OSU" },
+    { id: "espn-ncaab-iu", name: "Indiana Hoosiers", market: "Indiana", abbreviation: "IU" },
+  ];
+  const games = [
+    { id: "espn-401825563", home_team_id: "espn-ncaab-osu", away_team_id: "espn-ncaab-iu", status: "scheduled", scheduled_at: "2026-11-20T00:00:00Z" },
+    { id: "espn-ncaaf-401858488", home_team_id: "espn-ncaaf-iu", away_team_id: "espn-ncaaf-osu", status: "scheduled", scheduled_at: "2026-10-17T19:00:00Z" },
+  ];
+  assertEquals(matchMarketTitleToGame("Ohio St. vs Indiana", teams, games), "espn-ncaaf-401858488");
+});
 Deno.test("match: non-game event title -> null", () => {
   assertEquals(matchMarketTitleToGame("Big East Regular Season: Top 2 Finishers", TEAMS, GAMES), null);
 });
