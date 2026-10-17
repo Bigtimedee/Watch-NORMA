@@ -46,6 +46,8 @@ jobs:
           # 2026-08-20 surfaced the gap: a type error in these files would have
           # shipped unverified.
           deno check supabase/functions/poll-schedule/index.ts
+          deno check supabase/functions/poll-markets/index.ts
+          deno check supabase/functions/_shared/prediction-market.ts
           deno check supabase/functions/poll-boxscore/index.ts
           deno check supabase/functions/poll-summary/index.ts
           deno check supabase/functions/poll-pbp/index.ts
