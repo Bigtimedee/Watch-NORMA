@@ -31,6 +31,10 @@ import {
   POST_CLAIM_STATUSES,
   PUBLISHING_STATUS,
   GUARD_HOLD_STATUS,
+  GUARD_REASON_OVER_LENGTH,
+  X_MAX_TWEET_LENGTH,
+  X_TARGET_TWEET_LENGTH,
+  overLengthFlag,
   STUCK_PUBLISHING_AFTER_MS,
   TWITTER_STATUS_MUTATION_FILTER,
   appendNote,
@@ -94,6 +98,11 @@ interface PublishResult {
   error?: string;
   /** Dry run only: what a live run would do with this row. */
   would?: string;
+  /** Composed X length when classified (publish or over_length pause). */
+  tweet_length?: number;
+  /** Visible guard flag, e.g. 'over_length: 299 chars (max 280, target 270)'. */
+  detail?: string;
+  warning?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -530,12 +539,13 @@ async function markGuardHold(
   post: ContentCalendarRow,
   reason: GuardReason,
   now: Date,
+  tweetLength?: number,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("content_calendar")
     .update({
       status: GUARD_HOLD_STATUS,
-      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now)),
+      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now, tweetLength)),
     })
     .eq("id", post.id)
     .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
@@ -749,19 +759,42 @@ serve(async (req: Request): Promise<Response> => {
     // Dry run: report the disposition and stop. No media upload, no claim,
     // no tweet, no status write.
     if (dryRun) {
+      const tweetLength = disposition.kind === "publish" || disposition.kind === "pause"
+        ? disposition.tweetLength
+        : undefined;
+      if (disposition.kind === "pause" && disposition.reason === GUARD_REASON_OVER_LENGTH) {
+        console.warn(
+          `[cmo-publish] Post ${post.id} NOT posted (dry run): ${overLengthFlag(tweetLength ?? 0)}; would hold as status='paused'.`,
+        );
+      }
+      if (disposition.kind === "publish" && disposition.overTarget) {
+        console.warn(
+          `[cmo-publish] Post ${post.id} is ${tweetLength} chars (target ${X_TARGET_TWEET_LENGTH}, max ${X_MAX_TWEET_LENGTH}); would publish with warning.`,
+        );
+      }
       results.push({
         id: post.id,
         success: false,
         skipped: true,
         would: disposition.kind === "publish" ? "publish" : `${disposition.kind}:${disposition.reason}`,
+        ...(typeof tweetLength === "number" ? { tweet_length: tweetLength } : {}),
+        ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_OVER_LENGTH
+          ? { detail: overLengthFlag(tweetLength ?? 0) }
+          : {}),
+        ...(disposition.kind === "publish" && disposition.overTarget
+          ? { warning: `over_target: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})` }
+          : {}),
       });
       continue;
     }
 
     if (disposition.kind === "pause") {
-      const wrote = await markGuardHold(supabase, post, disposition.reason, now);
+      const wrote = await markGuardHold(supabase, post, disposition.reason, now, disposition.tweetLength);
+      const detail = disposition.reason === GUARD_REASON_OVER_LENGTH
+        ? overLengthFlag(disposition.tweetLength ?? 0)
+        : disposition.reason;
       console.log(
-        `[cmo-publish] Post ${post.id} NOT posted (${disposition.reason}); ` +
+        `[cmo-publish] Post ${post.id} NOT posted (${detail}); ` +
           (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
       );
       results.push({
@@ -770,6 +803,8 @@ serve(async (req: Request): Promise<Response> => {
         skipped: true,
         held_paused: wrote,
         error: disposition.reason,
+        ...(typeof disposition.tweetLength === "number" ? { tweet_length: disposition.tweetLength } : {}),
+        ...(disposition.reason === GUARD_REASON_OVER_LENGTH ? { detail } : {}),
       });
       continue;
     }
@@ -795,9 +830,9 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const tweetBody = disposition.tweetBody;
-    if (post.body.length > 280) {
+    if (disposition.overTarget) {
       console.warn(
-        `[cmo-publish] Post ${post.id} exceeds 280 chars (${post.body.length}), truncating.`,
+        `[cmo-publish] Post ${post.id} is ${disposition.tweetLength} chars (target ${X_TARGET_TWEET_LENGTH}, max ${X_MAX_TWEET_LENGTH}); publishing anyway. Shorten future rows to the target.`,
       );
     }
 
