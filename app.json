@@ -22,6 +22,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.norma.app",
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "buildNumber": "36",
       "usesAppleSignIn": true,
       "infoPlist": {

@@ -3,6 +3,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { buildPushPayload, parseExpoTicket } from "./payload.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -106,10 +107,11 @@ Deno.serve(async (req) => {
     const badgeCount = (unreadCount ?? 0) + 1; // +1 for the current alert
 
     // Send via Expo Push API
-    const pushPayload: Record<string, unknown> = {
+    const pushPayload = buildPushPayload({
       to: profile.push_token,
       title: alert.title,
       body: pushBody,
+      badge: badgeCount,
       data: {
         gameId: alert.game_id,
         alertId: alert.id,
@@ -121,12 +123,7 @@ Deno.serve(async (req) => {
           sponsorLogoUrl: alert.sponsor_logo_url,
         }),
       },
-      sound: "default",
-      priority: "high",
-      channelId: "game-alerts",
-      badge: badgeCount,
-      ttl: 86400,
-    };
+    });
 
     const pushRes = await fetch(EXPO_PUSH_URL, {
       method: "POST",
@@ -139,10 +136,13 @@ Deno.serve(async (req) => {
 
     const pushResult = await pushRes.json();
 
-    // Extract provider message ID from Expo response
-    const ticketId = pushResult?.data?.id ?? pushResult?.id ?? null;
+    // Expo returns HTTP 200 even when the ticket itself is an error
+    // (e.g. DeviceNotRegistered). Only a ticket status:'ok' means APNS
+    // accepted it; previously any 200 was marked push_sent/sent.
+    const ticket = parseExpoTicket(pushResult);
+    const ticketId = ticket.id;
 
-    if (pushRes.ok) {
+    if (pushRes.ok && ticket.status !== "error") {
       // Mark alert as push_sent
       await supabase
         .from("alerts")
