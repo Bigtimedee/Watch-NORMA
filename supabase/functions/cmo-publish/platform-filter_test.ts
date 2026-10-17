@@ -279,15 +279,17 @@ Deno.test("markPublished miss is detected without treating as a tweet failure to
   assert(orphan.includes("Not marking failed"));
 });
 
-Deno.test("tweet body over 280 is truncated only for publishable twitter rows", () => {
+Deno.test("tweet body over 280 is paused (over_length), never truncated, only for twitter rows", () => {
   const longBody = "a".repeat(300);
   const twitter = classifyPublishCandidate(
     candidate({ platform: "twitter", body: longBody }),
   );
-  assertEquals(twitter.kind, "publish");
-  if (twitter.kind === "publish") {
-    assertEquals(twitter.tweetBody.length, 280);
+  assertEquals(twitter.kind, "pause");
+  if (twitter.kind === "pause") {
+    assertEquals(twitter.reason, "over_length");
+    assertEquals(twitter.tweetLength, 300);
   }
+  assert(!("tweetBody" in twitter));
 
   const linkedin = classifyPublishCandidate(
     candidate({ platform: "linkedin", body: longBody }),

@@ -45,13 +45,15 @@ export interface CalendarPublishCandidate {
   scheduled_for?: string | null;
   /** Creative URLs. Null/empty means no creative is attached yet. */
   media_urls?: string[] | null;
+  /** Hashtag column. Appended to body only when not already present in it. */
+  hashtags?: string[] | null;
 }
 
 export type PublishDisposition =
-  | { kind: "publish"; tweetBody: string }
+  | { kind: "publish"; tweetBody: string; tweetLength: number; overTarget?: boolean }
   | { kind: "skip"; reason: string; mutateStatus: false }
   | { kind: "fail"; reason: string; mutateStatus: true }
-  | { kind: "pause"; reason: GuardReason; mutateStatus: true };
+  | { kind: "pause"; reason: GuardReason; mutateStatus: true; tweetLength?: number };
 
 // ---------------------------------------------------------------------------
 // Late / empty-media guards (incident 2026-09-26..10-02)
@@ -65,6 +67,7 @@ export type PublishDisposition =
 // status='paused' plus a human_notes line when
 //   - media_urls is empty                 (reason empty_media; checked first)
 //   - scheduled_for is > 3h in the past   (reason stale)
+//   - composed tweet length > 280         (reason over_length; 2026-10-17)
 // The cron usually catches these first; these checks cover hand-made POSTs and
 // rows that change between the cron's UPDATE and the function's select.
 // To publish a held row: attach media / reschedule, then set status='draft'.
@@ -86,7 +89,73 @@ export const PUBLISHING_STATUS = "publishing";
 
 export const GUARD_REASON_EMPTY_MEDIA = "empty_media";
 export const GUARD_REASON_STALE = "stale";
-export type GuardReason = typeof GUARD_REASON_EMPTY_MEDIA | typeof GUARD_REASON_STALE;
+export const GUARD_REASON_OVER_LENGTH = "over_length";
+export type GuardReason =
+  | typeof GUARD_REASON_EMPTY_MEDIA
+  | typeof GUARD_REASON_STALE
+  | typeof GUARD_REASON_OVER_LENGTH;
+
+/** X hard limit, Content's target, and t.co length for http(s) URLs. */
+export const X_MAX_TWEET_LENGTH = 280;
+export const X_TARGET_TWEET_LENGTH = 270;
+export const X_TCO_URL_LENGTH = 23;
+
+/**
+ * Final tweet text as cmo-publish now posts it: the body verbatim plus any
+ * hashtags from the hashtags column that are not already in the body
+ * (case-insensitive, leading '#' in the column is normalised).
+ * Incident 2026-10-17 (tweet 2111487416116592822): the hashtags were already
+ * inline in the 299-char body, so appending the column again would
+ * double-count and double-post them. Media alt text / media URLs are not
+ * part of the tweet text and are never appended.
+ */
+export function composeTweetText(
+  body: string,
+  hashtags?: string[] | null,
+): string {
+  let text = body;
+  if (Array.isArray(hashtags)) {
+    for (const raw of hashtags) {
+      if (typeof raw !== "string") continue;
+      const tag = raw.trim().replace(/^#+/, "").trim();
+      if (!tag) continue;
+      const needle = `#${tag}`;
+      if (text.toLowerCase().includes(needle.toLowerCase())) continue;
+      text = text.length === 0 || /\s$/.test(text) ? `${text}${needle}` : `${text} ${needle}`;
+    }
+  }
+  return text;
+}
+
+/**
+ * X-weighted length: http(s)/www URLs count as t.co length (23), everything
+ * else counts as one per Unicode code point. Bare domains (e.g. getnorma.app,
+ * as Content writes them) are not rewritten by the publisher, so they count
+ * at their raw length — never discounted. This never under-counts a URL.
+ */
+export function tweetTextLength(text: string): number {
+  const urlRe = /(?:https?:\/\/|www\.)[^\s]+/gi;
+  let length = 0;
+  let last = 0;
+  for (const m of text.matchAll(urlRe)) {
+    const idx = m.index ?? 0;
+    length += [...text.slice(last, idx)].length + X_TCO_URL_LENGTH;
+    last = idx + m[0].length;
+  }
+  length += [...text.slice(last)].length;
+  return length;
+}
+
+/** Length of the exact composed tweet for a candidate row. */
+export function composedTweetLength(post: CalendarPublishCandidate): number {
+  if (!post.body) return 0;
+  return tweetTextLength(composeTweetText(post.body, post.hashtags));
+}
+
+/** Visible over_length flag, e.g. 'over_length: 299 chars (max 280, target 270)'. */
+export function overLengthFlag(tweetLength: number): string {
+  return `over_length: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})`;
+}
 
 /** Hold reason (skip, no status change; retried next run) when the X media upload fails. */
 export const HOLD_MEDIA_UPLOAD_FAILED = "media_upload_failed";
@@ -131,7 +200,12 @@ export function formatChicago(now: Date): string {
 }
 
 /** human_notes line for a guard hold; mirrors the SQL guard's wording. */
-export function guardHoldNote(reason: GuardReason, now: Date): string {
+export function guardHoldNote(reason: GuardReason, now: Date, tweetLength?: number): string {
+  if (reason === GUARD_REASON_OVER_LENGTH) {
+    const flag = typeof tweetLength === "number" ? overLengthFlag(tweetLength) : "over_length";
+    return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${flag} (reason=${reason}). ` +
+      `Shorten the tweet to ${X_TARGET_TWEET_LENGTH} chars or fewer and set status=draft to publish.`;
+  }
   const what = reason === GUARD_REASON_EMPTY_MEDIA
     ? "media_urls empty"
     : "more than 3h past scheduled_for";
@@ -221,6 +295,21 @@ export function classifyPublishCandidate(
     return { kind: "pause", reason: GUARD_REASON_STALE, mutateStatus: true };
   }
 
+  // Over-length guard (incident 2026-10-17): never silently truncate.
+  // Composed length = body + hashtags not already inline. >280 pauses;
+  // 271-280 still publishes (index.ts logs a warning). Checked after
+  // empty_media/stale to keep the SQL CASE order for those guards.
+  const composedForLength = post.body ? composeTweetText(post.body, post.hashtags) : "";
+  const tweetLength = tweetTextLength(composedForLength);
+  if (tweetLength > X_MAX_TWEET_LENGTH) {
+    return {
+      kind: "pause",
+      reason: GUARD_REASON_OVER_LENGTH,
+      mutateStatus: true,
+      tweetLength,
+    };
+  }
+
   if (!post.body || post.body.trim().length === 0) {
     return {
       kind: "fail",
@@ -229,8 +318,12 @@ export function classifyPublishCandidate(
     };
   }
 
-  const tweetBody = post.body.length > 280 ? post.body.slice(0, 280) : post.body;
-  return { kind: "publish", tweetBody };
+  return {
+    kind: "publish",
+    tweetBody: composedForLength,
+    tweetLength,
+    ...(tweetLength > X_TARGET_TWEET_LENGTH ? { overTarget: true } : {}),
+  };
 }
 
 /** True when the publisher may write status (fail/pause now, or publish after a tweet). Skip never writes. */
