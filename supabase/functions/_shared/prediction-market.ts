@@ -17,6 +17,7 @@ export interface PredictionGame {
   away_team_id: string | null;
   status: string;
   title?: string | null;
+  scheduled_at?: string | null;
 }
 
 export interface KalshiMarketLike {
@@ -111,9 +112,13 @@ export function extractMatchupTeamNames(marketTitle: string): string[] {
 }
 
 /**
- * Match an event title to a game. Requires both teams to resolve (via
- * matchTeamName, which canonicalizes Ohio St./NOLA/NY etc.) to the two
- * teams of one game, in either orientation. Falls back to a single-team
+ * Match an event title to a game. For each candidate game, both of its
+ * teams must be referenced by a (distinct) title segment — checked against
+ * that game's own teams via matchTeamName, so a same-named team from
+ * another sport/league cannot steal the match. When several games qualify
+ * (e.g. a football and a basketball Ohio State-Indiana), the soonest
+ * scheduled wins: prediction positions are for imminent games, and stale
+ * closed games are excluded by the caller. Falls back to a single-team
  * match only when exactly one game involves that team.
  */
 export function matchMarketTitleToGame(
@@ -123,25 +128,36 @@ export function matchMarketTitleToGame(
 ): string | null {
   if (!marketTitle?.trim()) return null;
   const segments = extractMatchupTeamNames(marketTitle);
-  const matched = new Map<string, PredictionTeam>();
-  for (const seg of segments) {
-    const team = matchTeamName(seg, dbTeams);
-    if (team) matched.set(team.id, team);
-  }
-  const matchedTeams = [...matched.values()];
-  if (matchedTeams.length >= 2) {
-    for (const game of dbGames) {
-      if (!game.home_team_id || !game.away_team_id) continue;
-      const ids = new Set([game.home_team_id, game.away_team_id]);
-      if (matchedTeams.every((t) => ids.has(t.id))) return game.id;
+  if (segments.length === 0) return null;
+  const teamById = new Map(dbTeams.map((t) => [t.id, t]));
+  const segMatchesTeam = (seg: string, team: PredictionTeam) =>
+    matchTeamName(seg, [team])?.id === team.id;
+
+  const bothMatched: PredictionGame[] = [];
+  const singleMatched = new Set<string>();
+  for (const game of dbGames) {
+    if (!game.home_team_id || !game.away_team_id) continue;
+    const home = teamById.get(game.home_team_id);
+    const away = teamById.get(game.away_team_id);
+    if (!home || !away) continue;
+    let homeSeg = -1;
+    let awaySeg = -1;
+    segments.forEach((seg, i) => {
+      if (homeSeg < 0 && segMatchesTeam(seg, home)) homeSeg = i;
+      if (awaySeg < 0 && segMatchesTeam(seg, away)) awaySeg = i;
+    });
+    if (homeSeg >= 0 && awaySeg >= 0 && homeSeg !== awaySeg) {
+      bothMatched.push(game);
+    } else if (homeSeg >= 0 || awaySeg >= 0) {
+      singleMatched.add(game.id);
     }
   }
-  if (matchedTeams.length === 1) {
-    const teamId = matchedTeams[0].id;
-    const candidates = dbGames.filter(
-      (g) => g.home_team_id === teamId || g.away_team_id === teamId,
+  if (bothMatched.length > 0) {
+    bothMatched.sort((a, b) =>
+      (a.scheduled_at ?? "9999").localeCompare(b.scheduled_at ?? "9999")
     );
-    if (candidates.length === 1) return candidates[0].id;
+    return bothMatched[0].id;
   }
+  if (singleMatched.size === 1) return [...singleMatched][0];
   return null;
 }
