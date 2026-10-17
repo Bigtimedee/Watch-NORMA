@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
 import type { Wager } from "../lib/types";
-import { SPORTSBOOK_NAMES } from "../lib/constants";
 
 interface WagerCardProps {
   wager: Wager;
@@ -20,11 +19,6 @@ export function WagerCard({ wager }: WagerCardProps) {
     <View style={s.card} accessibilityLabel={`${wager.description}, ${wager.status}`}>
       <View style={s.topRow}>
         <View style={s.meta}>
-          {wager.sportsbook && (
-            <Text style={s.book}>
-              {SPORTSBOOK_NAMES[wager.sportsbook] ?? wager.sportsbook}
-            </Text>
-          )}
           {wager.wager_type && (
             <Text style={s.type}>
               {wager.wager_type === "over_under"
@@ -69,7 +63,6 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   meta: { flexDirection: "row", alignItems: "center", gap: 8 },
-  book: { color: "#fb923c", fontSize: 12, fontWeight: "700" },
   type: { color: "#64748b", fontSize: 12, fontWeight: "500" },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 9999 },
   statusText: { fontSize: 11, fontWeight: "700" },
