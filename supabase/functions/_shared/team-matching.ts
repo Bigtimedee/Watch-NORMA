@@ -82,6 +82,11 @@ const TEAM_ALIASES: Record<string, string[]> = {
   "San Francisco Giants": ["SF Giants"],
   "St. Louis Cardinals": ["STL Cardinals", "St Louis Cardinals"],
   "Tampa Bay Rays": ["TB Rays"],
+
+  // NFL — variants seen in Kalshi event titles ("NOLA Saints vs NY Giants")
+  "New Orleans Saints": ["NOLA Saints", "NO Saints"],
+  "New York Giants": ["NY Giants"],
+  "New York Jets": ["NY Jets"],
 };
 
 // Build a reverse lookup: lowercased alias -> canonical name.
@@ -137,17 +142,47 @@ export function normalize(name: string): string {
     .replace(/\./g, "");
 }
 
+const TOKEN_EXPANSIONS: Record<string, string> = {
+  nola: "new orleans",
+  ny: "new york",
+  nyc: "new york",
+  univ: "university",
+};
+
+/**
+ * Expand common team-name abbreviations token-by-token so external feeds
+ * that write "Ohio St.", "NY Giants" or "NOLA Saints" canonicalize to the
+ * same form as DB names ("Ohio State", "New York Giants",
+ * "New Orleans Saints"). "St" is positional: leading "St" means Saint
+ * ("St. Louis"), elsewhere it means State ("Ohio St.").
+ */
+export function expandTeamAbbreviations(normalized: string): string {
+  const out: string[] = [];
+  const tokens = normalized.split(" ").filter(Boolean);
+  tokens.forEach((tok, i) => {
+    if (tok === "st") {
+      out.push(i === 0 ? "saint" : "state");
+    } else if (TOKEN_EXPANSIONS[tok]) {
+      out.push(...TOKEN_EXPANSIONS[tok].split(" "));
+    } else {
+      out.push(tok);
+    }
+  });
+  return out.join(" ");
+}
+
 /**
  * Normalize for scored matching: lowercase, strip accents, remove punctuation.
  */
 function normalizeForScoring(s: string): string {
-  return s
+  const base = s
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // strip accents (é → e)
     .replace(/[^a-z0-9\s]/g, " ") // punctuation → space
     .replace(/\s+/g, " ")
     .trim();
+  return expandTeamAbbreviations(base);
 }
 
 /**
@@ -215,18 +250,23 @@ export function matchTeamName(
   dbTeams: Array<{ id: string; name: string; market: string | null; abbreviation: string | null }>
 ): (typeof dbTeams)[number] | null {
   const norm = normalize(externalName).toLowerCase();
+  const canonicalNorm = normalizeForScoring(externalName);
 
-  // Tier 1: Direct exact match on full name, market, or abbreviation
+  // Tier 1: Direct exact match on full name, market, or abbreviation.
+  // Compare canonicalized forms too so "Ohio St." hits market "Ohio State"
+  // and "NY Giants" hits "New York Giants".
   const direct = dbTeams.find(
     (t) =>
       t.name.toLowerCase() === norm ||
       (t.market && t.market.toLowerCase() === norm) ||
-      (t.abbreviation && t.abbreviation.toLowerCase() === norm)
+      (t.abbreviation && t.abbreviation.toLowerCase() === norm) ||
+      normalizeForScoring(t.name) === canonicalNorm ||
+      (t.market ? normalizeForScoring(t.market) === canonicalNorm : false)
   );
   if (direct) return direct;
 
   // Tier 2: Alias resolution → then exact match
-  const canonical = aliasMap.get(norm);
+  const canonical = aliasMap.get(norm) ?? aliasMap.get(canonicalNorm);
   if (canonical) {
     const aliased = dbTeams.find(
       (t) =>
