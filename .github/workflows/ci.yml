@@ -61,6 +61,7 @@ jobs:
           deno check supabase/functions/cmo-publish/index.ts
           deno check supabase/functions/cmo-publish-linkedin/logic.ts
           deno check supabase/functions/cmo-publish-linkedin/linkedin-client.ts
+          deno check supabase/functions/cmo-publish-linkedin/index.ts
           deno check supabase/functions/_shared/social-generate-gate.ts
           deno check supabase/functions/_shared/social-media-select.ts
       - name: Run tests

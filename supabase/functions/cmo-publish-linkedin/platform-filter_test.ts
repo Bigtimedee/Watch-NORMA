@@ -264,7 +264,7 @@ Deno.test("resolveLinkedInOrganizationId: env → social_accounts → NORMA defa
 Deno.test("runLinkedInPublishLoop posts LinkedIn drafts and skips twitter", async () => {
   const published: Array<{ id: string; postId: string }> = [];
   const failed: Array<{ id: string; reason: string }> = [];
-  const publishedInputs: Array<{ commentary: string; imageUrl?: string }> = [];
+  const publishedInputs: Array<{ commentary: string; imageUrl?: string; videoUrl?: string }> = [];
 
   const cycle = await runLinkedInPublishLoop({
     posts: [
@@ -273,7 +273,8 @@ Deno.test("runLinkedInPublishLoop posts LinkedIn drafts and skips twitter", asyn
         platform: "linkedin",
         status: "draft",
         body: "Company page post",
-        media_urls: ["https://cdn.example/shot.png"],
+        // Video-only rule (2026-10-18): publishable fixtures use video, not a static PNG.
+        media_urls: ["https://cdn.example/tour.mp4"],
       }),
       candidate({
         id: "tw-1",
@@ -301,7 +302,8 @@ Deno.test("runLinkedInPublishLoop posts LinkedIn drafts and skips twitter", asyn
   assertEquals(failed, []);
   assertEquals(publishedInputs.length, 1);
   assertEquals(publishedInputs[0].commentary, "Company page post");
-  assertEquals(publishedInputs[0].imageUrl, "https://cdn.example/shot.png");
+  assertEquals(publishedInputs[0].videoUrl, "https://cdn.example/tour.mp4");
+  assertEquals(publishedInputs[0].imageUrl, undefined);
 });
 
 Deno.test("runLinkedInPublishLoop is idempotent when platform_post_id is already set", async () => {

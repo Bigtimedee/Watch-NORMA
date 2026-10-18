@@ -46,10 +46,19 @@ export interface CalendarPublishCandidate {
   media_urls?: string[] | null;
   hashtags?: string[] | null;
   platform_post_id?: string | null;
+  human_notes?: string | null;
 }
 
+/** Status the video-only guard writes. paused is never posted and never auto-failed. */
+export const PAUSED_STATUS = "paused";
+export const GUARD_HOLD_STATUS = PAUSED_STATUS;
+
+export const GUARD_REASON_STATIC_MEDIA = "static_media";
+export type GuardReason = typeof GUARD_REASON_STATIC_MEDIA;
+
 export type PublishDisposition =
-  | { kind: "publish"; commentary: string; imageUrl?: string }
+  | { kind: "publish"; commentary: string; imageUrl?: string; videoUrl?: string }
+  | { kind: "pause"; reason: GuardReason; mutateStatus: true }
   | { kind: "skip"; reason: string; mutateStatus: false }
   | { kind: "fail"; reason: string; mutateStatus: true };
 
@@ -129,6 +138,111 @@ export function firstImageUrl(mediaUrls: string[] | null | undefined): string | 
   return url?.trim();
 }
 
+// ---------------------------------------------------------------------------
+// Video-only rule (Dave, 2026-10-18): NORMA social posts are interactive
+// video / motion graphics ONLY — same rule cmo-publish enforces for X
+// (PR #64). A LinkedIn row whose media contains no video file must never
+// ship as a static image post. Empty media keeps the existing behaviour
+// (text-only LinkedIn post), exactly as before this guard.
+// ---------------------------------------------------------------------------
+
+/** Video extensions the (future) LinkedIn Videos API publisher will upload. */
+export const VIDEO_MEDIA_EXTENSIONS = [".mp4", ".mov", ".m4v"] as const;
+
+/** Static image extensions. A GIF alone is also static for this rule. */
+export const STATIC_MEDIA_EXTENSIONS = [
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+] as const;
+
+/** Lowercase file extension (with dot) from a media URL, ignoring ?query/#frag. */
+export function mediaUrlExtension(url: string): string | null {
+  if (typeof url !== "string") return null;
+  const clean = url.trim().split(/[?#]/, 1)[0].toLowerCase();
+  const slash = clean.lastIndexOf("/");
+  const dot = clean.lastIndexOf(".");
+  if (dot <= slash || dot === clean.length - 1) return null;
+  return clean.slice(dot);
+}
+
+export function isVideoMediaUrl(url: string): boolean {
+  const ext = mediaUrlExtension(url);
+  return ext !== null &&
+    (VIDEO_MEDIA_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+export function isStaticMediaUrl(url: string): boolean {
+  const ext = mediaUrlExtension(url);
+  return ext !== null &&
+    (STATIC_MEDIA_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+export function hasMedia(mediaUrls: string[] | null | undefined): boolean {
+  return Array.isArray(mediaUrls) &&
+    mediaUrls.some((u) => typeof u === "string" && u.trim().length > 0);
+}
+
+/** True when at least one attached medium is a video file. */
+export function hasVideoMedia(mediaUrls: string[] | null | undefined): boolean {
+  return Array.isArray(mediaUrls) &&
+    mediaUrls.some((u) => typeof u === "string" && isVideoMediaUrl(u));
+}
+
+/** First video URL, if any (LinkedIn cannot mix a video with images). */
+export function firstVideoUrl(mediaUrls: string[] | null | undefined): string | undefined {
+  if (!Array.isArray(mediaUrls)) return undefined;
+  const url = mediaUrls.find((u) => typeof u === "string" && isVideoMediaUrl(u));
+  return url?.trim();
+}
+
+/**
+ * Media the publisher should use for a publishable row: the first video
+ * when one is present, otherwise the first non-empty URL.
+ */
+export function selectPublishMediaUrl(
+  mediaUrls: string[] | null | undefined,
+): string | null {
+  if (!Array.isArray(mediaUrls)) return null;
+  const usable = mediaUrls.filter(
+    (u) => typeof u === "string" && u.trim().length > 0,
+  );
+  return usable.find((u) => isVideoMediaUrl(u)) ?? usable[0] ?? null;
+}
+
+/** Visible static_media flag, e.g. 'static_media: video-only rule (2026-10-18)'. */
+export function staticMediaFlag(): string {
+  return "static_media: video-only rule (2026-10-18)";
+}
+
+/** "YYYY-MM-DD HH:MM" in America/Chicago, matching cmo-publish's guard notes. */
+export function formatChicago(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((part) => part.type === t)?.value ?? "??";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+/** human_notes line for a guard hold; mirrors cmo-publish's wording. */
+export function guardHoldNote(reason: GuardReason, now: Date): string {
+  return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish-linkedin: ${staticMediaFlag()} (reason=${reason}). ` +
+    `Replace media with a video (.mp4/.mov/.m4v) and set status=draft to publish.`;
+}
+
+export function appendNote(existing: string | null | undefined, note: string): string {
+  const base = (existing ?? "").trimEnd();
+  return base.length > 0 ? `${base}\n${note}` : note;
+}
+
 /**
  * Body plus any hashtags not already present. Truncates to LinkedIn's limit.
  */
@@ -186,6 +300,13 @@ export function classifyPublishCandidate(
     };
   }
 
+  // Video-only guard (2026-10-18): media attached but no video file ->
+  // pause as static_media, never post the static image. Empty media is
+  // NOT held here; it keeps the existing text-only behaviour below.
+  if (hasMedia(post.media_urls) && !hasVideoMedia(post.media_urls)) {
+    return { kind: "pause", reason: GUARD_REASON_STATIC_MEDIA, mutateStatus: true };
+  }
+
   if (!post.body || post.body.trim().length === 0) {
     return {
       kind: "fail",
@@ -195,8 +316,10 @@ export function classifyPublishCandidate(
   }
 
   const commentary = composeCommentary(post.body, post.hashtags);
-  const imageUrl = firstImageUrl(post.media_urls);
-  return { kind: "publish", commentary, imageUrl };
+  const videoUrl = firstVideoUrl(post.media_urls);
+  // A video row must never be routed into the Images API as an "image".
+  const imageUrl = videoUrl ? undefined : firstImageUrl(post.media_urls);
+  return { kind: "publish", commentary, imageUrl, videoUrl };
 }
 
 /** True when the publisher may write status (fail now, or publish after a post). Skip never writes. */
@@ -208,8 +331,14 @@ export interface PublishResult {
   id: string;
   success: boolean;
   skipped?: boolean;
+  /** Set when the video-only guard held the row as status='paused'. */
+  held_paused?: boolean;
   platform_post_id?: string;
   error?: string;
+  /** Visible guard flag, e.g. 'static_media: video-only rule (2026-10-18)'. */
+  detail?: string;
+  /** Dry run only: what a live run would do with this row. */
+  would?: string;
 }
 
 export interface LinkedInPublishLoopDeps {
@@ -217,10 +346,38 @@ export interface LinkedInPublishLoopDeps {
   publish: (input: {
     commentary: string;
     imageUrl?: string;
+    videoUrl?: string;
   }) => Promise<{ postId: string }>;
   markPublished: (id: string, postId: string) => Promise<void>;
   markFailed: (id: string, reason: string) => Promise<void>;
+  /** Guard hold: status -> 'paused' + human_notes flag. Returns true when written. */
+  markPaused?: (
+    post: CalendarPublishCandidate,
+    reason: GuardReason,
+  ) => Promise<boolean>;
   log?: (message: string) => void;
+}
+
+/**
+ * Dry run options, mirroring cmo-publish: `as_of` is honoured ONLY in
+ * dry runs. A dry run never uploads, posts, or writes status.
+ */
+export interface RunOptions {
+  dryRun: boolean;
+  asOf: Date;
+}
+
+export function parseRunOptions(
+  payload: Record<string, unknown>,
+  now: Date,
+): RunOptions {
+  const dryRun = payload.dry_run === true || payload.dry_run === "true";
+  let asOf = now;
+  if (dryRun && typeof payload.as_of === "string") {
+    const t = Date.parse(payload.as_of);
+    if (!Number.isNaN(t)) asOf = new Date(t);
+  }
+  return { dryRun, asOf };
 }
 
 /**
@@ -252,6 +409,25 @@ export async function runLinkedInPublishLoop(
       continue;
     }
 
+    if (disposition.kind === "pause") {
+      const wrote = deps.markPaused
+        ? await deps.markPaused(post, disposition.reason)
+        : false;
+      log(
+        `Post ${post.id} NOT posted (${staticMediaFlag()}); ` +
+          (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
+      );
+      results.push({
+        id: post.id,
+        success: false,
+        skipped: true,
+        held_paused: wrote,
+        error: disposition.reason,
+        detail: staticMediaFlag(),
+      });
+      continue;
+    }
+
     if (disposition.kind === "fail") {
       log(`Post ${post.id} ${disposition.reason}, marking failed.`);
       await deps.markFailed(post.id, disposition.reason);
@@ -264,6 +440,7 @@ export async function runLinkedInPublishLoop(
       const { postId } = await deps.publish({
         commentary: disposition.commentary,
         imageUrl: disposition.imageUrl,
+        videoUrl: disposition.videoUrl,
       });
       await deps.markPublished(post.id, postId);
       results.push({ id: post.id, success: true, platform_post_id: postId });
