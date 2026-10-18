@@ -266,6 +266,15 @@ Deno.test("index.ts surfaces static_media like the cmo-publish guards (dry-run +
   assert(src.includes("publishOrganizationPost(linkedInConfig, input)"));
 });
 
+Deno.test("index.ts dry run does not require the LinkedIn token (live runs still do)", async () => {
+  const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  assert(
+    src.includes("!linkedInLoaded.ok && !earlyDryRun"),
+    "missing-token 500 must be live-only",
+  );
+  assert(src.includes("DRY RUN without LinkedIn secrets; classifying only"));
+});
+
 Deno.test("linkedin-client.ts documents video as the Videos API register-upload follow-up", async () => {
   const src = await Deno.readTextFile(
     new URL("./linkedin-client.ts", import.meta.url),
