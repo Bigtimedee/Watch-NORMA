@@ -33,6 +33,8 @@ import {
   GUARD_HOLD_STATUS,
   GUARD_REASON_OVER_LENGTH,
   GUARD_REASON_STATIC_MEDIA,
+  GUARD_REASON_MEDIA_UPLOAD_FAILED,
+  mediaUploadFailedFlag,
   staticMediaFlag,
   selectPublishMediaUrl,
   X_MAX_TWEET_LENGTH,
@@ -796,10 +798,27 @@ serve(async (req: Request): Promise<Response> => {
       const firstMedia = selectPublishMediaUrl(post.media_urls);
       const mediaId = firstMedia ? await uploadMediaToTwitter(firstMedia, credentials) : null;
       if (!mediaId) {
-        console.warn(
-          `[cmo-publish] Post ${post.id} held (${HOLD_MEDIA_UPLOAD_FAILED}). Not tweeting text-only; will retry next run.`,
+        // Upload failure (incl. chunked video INIT/APPEND/FINALIZE/STATUS):
+        // pause with a visible flag. Never fall back to text-only, and do
+        // not silently retry every 5 minutes until the stale guard fires.
+        const wrote = await markGuardHold(
+          supabase,
+          post,
+          GUARD_REASON_MEDIA_UPLOAD_FAILED,
+          now,
         );
-        results.push({ id: post.id, success: false, skipped: true, error: HOLD_MEDIA_UPLOAD_FAILED });
+        console.warn(
+          `[cmo-publish] Post ${post.id} NOT posted (${mediaUploadFailedFlag()}); ` +
+            (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
+        );
+        results.push({
+          id: post.id,
+          success: false,
+          skipped: true,
+          held_paused: wrote,
+          error: HOLD_MEDIA_UPLOAD_FAILED,
+          detail: mediaUploadFailedFlag(),
+        });
         continue;
       }
       mediaIds.push(mediaId);

@@ -9,10 +9,16 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 
 import {
   bytesToBase64,
+  MAX_PROCESSING_POLLS,
   planVideoSegments,
   uploadMediaToX,
   X_UPLOAD_URL,
 } from "./x-media.ts";
+import {
+  GUARD_REASON_MEDIA_UPLOAD_FAILED,
+  guardHoldNote,
+  mediaUploadFailedFlag,
+} from "./logic.ts";
 
 const CREDS = {
   consumerKey: "ck",
@@ -199,4 +205,63 @@ Deno.test("dry-run classification of a real small mp4 row: publish (not posted)"
     new Date("2026-10-19T15:00:00.000Z"),
   );
   assertEquals(d.kind, "publish");
+});
+
+Deno.test("mp4 upload: processing timeout returns null after bounded STATUS polls", async () => {
+  let statusCalls = 0;
+  const mockFetch = (async (
+    url: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const urlStr = String(url);
+    if (urlStr.includes("cdn.example.com")) {
+      return new Response(new Uint8Array([1]), {
+        status: 200,
+        headers: { "content-type": "video/mp4" },
+      });
+    }
+    const form = (init?.method === "GET")
+      ? new URLSearchParams(urlStr.split("?")[1] ?? "")
+      : formOf(init);
+    const command = form.get("command");
+    if (command === "INIT") {
+      return new Response(JSON.stringify({ media_id_string: "8" }), { status: 200 });
+    }
+    if (command === "APPEND") return new Response(null, { status: 204 });
+    if (command === "STATUS") statusCalls++;
+    // FINALIZE and every STATUS stay pending forever.
+    return new Response(
+      JSON.stringify({ processing_info: { state: "pending", check_after_secs: 0 } }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+
+  const mediaId = await uploadMediaToX("https://cdn.example.com/x.mp4", CREDS, {
+    fetchImpl: mockFetch,
+    buildAuthHeader: auth,
+    sleep: () => Promise.resolve(),
+    log: () => {},
+  });
+  assertEquals(mediaId, null);
+  assertEquals(statusCalls, MAX_PROCESSING_POLLS);
+});
+
+Deno.test("media_upload_failed pauses with a visible flag (no silent retry, no text-only)", async () => {
+  assertEquals(
+    mediaUploadFailedFlag(),
+    "media_upload_failed: X video upload failed",
+  );
+  const note = guardHoldNote(
+    GUARD_REASON_MEDIA_UPLOAD_FAILED,
+    new Date("2026-10-18T16:05:00Z"),
+  );
+  assert(note.includes("media_upload_failed: X video upload failed"), note);
+  assert(note.includes("reason=media_upload_failed"), note);
+  const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  assert(
+    src.includes("await markGuardHold(\n          supabase,\n          post,\n          GUARD_REASON_MEDIA_UPLOAD_FAILED,") ||
+      src.includes("GUARD_REASON_MEDIA_UPLOAD_FAILED"),
+    "upload failure must pause the row via markGuardHold",
+  );
+  assert(!src.includes("mediaIds.length > 0 ? mediaIds : undefined"), "no text-only fallback");
 });

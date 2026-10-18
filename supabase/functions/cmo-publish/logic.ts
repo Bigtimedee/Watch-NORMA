@@ -91,11 +91,13 @@ export const GUARD_REASON_EMPTY_MEDIA = "empty_media";
 export const GUARD_REASON_STALE = "stale";
 export const GUARD_REASON_OVER_LENGTH = "over_length";
 export const GUARD_REASON_STATIC_MEDIA = "static_media";
+export const GUARD_REASON_MEDIA_UPLOAD_FAILED = "media_upload_failed";
 export type GuardReason =
   | typeof GUARD_REASON_EMPTY_MEDIA
   | typeof GUARD_REASON_STALE
   | typeof GUARD_REASON_OVER_LENGTH
-  | typeof GUARD_REASON_STATIC_MEDIA;
+  | typeof GUARD_REASON_STATIC_MEDIA
+  | typeof GUARD_REASON_MEDIA_UPLOAD_FAILED;
 
 /** X hard limit, Content's target, and t.co length for http(s) URLs. */
 export const X_MAX_TWEET_LENGTH = 280;
@@ -159,8 +161,17 @@ export function overLengthFlag(tweetLength: number): string {
   return `over_length: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})`;
 }
 
-/** Hold reason (skip, no status change; retried next run) when the X media upload fails. */
-export const HOLD_MEDIA_UPLOAD_FAILED = "media_upload_failed";
+/**
+ * Pause reason when the X media upload fails. The row is held as paused
+ * with a visible flag (2026-10-18) instead of silently retrying every
+ * 5 minutes or falling back to a text-only tweet.
+ */
+export const HOLD_MEDIA_UPLOAD_FAILED = GUARD_REASON_MEDIA_UPLOAD_FAILED;
+
+/** Visible media_upload_failed flag. */
+export function mediaUploadFailedFlag(): string {
+  return "media_upload_failed: X video upload failed";
+}
 
 export function hasMedia(mediaUrls: string[] | null | undefined): boolean {
   return Array.isArray(mediaUrls) &&
@@ -270,6 +281,10 @@ export function formatChicago(now: Date): string {
 
 /** human_notes line for a guard hold; mirrors the SQL guard's wording. */
 export function guardHoldNote(reason: GuardReason, now: Date, tweetLength?: number): string {
+  if (reason === GUARD_REASON_MEDIA_UPLOAD_FAILED) {
+    return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${mediaUploadFailedFlag()} (reason=${reason}). ` +
+      `Check or replace the video and set status=draft to retry.`;
+  }
   if (reason === GUARD_REASON_STATIC_MEDIA) {
     return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${staticMediaFlag()} (reason=${reason}). ` +
       `Replace media with a video (.mp4/.mov/.m4v) and set status=draft to publish.`;
