@@ -13,16 +13,31 @@
 // =============================================================================
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  appendNote,
+  classifyPublishCandidate,
   CONTENT_CALENDAR_LINKEDIN_PLATFORM,
   DUE_POSTS_QUERY,
+  GUARD_HOLD_STATUS,
+  GUARD_REASON_STATIC_MEDIA,
+  guardHoldNote,
   LINKEDIN_STATUS_MUTATION_FILTER,
   MAX_POSTS_PER_DAY,
+  parseRunOptions,
   runLinkedInPublishLoop,
+  staticMediaFlag,
   type CalendarPublishCandidate,
+  type GuardReason,
 } from "./logic.ts";
 import { loadLinkedInConfig, publishOrganizationPost } from "./linkedin-client.ts";
+
+// Untyped DB client (no generated types), same pattern as cmo-publish.
+// deno-lint-ignore no-explicit-any
+type Db = SupabaseClient<any, "public", any>;
 
 interface ContentCalendarRow extends CalendarPublishCandidate {
   content_type?: string;
@@ -35,7 +50,7 @@ interface ContentCalendarRow extends CalendarPublishCandidate {
 }
 
 async function countPublishedToday(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   platform: string,
 ): Promise<number> {
   const startOfDayET = new Date();
@@ -59,10 +74,11 @@ async function countPublishedToday(
 }
 
 async function fetchDuePosts(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   limit: number,
+  asOf: Date = new Date(),
 ): Promise<ContentCalendarRow[]> {
-  const now = new Date().toISOString();
+  const now = asOf.toISOString();
 
   const { data, error } = await supabase
     .from(DUE_POSTS_QUERY.table)
@@ -81,7 +97,7 @@ async function fetchDuePosts(
 }
 
 async function markPublished(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   postId: string,
   platformPostId: string,
 ): Promise<void> {
@@ -110,11 +126,42 @@ async function markPublished(
 }
 
 /**
+ * Guard hold (static_media): status -> 'paused' plus a stale-guard line
+ * appended to human_notes, same as cmo-publish. Only from linkedin
+ * draft/scheduled, so a row paused/claimed in the meantime is left alone.
+ * Rows are never deleted. Returns true when the hold was written.
+ */
+async function markGuardHold(
+  supabase: Db,
+  post: ContentCalendarRow,
+  reason: GuardReason,
+  now: Date,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("content_calendar")
+    .update({
+      status: GUARD_HOLD_STATUS,
+      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now)),
+    })
+    .eq("id", post.id)
+    .eq("platform", LINKEDIN_STATUS_MUTATION_FILTER.platform)
+    .in("status", [...LINKEDIN_STATUS_MUTATION_FILTER.statuses])
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[cmo-publish-linkedin] Failed to hold post ${post.id} (${reason}): ${error.message}`);
+    return false;
+  }
+  return !!data;
+}
+
+/**
  * Best-effort org id from social_accounts. Never reads access_token —
  * LINKEDIN_ACCESS_TOKEN remains the only token source.
  */
 async function lookupLinkedInSocialAccountId(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
 ): Promise<string | undefined> {
   const { data, error } = await supabase
     .from("social_accounts")
@@ -133,7 +180,7 @@ async function lookupLinkedInSocialAccountId(
 }
 
 async function markFailed(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   postId: string,
   reason: string,
 ): Promise<void> {
@@ -223,8 +270,10 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const now = new Date();
+  const { dryRun, asOf } = parseRunOptions(requestPayload, now);
   console.log(
-    `[cmo-publish-linkedin] Run started at ${now.toISOString()}, source=${requestPayload.source ?? "direct"}`,
+    `[cmo-publish-linkedin] Run started at ${now.toISOString()}, source=${requestPayload.source ?? "direct"}` +
+      (dryRun ? `, DRY RUN as_of=${asOf.toISOString()}` : ""),
   );
 
   const linkedInConfig = linkedInLoaded.config;
@@ -258,7 +307,7 @@ serve(async (req: Request): Promise<Response> => {
 
   let duePosts: ContentCalendarRow[];
   try {
-    duePosts = await fetchDuePosts(supabase, remainingSlots);
+    duePosts = await fetchDuePosts(supabase, remainingSlots, asOf);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cmo-publish-linkedin] Failed to fetch due posts: ${message}`);
@@ -271,23 +320,63 @@ serve(async (req: Request): Promise<Response> => {
   if (duePosts.length === 0) {
     console.log("[cmo-publish-linkedin] No LinkedIn posts due for publishing.");
     return new Response(
-      JSON.stringify({ success: true, published: 0, message: "No posts due" }),
+      JSON.stringify({
+        success: true,
+        published: 0,
+        message: "No posts due",
+        dry_run: dryRun,
+        as_of: asOf.toISOString(),
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   }
 
   console.log(`[cmo-publish-linkedin] Found ${duePosts.length} LinkedIn post(s) due.`);
 
+  // Dry run: classify only. Never uploads media, posts, or writes status.
+  // static_media is surfaced exactly like the live guard hold below.
+  if (dryRun) {
+    const results = duePosts.map((post) => {
+      const disposition = classifyPublishCandidate(post);
+      if (disposition.kind === "pause" && disposition.reason === GUARD_REASON_STATIC_MEDIA) {
+        console.warn(
+          `[cmo-publish-linkedin] Post ${post.id} NOT posted (dry run): ${staticMediaFlag()}; would hold as status='paused'.`,
+        );
+      }
+      return {
+        id: post.id,
+        success: false,
+        skipped: true,
+        would: disposition.kind === "publish" ? "publish" : `${disposition.kind}:${disposition.reason}`,
+        ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_STATIC_MEDIA
+          ? { detail: staticMediaFlag() }
+          : {}),
+      };
+    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        dry_run: true,
+        as_of: asOf.toISOString(),
+        due: results.length,
+        results,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const cycle = await runLinkedInPublishLoop({
     posts: duePosts,
     publish: (input) => publishOrganizationPost(linkedInConfig, input),
     markPublished: (id, platformPostId) => markPublished(supabase, id, platformPostId),
     markFailed: (id, reason) => markFailed(supabase, id, reason),
+    markPaused: (post, reason) => markGuardHold(supabase, post as ContentCalendarRow, reason, now),
     log: (message) => console.log(`[cmo-publish-linkedin] ${message}`),
   });
 
+  const pausedCount = cycle.results.filter((r) => r.held_paused).length;
   console.log(
-    `[cmo-publish-linkedin] Run complete. Published: ${cycle.published}, Failed: ${cycle.failed}, Skipped: ${cycle.skipped}`,
+    `[cmo-publish-linkedin] Run complete. Published: ${cycle.published}, Failed: ${cycle.failed}, Skipped: ${cycle.skipped}, Paused: ${pausedCount}`,
   );
 
   return new Response(
@@ -296,6 +385,7 @@ serve(async (req: Request): Promise<Response> => {
       published: cycle.published,
       failed: cycle.failed,
       skipped: cycle.skipped,
+      paused: pausedCount,
       total_today: publishedTodayCount + cycle.published,
       results: cycle.results,
     }),

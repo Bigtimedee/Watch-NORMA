@@ -12,6 +12,16 @@
 //   POST https://api.linkedin.com/rest/posts
 //   POST https://api.linkedin.com/rest/images?action=initializeUpload
 // Required product/scope: Community Management API, w_organization_social
+//
+// Video (follow-up, NOT implemented here): native LinkedIn video is NOT the
+// Images flow above. It is the separate Videos API register-upload flow —
+// POST /rest/videos?action=initializeUpload {owner, fileSizeBytes} ->
+// PUT each uploadInstructions byte-range (collecting ETags) ->
+// POST /rest/videos?action=finalizeUpload {video, uploadToken,
+// uploadedPartIds} -> poll GET /rest/videos/{videoUrn} until
+// status=AVAILABLE -> POST /rest/posts with content.media.id =
+// urn:li:video:… . Until that lands, a video row must never degrade to a
+// text-only post: publishOrganizationPost refuses videoUrl loudly.
 // =============================================================================
 
 import {
@@ -315,15 +325,24 @@ async function createPost(
   return { postId: response.ok ? restliId(response, bodyText) : "", status: response.status, bodyText };
 }
 
+export const LINKEDIN_VIDEO_UPLOAD_UNSUPPORTED =
+  "LinkedIn video upload not yet supported (Videos API initializeUpload/finalizeUpload follow-up); refusing to post text-only";
+
 /**
  * Publish a text (and optional image) post as the NORMA company page.
  * Image failures degrade to text-only, matching cmo-publish's Twitter media path.
+ * Video does NOT degrade: a videoUrl throws before any LinkedIn call, so a
+ * video-only row can never ship without its video while native video
+ * upload remains the follow-up described in the header.
  */
 export async function publishOrganizationPost(
   config: LinkedInConfig,
-  input: { commentary: string; imageUrl?: string },
+  input: { commentary: string; imageUrl?: string; videoUrl?: string },
   fetchImpl: FetchLike = fetch,
 ): Promise<{ postId: string }> {
+  if (input.videoUrl) {
+    throw new Error(LINKEDIN_VIDEO_UPLOAD_UNSUPPORTED);
+  }
   const working: LinkedInConfig = { ...config };
 
   let imageUrn: string | undefined;
