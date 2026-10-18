@@ -14,6 +14,7 @@ import { useConnections } from "../hooks/useConnections";
 import { SPORTSBOOK_NAMES } from "../lib/constants";
 import { PICKEM_PROVIDER_KEYS } from "../lib/fantasy-platforms";
 import type { WagerType, Game } from "../lib/types";
+import { sportForGame } from "../lib/wager-sport";
 import type { WagerTarget } from "../lib/wager-target-parser";
 
 interface AddWagerSheetProps {
@@ -129,6 +130,7 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
             line: l.line ? parseFloat(l.line) : undefined,
             odds: l.odds || undefined,
           })),
+          sport: sportForGame(game) ?? undefined,
           source: "manual",
         });
         onClose();
@@ -167,6 +169,7 @@ export function AddWagerSheet({ game, onClose }: AddWagerSheetProps) {
         odds: odds || undefined,
         market_type: marketType,
         stake: stake ? parseFloat(stake) : undefined,
+        sport: sportForGame(game) ?? undefined,
         source: "manual",
         parsed_target,
       });

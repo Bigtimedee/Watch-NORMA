@@ -3,6 +3,7 @@
 import { parseWagerTarget } from "../_shared/wager-target-parser.ts";
 import type { WagerTarget } from "../_shared/wager-target-parser.ts";
 import { computeProximity } from "../_shared/outcome-proximity.ts";
+import { expandTeamAbbreviations } from "../_shared/team-matching.ts";
 import type { ProximityResult } from "../_shared/outcome-proximity.ts";
 
 export type { WagerTarget, ProximityResult };
@@ -102,6 +103,98 @@ export interface AlertCandidate {
   title: string;
   body: string;
   why: string;
+}
+
+// --- Human-readable position copy ---
+// Position alerts must never render raw enums: prod alerts 116/123/124
+// shipped as title "kalshi \u2014 yes" (platform + position_side verbatim).
+// Titles/bodies are built from the game matchup and the team the position
+// effectively backs, with the platform humanized ("Kalshi"/"Polymarket").
+
+export function humanizePlatform(platform: string | null | undefined): string {
+  const raw = (platform ?? "").trim().toLowerCase();
+  if (raw === "kalshi") return "Kalshi";
+  if (raw === "polymarket") return "Polymarket";
+  if (!raw) return "Prediction";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function normTeamText(value: string): string {
+  return expandTeamAbbreviations(
+    value.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim(),
+  );
+}
+
+function teamTokenMatches(token: string, name: string, abbrev: string): boolean {
+  const t = normTeamText(token);
+  const n = normTeamText(name);
+  const a = normTeamText(abbrev);
+  if (n && (t.includes(n) || n.includes(t))) return true;
+  if (a && (t === a || t.split(" ").includes(a))) return true;
+  return false;
+}
+
+/** "Ohio State Buckeyes at Indiana Hoosiers" from the game, else fallback. */
+export function positionMatchupLabel(
+  game: GameState,
+  fallback?: string,
+): string {
+  const away = game.away_team?.name ?? game.away_team?.abbreviation;
+  const home = game.home_team?.name ?? game.home_team?.abbreviation;
+  if (away && home) return `${away} at ${home}`;
+  return fallback ?? "Your game";
+}
+
+/** Full name of the team this position effectively backs, or null. */
+export function positionRootingTeam(
+  position: UserPosition,
+  game: GameState,
+): string | null {
+  const favored = inferFavoredTeamSide(position.market_title, game);
+  if (!favored) return null;
+  const isYes = position.position_side?.toLowerCase() === "yes";
+  const rootingSide = isYes ? favored : (favored === "home" ? "away" : "home");
+  const team = rootingSide === "home" ? game.home_team : game.away_team;
+  return team?.name ?? team?.abbreviation ?? null;
+}
+
+function positionSubject(position: UserPosition, game: GameState): string {
+  const rooting = positionRootingTeam(position, game);
+  if (rooting) return `${rooting} to win`;
+  return positionMatchupLabel(game, position.market_title);
+}
+
+/**
+ * Human-readable position alert title, e.g.
+ * "New York Giants to win \u2014 your Polymarket position" or
+ * "Ohio State Buckeyes at Indiana Hoosiers \u2014 your Kalshi position".
+ * With a suffix: "<subject> \u2014 <suffix>".
+ */
+export function positionAlertTitle(
+  position: UserPosition,
+  game: GameState,
+  suffix?: string,
+): string {
+  const subject = positionSubject(position, game);
+  if (suffix) return `${subject} \u2014 ${suffix}`;
+  return `${subject} \u2014 your ${humanizePlatform(position.platform)} position`;
+}
+
+/** "Your Kalshi position on Ohio State to win" (never raw platform/side). */
+export function yourPositionPhrase(
+  position: UserPosition,
+  game: GameState,
+): string {
+  const rooting = positionRootingTeam(position, game);
+  const on = rooting ? `${rooting} to win` : `"${position.market_title}"`;
+  return `Your ${humanizePlatform(position.platform)} position on ${on}`;
+}
+
+/** "Your Kalshi position on \"<market>\"" — for resolved-outcome copy. */
+export function yourPositionOnMarketPhrase(
+  position: UserPosition,
+): string {
+  return `Your ${humanizePlatform(position.platform)} position on "${position.market_title}"`;
 }
 
 export function parseClockMinutes(clock: string | null): number | null {
@@ -447,17 +540,17 @@ export function evaluatePosition(
       if (proximity.level === "RESOLVED") {
         return {
           alertType: "position_alert",
-          title: `${position.platform} — Position Resolved`,
+          title: positionAlertTitle(position, game, "Position Resolved"),
           body: proximity.description,
-          why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" has resolved. ${proximity.description}`,
+          why: `${yourPositionPhrase(position, game)} has resolved. ${proximity.description}`,
         };
       }
 
       return {
         alertType: "position_alert",
-        title: `${position.platform} — Near Resolution`,
+        title: positionAlertTitle(position, game, "Near Resolution"),
         body: proximity.description,
-        why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" is close to resolving. ${proximity.description}${game.clock ? ` ${game.clock} remaining.` : ""} Tune in now.`,
+        why: `${yourPositionPhrase(position, game)} is close to resolving. ${proximity.description}${game.clock ? ` ${game.clock} remaining.` : ""} Tune in now.`,
       };
     }
 
@@ -470,8 +563,8 @@ export function evaluatePosition(
     return {
       alertType: "position_alert",
       title: `Halftime — ${margin}-Point Game`,
-      body: `Your ${position.platform} position on "${position.market_title}"`,
-      why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" — ${margin}-point game at halftime (${game.home_score}-${game.away_score}). Tune in for the 2nd half.`,
+      body: yourPositionPhrase(position, game),
+      why: `${yourPositionPhrase(position, game)} — ${margin}-point game at halftime (${game.home_score}-${game.away_score}). Tune in for the 2nd half.`,
     };
   }
 
@@ -487,9 +580,9 @@ export function evaluatePosition(
 
   return {
     alertType: "position_alert",
-    title: `${position.platform} — ${position.position_side}`,
+    title: positionAlertTitle(position, game),
     body: `"${position.market_title}" — ${margin}-point game`,
-    why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" — game within ${margin} in the ${periodLabel} with ${game.clock} left. Tune in now.`,
+    why: `${yourPositionPhrase(position, game)} — game within ${margin} in the ${periodLabel} with ${game.clock} left. Tune in now.`,
   };
 }
 
@@ -576,7 +669,7 @@ export function evaluateResolveRisk(
     alertType: "resolve_risk",
     title: `Position at Risk — ${userRootingFor} trails by ${margin}`,
     body: `"${position.market_title}" — ${clockStr} left in ${periodLabel}`,
-    why: `Your ${position.platform} position on "${position.market_title}" is at risk — ${trailingTeam} trails by ${margin} with ${clockStr} left in the ${periodLabel}. Tune in now.`,
+    why: `${yourPositionPhrase(position, game)} is at risk — ${trailingTeam} trails by ${margin} with ${clockStr} left in the ${periodLabel}. Tune in now.`,
   };
 }
 
@@ -606,14 +699,8 @@ function inferFavoredTeamSide(
   const willMatch = titleLower.match(/^will\s+(.+?)\s+(win|cover)/);
   if (willMatch) {
     const teamToken = willMatch[1].trim();
-    if (
-      (homeName && teamToken.includes(homeName)) ||
-      (homeAbbrev && teamToken.includes(homeAbbrev))
-    ) return "home";
-    if (
-      (awayName && teamToken.includes(awayName)) ||
-      (awayAbbrev && teamToken.includes(awayAbbrev))
-    ) return "away";
+    if (teamTokenMatches(teamToken, homeName, homeAbbrev)) return "home";
+    if (teamTokenMatches(teamToken, awayName, awayAbbrev)) return "away";
     return null; // Team not matched — could be a player or other entity
   }
 
@@ -622,24 +709,12 @@ function inferFavoredTeamSide(
   const matchupMatch = titleLower.match(/^(.+?)\s+(?:vs?\.?|at)\s+(.+?)(?:\s+winner)?$/);
   if (matchupMatch) {
     const firstTeam = matchupMatch[1].trim();
-    if (
-      (homeName && firstTeam.includes(homeName)) ||
-      (homeAbbrev && firstTeam.includes(homeAbbrev))
-    ) return "home";
-    if (
-      (awayName && firstTeam.includes(awayName)) ||
-      (awayAbbrev && firstTeam.includes(awayAbbrev))
-    ) return "away";
+    if (teamTokenMatches(firstTeam, homeName, homeAbbrev)) return "home";
+    if (teamTokenMatches(firstTeam, awayName, awayAbbrev)) return "away";
     // First token not matched — try second token as the favored team
     const secondTeam = matchupMatch[2].replace(/\s+winner$/, "").trim();
-    if (
-      (homeName && secondTeam.includes(homeName)) ||
-      (homeAbbrev && secondTeam.includes(homeAbbrev))
-    ) return "home";
-    if (
-      (awayName && secondTeam.includes(awayName)) ||
-      (awayAbbrev && secondTeam.includes(awayAbbrev))
-    ) return "away";
+    if (teamTokenMatches(secondTeam, homeName, homeAbbrev)) return "home";
+    if (teamTokenMatches(secondTeam, awayName, awayAbbrev)) return "away";
     return null;
   }
 
@@ -684,9 +759,9 @@ export function evaluatePredictionResolved(
 
     return {
       alertType: "prediction_resolved",
-      title: `${position.platform} — You ${won ? "Won" : "Lost"}`,
+      title: positionAlertTitle(position, game, `You ${won ? "Won" : "Lost"}`),
       body: `${scoreStr}.${payoutClause}`,
-      why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" ${resultWord}.${payoutClause} Final: ${scoreStr}.`,
+      why: `${yourPositionOnMarketPhrase(position)} ${resultWord}.${payoutClause} Final: ${scoreStr}.`,
     };
   }
 
@@ -703,9 +778,9 @@ export function evaluatePredictionResolved(
 
   return {
     alertType: "prediction_resolved",
-    title: `${position.platform} — Prediction Resolved`,
+    title: positionAlertTitle(position, game, "Prediction Resolved"),
     body: `${scoreStr} — ${winner} wins.${outcomeDetail}`,
-    why: `Your ${position.platform} ${position.position_side} position on "${position.market_title}" has resolved. ${winner} wins ${scoreStr}.${outcomeDetail}`,
+    why: `${yourPositionOnMarketPhrase(position)} has resolved. ${winner} wins ${scoreStr}.${outcomeDetail}`,
   };
 }
 

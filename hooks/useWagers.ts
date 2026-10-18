@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import type { Wager, WagerType } from "../lib/types";
+import type { Wager, WagerType, SportKey } from "../lib/types";
+import { resolveWagerSport } from "../lib/wager-sport";
 import { parseWagerTarget } from "../lib/wager-target-parser";
 import type { WagerTarget } from "../lib/wager-target-parser";
 
@@ -57,6 +58,11 @@ export function useAddWager() {
       potential_payout?: number;
       legs?: Array<{ game_id: string; team_id?: string; market_type: string; line?: number; odds?: string; description: string }>;
       source?: string;
+      // Sport of the game this wager belongs to. When omitted it is
+      // derived from game_id (espn-<sport>-<eventId>) — never rely on
+      // the wagers.sport DB default ('ncaam'), which mis-tagged NCAAF
+      // wagers as ncaam.
+      sport?: SportKey;
       // v3: pre-parsed target (from structured fields in AddWagerSheet)
       parsed_target?: WagerTarget | null;
     }) => {
@@ -70,11 +76,13 @@ export function useAddWager() {
         ? wager.parsed_target
         : parseWagerTarget(wager.description);
 
-      const { parsed_target: _omit, ...wagerFields } = wager;
+      const { parsed_target: _omit, sport: _sport, ...wagerFields } = wager;
+      const sport = resolveWagerSport({ sport: _sport, game_id: wager.game_id });
 
       const { error } = await supabase.from("wagers").insert({
         user_id: user.id,
         ...wagerFields,
+        ...(sport ? { sport } : {}),
         parsed_target,
         status: "active",
       });
