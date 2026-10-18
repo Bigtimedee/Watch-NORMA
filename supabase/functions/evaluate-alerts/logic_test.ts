@@ -13,7 +13,10 @@ import {
   parseMLBClock,
   evaluateProp,
   evaluatePosition,
+  evaluatePredictionResolved,
   evaluateResolved,
+  humanizePlatform,
+  positionAlertTitle,
   evaluateFootballSpread,
   evaluateFootballTotal,
   evaluateFootballMoneyline,
@@ -798,4 +801,94 @@ Deno.test("evaluateFootballUpsetWatch: fires in OT when ranked team trails by �
   const result = evaluateFootballUpsetWatch(game, 1, null);
   assertNotEquals(result, null);
   assertEquals(result!.alertType, "football_upset_watch");
+});
+
+// ─── Position alert copy: never raw platform/side enums (alerts 116/123/124) ───
+
+Deno.test("humanizePlatform: kalshi/polymarket capitalized, no raw enum", () => {
+  assertEquals(humanizePlatform("kalshi"), "Kalshi");
+  assertEquals(humanizePlatform("polymarket"), "Polymarket");
+  assertEquals(humanizePlatform("KALSHI"), "Kalshi");
+  assertEquals(humanizePlatform(""), "Prediction");
+});
+
+Deno.test("evaluatePosition: Kalshi 'Ohio St. vs Indiana' title is human-readable (alert 116 regression)", () => {
+  const game = makeGameState({
+    id: "espn-ncaaf-401858488",
+    home_team_id: "espn-ncaaf-iu",
+    away_team_id: "espn-ncaaf-osu",
+    home_team: { name: "Indiana Hoosiers", abbreviation: "IU" },
+    away_team: { name: "Ohio State Buckeyes", abbreviation: "OSU" },
+    home_score: 24,
+    away_score: 20,
+    period: 2,
+    clock: "5:00",
+  });
+  const position = makePosition({
+    platform: "kalshi",
+    market_title: "Ohio St. vs Indiana",
+    position_side: "yes",
+  });
+  const result = evaluatePosition(game, position, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.title, "Ohio State Buckeyes to win — your Kalshi position");
+  assertEquals(result!.title.includes("kalshi — yes"), false);
+  assertEquals(result!.why.includes("kalshi yes"), false);
+  assertEquals(result!.why.includes("Your Kalshi position on Ohio State Buckeyes to win"), true);
+});
+
+Deno.test("evaluatePosition: Polymarket 'no' side backs the other team (Giants example)", () => {
+  const game = makeGameState({
+    id: "espn-nfl-401873000",
+    home_team_id: "espn-nfl-nyg",
+    away_team_id: "espn-nfl-no",
+    home_team: { name: "New York Giants", abbreviation: "NYG" },
+    away_team: { name: "New Orleans Saints", abbreviation: "NO" },
+    home_score: 17,
+    away_score: 10,
+    period: 2,
+    clock: "5:00",
+  });
+  const position = makePosition({
+    platform: "polymarket",
+    market_title: "NOLA Saints vs NY Giants",
+    position_side: "no",
+  });
+  const result = evaluatePosition(game, position, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.title, "New York Giants to win — your Polymarket position");
+  assertEquals(result!.title.toLowerCase().includes("polymarket — no"), false);
+});
+
+Deno.test("positionAlertTitle: falls back to matchup when team side cannot be inferred", () => {
+  const game = makeGameState();
+  const position = makePosition({
+    platform: "kalshi",
+    market_title: "Some Unparseable Market",
+    position_side: "yes",
+  });
+  const title = positionAlertTitle(position, game);
+  assertEquals(title, "North Carolina Tar Heels at Duke Blue Devils — your Kalshi position");
+});
+
+Deno.test("evaluatePredictionResolved: settled title/why contain no raw enums", () => {
+  const game = makeGameState({
+    status: "closed",
+    home_team: { name: "Indiana Hoosiers", abbreviation: "IU" },
+    away_team: { name: "Ohio State Buckeyes", abbreviation: "OSU" },
+    home_score: 24,
+    away_score: 27,
+  });
+  const position = makePosition({
+    platform: "kalshi",
+    market_title: "Ohio St. vs Indiana",
+    position_side: "yes",
+    outcome: "yes",
+    payout_amount: 12,
+  });
+  const result = evaluatePredictionResolved(game, position, null);
+  assertNotEquals(result, null);
+  assertEquals(result!.title, "Ohio State Buckeyes to win — You Won");
+  assertEquals(result!.why.includes("kalshi yes"), false);
+  assertEquals(result!.why.includes('Your Kalshi position on "Ohio St. vs Indiana" won'), true);
 });
