@@ -230,6 +230,21 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+
+  // Parse the payload before LinkedIn config: a dry run only classifies
+  // due rows (never uploads/posts), so it must not require the LinkedIn
+  // token. Live runs still fail fast on a missing token below.
+  let earlyPayload: Record<string, unknown> = {};
+  try {
+    const bodyText = await req.text();
+    if (bodyText.trim()) {
+      earlyPayload = JSON.parse(bodyText);
+    }
+  } catch {
+    // Ignore
+  }
+  const { dryRun: earlyDryRun } = parseRunOptions(earlyPayload, new Date());
+
   const envOrgId = Deno.env.get("LINKEDIN_ORGANIZATION_ID");
   const socialAccountId = envOrgId?.trim()
     ? undefined
@@ -247,7 +262,7 @@ serve(async (req: Request): Promise<Response> => {
     { socialAccountId },
   );
 
-  if (!linkedInLoaded.ok) {
+  if (!linkedInLoaded.ok && !earlyDryRun) {
     const missing = linkedInLoaded.missing.join(", ");
     console.error(`[cmo-publish-linkedin] Missing LinkedIn secrets: ${missing}`);
     return new Response(
@@ -258,16 +273,13 @@ serve(async (req: Request): Promise<Response> => {
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
-
-  let requestPayload: Record<string, unknown> = {};
-  try {
-    const bodyText = await req.text();
-    if (bodyText.trim()) {
-      requestPayload = JSON.parse(bodyText);
-    }
-  } catch {
-    // Ignore
+  if (!linkedInLoaded.ok) {
+    console.warn(
+      "[cmo-publish-linkedin] DRY RUN without LinkedIn secrets; classifying only, nothing will post.",
+    );
   }
+
+  const requestPayload: Record<string, unknown> = earlyPayload;
 
   const now = new Date();
   const { dryRun, asOf } = parseRunOptions(requestPayload, now);
@@ -276,10 +288,12 @@ serve(async (req: Request): Promise<Response> => {
       (dryRun ? `, DRY RUN as_of=${asOf.toISOString()}` : ""),
   );
 
-  const linkedInConfig = linkedInLoaded.config;
-  console.log(
-    `[cmo-publish-linkedin] Organization ${linkedInConfig.organizationUrn} (source=${linkedInConfig.organizationIdSource})`,
-  );
+  const linkedInConfig = linkedInLoaded.ok ? linkedInLoaded.config : undefined;
+  if (linkedInConfig) {
+    console.log(
+      `[cmo-publish-linkedin] Organization ${linkedInConfig.organizationUrn} (source=${linkedInConfig.organizationIdSource})`,
+    );
+  }
 
   const publishedTodayCount = await countPublishedToday(
     supabase,
@@ -367,7 +381,10 @@ serve(async (req: Request): Promise<Response> => {
 
   const cycle = await runLinkedInPublishLoop({
     posts: duePosts,
-    publish: (input) => publishOrganizationPost(linkedInConfig, input),
+    publish: (input) =>
+      linkedInConfig
+        ? publishOrganizationPost(linkedInConfig, input)
+        : Promise.reject(new Error("LinkedIn config unavailable in dry run")),
     markPublished: (id, platformPostId) => markPublished(supabase, id, platformPostId),
     markFailed: (id, reason) => markFailed(supabase, id, reason),
     markPaused: (post, reason) => markGuardHold(supabase, post as ContentCalendarRow, reason, now),
