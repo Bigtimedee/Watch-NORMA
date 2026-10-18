@@ -29,6 +29,7 @@ const SLOT = "2026-10-03T16:00:00.000Z"; // Sat 11:00 CT
 const at = (offsetMs: number) => new Date(Date.parse(SLOT) + offsetMs);
 const MIN = 60 * 1000;
 const PNG = ["https://cdn.example.com/norma-x-20261003-slate-cfb.png"];
+const VIDEO = ["https://cdn.example.com/norma-vid-20261003-tour.mp4"];
 
 function row(overrides: Partial<CalendarPublishCandidate> = {}): CalendarPublishCandidate {
   return {
@@ -37,7 +38,7 @@ function row(overrides: Partial<CalendarPublishCandidate> = {}): CalendarPublish
     status: "draft",
     body: "CFB slate is live. Tune in.",
     scheduled_for: SLOT,
-    media_urls: PNG,
+    media_urls: VIDEO,
     ...overrides,
   };
 }

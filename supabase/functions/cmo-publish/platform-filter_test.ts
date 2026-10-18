@@ -42,7 +42,7 @@ function candidate(
       : new Date().toISOString(),
     media_urls: "media_urls" in overrides
       ? overrides.media_urls
-      : ["https://cdn.example.com/norma-x-slate.png"],
+      : ["https://cdn.example.com/norma-vid-tour.mp4"],
   };
 }
 

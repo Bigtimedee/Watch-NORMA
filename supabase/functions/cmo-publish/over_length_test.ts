@@ -27,7 +27,7 @@ import {
 
 const SLOT = "2026-10-17T16:00:00.000Z"; // Sat 11:00 CT
 const NOW = new Date(SLOT);
-const PNG = ["https://cdn.example.com/norma-x-20261017-slate-cfb.png"];
+const VIDEO = ["https://cdn.example.com/norma-vid-20261017-tour.mp4"];
 
 function row(
   overrides: Partial<CalendarPublishCandidate> = {},
@@ -38,7 +38,7 @@ function row(
     status: "draft",
     body: "CFB slate is live.",
     scheduled_for: SLOT,
-    media_urls: PNG,
+    media_urls: VIDEO,
     hashtags: [],
     ...overrides,
   };
