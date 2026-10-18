@@ -90,10 +90,14 @@ export const PUBLISHING_STATUS = "publishing";
 export const GUARD_REASON_EMPTY_MEDIA = "empty_media";
 export const GUARD_REASON_STALE = "stale";
 export const GUARD_REASON_OVER_LENGTH = "over_length";
+export const GUARD_REASON_STATIC_MEDIA = "static_media";
+export const GUARD_REASON_MEDIA_UPLOAD_FAILED = "media_upload_failed";
 export type GuardReason =
   | typeof GUARD_REASON_EMPTY_MEDIA
   | typeof GUARD_REASON_STALE
-  | typeof GUARD_REASON_OVER_LENGTH;
+  | typeof GUARD_REASON_OVER_LENGTH
+  | typeof GUARD_REASON_STATIC_MEDIA
+  | typeof GUARD_REASON_MEDIA_UPLOAD_FAILED;
 
 /** X hard limit, Content's target, and t.co length for http(s) URLs. */
 export const X_MAX_TWEET_LENGTH = 280;
@@ -157,12 +161,88 @@ export function overLengthFlag(tweetLength: number): string {
   return `over_length: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})`;
 }
 
-/** Hold reason (skip, no status change; retried next run) when the X media upload fails. */
-export const HOLD_MEDIA_UPLOAD_FAILED = "media_upload_failed";
+/**
+ * Pause reason when the X media upload fails. The row is held as paused
+ * with a visible flag (2026-10-18) instead of silently retrying every
+ * 5 minutes or falling back to a text-only tweet.
+ */
+export const HOLD_MEDIA_UPLOAD_FAILED = GUARD_REASON_MEDIA_UPLOAD_FAILED;
+
+/** Visible media_upload_failed flag. */
+export function mediaUploadFailedFlag(): string {
+  return "media_upload_failed: X video upload failed";
+}
 
 export function hasMedia(mediaUrls: string[] | null | undefined): boolean {
   return Array.isArray(mediaUrls) &&
     mediaUrls.some((u) => typeof u === "string" && u.trim().length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Video-only rule (Dave, 2026-10-18): NORMA social posts are interactive
+// video / motion graphics ONLY. A row whose media contains no video file
+// must never ship — static screenshot posts were still being published by
+// the old image path (e.g. ffb62eb5 NFL W6 slate PNG, due 2026-10-18 11:00 CT).
+// ---------------------------------------------------------------------------
+
+/** Video extensions the X publisher can upload (chunked, tweet_video). */
+export const VIDEO_MEDIA_EXTENSIONS = [".mp4", ".mov", ".m4v"] as const;
+
+/** Static image extensions. A GIF alone is also static for this rule. */
+export const STATIC_MEDIA_EXTENSIONS = [
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+] as const;
+
+/** Lowercase file extension (with dot) from a media URL, ignoring ?query/#frag. */
+export function mediaUrlExtension(url: string): string | null {
+  if (typeof url !== "string") return null;
+  const clean = url.trim().split(/[?#]/, 1)[0].toLowerCase();
+  const slash = clean.lastIndexOf("/");
+  const dot = clean.lastIndexOf(".");
+  if (dot <= slash || dot === clean.length - 1) return null;
+  return clean.slice(dot);
+}
+
+export function isVideoMediaUrl(url: string): boolean {
+  const ext = mediaUrlExtension(url);
+  return ext !== null &&
+    (VIDEO_MEDIA_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+export function isStaticMediaUrl(url: string): boolean {
+  const ext = mediaUrlExtension(url);
+  return ext !== null &&
+    (STATIC_MEDIA_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+/** True when at least one attached medium is a video file. */
+export function hasVideoMedia(mediaUrls: string[] | null | undefined): boolean {
+  return Array.isArray(mediaUrls) &&
+    mediaUrls.some((u) => typeof u === "string" && isVideoMediaUrl(u));
+}
+
+/**
+ * Media the publisher should upload for a publishable row: the first video
+ * when one is present (X cannot mix a video with images in one tweet),
+ * otherwise the first non-empty URL.
+ */
+export function selectPublishMediaUrl(
+  mediaUrls: string[] | null | undefined,
+): string | null {
+  if (!Array.isArray(mediaUrls)) return null;
+  const usable = mediaUrls.filter(
+    (u) => typeof u === "string" && u.trim().length > 0,
+  );
+  return usable.find((u) => isVideoMediaUrl(u)) ?? usable[0] ?? null;
+}
+
+/** Visible static_media flag, e.g. 'static_media: video-only rule (2026-10-18)'. */
+export function staticMediaFlag(): string {
+  return "static_media: video-only rule (2026-10-18)";
 }
 
 /** Milliseconds scheduled_for is in the past (negative if in the future, null if unparseable). */
@@ -201,6 +281,14 @@ export function formatChicago(now: Date): string {
 
 /** human_notes line for a guard hold; mirrors the SQL guard's wording. */
 export function guardHoldNote(reason: GuardReason, now: Date, tweetLength?: number): string {
+  if (reason === GUARD_REASON_MEDIA_UPLOAD_FAILED) {
+    return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${mediaUploadFailedFlag()} (reason=${reason}). ` +
+      `Check or replace the video and set status=draft to retry.`;
+  }
+  if (reason === GUARD_REASON_STATIC_MEDIA) {
+    return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${staticMediaFlag()} (reason=${reason}). ` +
+      `Replace media with a video (.mp4/.mov/.m4v) and set status=draft to publish.`;
+  }
   if (reason === GUARD_REASON_OVER_LENGTH) {
     const flag = typeof tweetLength === "number" ? overLengthFlag(tweetLength) : "over_length";
     return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${flag} (reason=${reason}). ` +
@@ -286,10 +374,14 @@ export function classifyPublishCandidate(
     };
   }
 
-  // Guards (same order as the SQL guard's CASE): empty media first, then
-  // stale. Both hold the row as paused; neither ever tweets.
+  // Guards: empty media first, then the video-only rule, then stale.
+  // All hold the row as paused; none ever tweets. (The SQL cron guard only
+  // knows empty/stale, so static rows reach this function and are held here.)
   if (!hasMedia(post.media_urls)) {
     return { kind: "pause", reason: GUARD_REASON_EMPTY_MEDIA, mutateStatus: true };
+  }
+  if (!hasVideoMedia(post.media_urls)) {
+    return { kind: "pause", reason: GUARD_REASON_STATIC_MEDIA, mutateStatus: true };
   }
   if (isStale(post.scheduled_for, now)) {
     return { kind: "pause", reason: GUARD_REASON_STALE, mutateStatus: true };

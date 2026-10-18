@@ -32,6 +32,11 @@ import {
   PUBLISHING_STATUS,
   GUARD_HOLD_STATUS,
   GUARD_REASON_OVER_LENGTH,
+  GUARD_REASON_STATIC_MEDIA,
+  GUARD_REASON_MEDIA_UPLOAD_FAILED,
+  mediaUploadFailedFlag,
+  staticMediaFlag,
+  selectPublishMediaUrl,
   X_MAX_TWEET_LENGTH,
   X_TARGET_TWEET_LENGTH,
   overLengthFlag,
@@ -48,6 +53,7 @@ import {
   preflightPublishRow,
   type GuardReason,
 } from "./logic.ts";
+import { uploadMediaToX } from "./x-media.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,11 +87,6 @@ interface TwitterV2Response {
     text: string;
   };
   errors?: Array<{ message: string; code?: number }>;
-}
-
-interface TwitterMediaUploadResponse {
-  media_id_string?: string;
-  error?: string;
 }
 
 interface PublishResult {
@@ -209,10 +210,8 @@ async function buildOAuthHeader(
 // Returns the media_id_string on success, or null on any failure (graceful degradation)
 // ---------------------------------------------------------------------------
 
-const TWITTER_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
-
 async function uploadMediaToTwitter(
-  imageUrl: string,
+  mediaUrl: string,
   credentials: {
     consumerKey: string;
     consumerSecret: string;
@@ -220,87 +219,21 @@ async function uploadMediaToTwitter(
     accessTokenSecret: string;
   },
 ): Promise<string | null> {
-  try {
-    // Fetch the image bytes from the CDN URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      console.warn(
-        `[cmo-publish] Failed to fetch image for upload (status ${imageResponse.status}): ${imageUrl}`,
-      );
-      return null;
-    }
-
-    const imageBytes = await imageResponse.arrayBuffer();
-
-    // Build multipart/form-data body with field name "media"
-    const boundary = `NORMABoundary${Date.now()}`;
-    const imageBuffer = new Uint8Array(imageBytes);
-
-    // Detect MIME type from Content-Type header; default to jpeg
-    const contentType = imageResponse.headers.get("content-type") ?? "image/jpeg";
-    const mimeType = contentType.split(";")[0].trim();
-
-    const encoder = new TextEncoder();
-    const preamble = encoder.encode(
-      `--${boundary}\r\nContent-Disposition: form-data; name="media"\r\nContent-Type: ${mimeType}\r\n\r\n`,
-    );
-    const epilogue = encoder.encode(`\r\n--${boundary}--\r\n`);
-
-    const multipartBody = new Uint8Array(
-      preamble.byteLength + imageBuffer.byteLength + epilogue.byteLength,
-    );
-    multipartBody.set(preamble, 0);
-    multipartBody.set(imageBuffer, preamble.byteLength);
-    multipartBody.set(epilogue, preamble.byteLength + imageBuffer.byteLength);
-
-    // OAuth signature for the upload endpoint uses no body params
-    // (multipart bodies are excluded from OAuth signature per spec)
-    const authHeader = await buildOAuthHeader(
-      "POST",
-      TWITTER_UPLOAD_URL,
-      {},
-      credentials.consumerKey,
-      credentials.consumerSecret,
-      credentials.accessToken,
-      credentials.accessTokenSecret,
-    );
-
-    const uploadResponse = await fetch(TWITTER_UPLOAD_URL, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-        "User-Agent": "NORMA-CMO-Bot/1.0",
-      },
-      body: multipartBody,
-    });
-
-    const uploadText = await uploadResponse.text();
-    let uploadData: TwitterMediaUploadResponse;
-
-    try {
-      uploadData = JSON.parse(uploadText);
-    } catch {
-      console.warn(
-        `[cmo-publish] Media upload returned non-JSON (status ${uploadResponse.status}): ${uploadText.slice(0, 200)}`,
-      );
-      return null;
-    }
-
-    if (!uploadResponse.ok || !uploadData.media_id_string) {
-      console.warn(
-        `[cmo-publish] Media upload failed (status ${uploadResponse.status}): ${uploadText.slice(0, 200)}`,
-      );
-      return null;
-    }
-
-    console.log(`[cmo-publish] Media uploaded. ID: ${uploadData.media_id_string}`);
-    return uploadData.media_id_string;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[cmo-publish] Media upload threw an error: ${message}`);
-    return null;
-  }
+  // Images: simple upload. Video (.mp4/.mov/.m4v): chunked INIT/APPEND/
+  // FINALIZE with media_category=tweet_video plus a STATUS processing poll
+  // (x-media.ts). The old simple-only path could not post video at all.
+  return uploadMediaToX(mediaUrl, credentials, {
+    buildAuthHeader: (method, url, bodyParams) =>
+      buildOAuthHeader(
+        method,
+        url,
+        bodyParams,
+        credentials.consumerKey,
+        credentials.consumerSecret,
+        credentials.accessToken,
+        credentials.accessTokenSecret,
+      ),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -767,6 +700,11 @@ serve(async (req: Request): Promise<Response> => {
           `[cmo-publish] Post ${post.id} NOT posted (dry run): ${overLengthFlag(tweetLength ?? 0)}; would hold as status='paused'.`,
         );
       }
+      if (disposition.kind === "pause" && disposition.reason === GUARD_REASON_STATIC_MEDIA) {
+        console.warn(
+          `[cmo-publish] Post ${post.id} NOT posted (dry run): ${staticMediaFlag()}; would hold as status='paused'.`,
+        );
+      }
       if (disposition.kind === "publish" && disposition.overTarget) {
         console.warn(
           `[cmo-publish] Post ${post.id} is ${tweetLength} chars (target ${X_TARGET_TWEET_LENGTH}, max ${X_MAX_TWEET_LENGTH}); would publish with warning.`,
@@ -781,6 +719,9 @@ serve(async (req: Request): Promise<Response> => {
         ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_OVER_LENGTH
           ? { detail: overLengthFlag(tweetLength ?? 0) }
           : {}),
+        ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_STATIC_MEDIA
+          ? { detail: staticMediaFlag() }
+          : {}),
         ...(disposition.kind === "publish" && disposition.overTarget
           ? { warning: `over_target: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})` }
           : {}),
@@ -792,6 +733,8 @@ serve(async (req: Request): Promise<Response> => {
       const wrote = await markGuardHold(supabase, post, disposition.reason, now, disposition.tweetLength);
       const detail = disposition.reason === GUARD_REASON_OVER_LENGTH
         ? overLengthFlag(disposition.tweetLength ?? 0)
+        : disposition.reason === GUARD_REASON_STATIC_MEDIA
+        ? staticMediaFlag()
         : disposition.reason;
       console.log(
         `[cmo-publish] Post ${post.id} NOT posted (${detail}); ` +
@@ -804,7 +747,10 @@ serve(async (req: Request): Promise<Response> => {
         held_paused: wrote,
         error: disposition.reason,
         ...(typeof disposition.tweetLength === "number" ? { tweet_length: disposition.tweetLength } : {}),
-        ...(disposition.reason === GUARD_REASON_OVER_LENGTH ? { detail } : {}),
+        ...(disposition.reason === GUARD_REASON_OVER_LENGTH ||
+            disposition.reason === GUARD_REASON_STATIC_MEDIA
+          ? { detail }
+          : {}),
       });
       continue;
     }
@@ -847,13 +793,32 @@ serve(async (req: Request): Promise<Response> => {
       // 5-minute run retries; the stale guard holds it after 3h. Never fall
       // back to a text-only tweet for a row that carries a creative.
       const mediaIds: string[] = [];
-      const firstMedia = (post.media_urls ?? []).find((u) => typeof u === "string" && u.trim().length > 0);
+      // Video-only rule: upload the video when one is attached (X cannot mix
+      // a video with images in one tweet); otherwise the first medium.
+      const firstMedia = selectPublishMediaUrl(post.media_urls);
       const mediaId = firstMedia ? await uploadMediaToTwitter(firstMedia, credentials) : null;
       if (!mediaId) {
-        console.warn(
-          `[cmo-publish] Post ${post.id} held (${HOLD_MEDIA_UPLOAD_FAILED}). Not tweeting text-only; will retry next run.`,
+        // Upload failure (incl. chunked video INIT/APPEND/FINALIZE/STATUS):
+        // pause with a visible flag. Never fall back to text-only, and do
+        // not silently retry every 5 minutes until the stale guard fires.
+        const wrote = await markGuardHold(
+          supabase,
+          post,
+          GUARD_REASON_MEDIA_UPLOAD_FAILED,
+          now,
         );
-        results.push({ id: post.id, success: false, skipped: true, error: HOLD_MEDIA_UPLOAD_FAILED });
+        console.warn(
+          `[cmo-publish] Post ${post.id} NOT posted (${mediaUploadFailedFlag()}); ` +
+            (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
+        );
+        results.push({
+          id: post.id,
+          success: false,
+          skipped: true,
+          held_paused: wrote,
+          error: HOLD_MEDIA_UPLOAD_FAILED,
+          detail: mediaUploadFailedFlag(),
+        });
         continue;
       }
       mediaIds.push(mediaId);
