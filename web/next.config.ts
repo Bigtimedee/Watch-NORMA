@@ -32,6 +32,17 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Canonical host: bare getnorma.app -> www for every path EXCEPT
+      // /.well-known/* (iOS fetches apple-app-site-association without
+      // following redirects, so applinks:getnorma.app needs a direct 200).
+      // Requires the Vercel domain getnorma.app to serve production directly
+      // (not a Vercel-level redirect). Query strings are preserved.
+      {
+        source: "/:path((?!\\.well-known/).*)",
+        has: [{ type: "host", value: "getnorma.app" }],
+        destination: "https://www.getnorma.app/:path",
+        permanent: true,
+      },
       // Public marketing CTA getnorma.app/advertise must keep working.
       // Portal page stays at /advertisers; do not rename that route.
       // permanent: true is a 308 in Next.js (method-preserving 301 equivalent).
