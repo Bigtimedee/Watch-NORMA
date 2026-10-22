@@ -2,7 +2,7 @@
   "expo": {
     "name": "NORMA",
     "slug": "norma",
-    "version": "1.8.0",
+    "version": "1.8.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -25,7 +25,7 @@
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
       },
-      "buildNumber": "36",
+      "buildNumber": "38",
       "usesAppleSignIn": true,
       "associatedDomains": ["applinks:getnorma.app", "applinks:www.getnorma.app"],
       "infoPlist": {
