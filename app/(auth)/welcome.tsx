@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { View, Text, Image, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { trackEvent } from "../../lib/analytics";
+import { trackAnonEvent } from "../../lib/analytics";
+import { setGuestMode } from "../../lib/guest";
 
 const normaLogo = require("../../assets/norma-logo.png");
 
@@ -10,7 +11,8 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    trackEvent("onboarding_welcome_viewed");
+    trackAnonEvent("onboarding_welcome_viewed");
+    trackAnonEvent("welcome_viewed");
   }, []);
 
   return (
@@ -19,18 +21,17 @@ export default function WelcomeScreen() {
         {/* Logo */}
         <Image source={normaLogo} style={s.logo} resizeMode="contain" />
 
-        <Text style={s.subtitle}>Your Money. Your Game. Your Moment.</Text>
+        <Text style={s.subtitle}>NORMA knows which games matter to you.</Text>
         <Text style={s.desc}>
-          NORMA alerts you when your game matters — ranked by your wagers,
-          positions, and the teams you follow.
+          She sees your wagers, predictions and teams, then pings you the moment your game gets good.
         </Text>
 
         {/* Feature highlights */}
         <View style={s.features}>
           {[
-            ["Alerts That Score Your Risk", "Games you have skin in come first — ranked by wager exposure and position size."],
-            ["Live Stream, One Tap", "Tap a game and open ESPN+, FuboTV, or whatever you use — no hunting."],
-            ["Positions. Live. Always.", "Watch your Kalshi and Polymarket bets move in real-time as the game unfolds."],
+            ["Your games come first", "Games you have money or a team in are ranked at the top."],
+            ["One tap to watch", "Tap a game and open the app that has it. No hunting for the channel."],
+            ["Positions, live", "Kalshi and Polymarket positions move with the game, in real time."],
           ].map(([title, desc]) => (
             <View key={title} style={s.featureRow}>
               <View style={s.bullet} />
@@ -51,6 +52,18 @@ export default function WelcomeScreen() {
           accessibilityLabel="Join the Game"
         >
           <Text style={s.ctaText}>Join the Game</Text>
+        </Pressable>
+
+        <Pressable
+          style={s.guestBtn}
+          onPress={async () => {
+            trackAnonEvent("guest_mode_started");
+            await setGuestMode(true);
+            router.replace("/(tabs)/games");
+          }}
+          accessibilityLabel="Browse games first"
+        >
+          <Text style={s.guestText}>Browse games first</Text>
         </Pressable>
 
         <Pressable
@@ -87,6 +100,8 @@ const s = StyleSheet.create({
   ctas: { paddingHorizontal: 32, paddingBottom: 32 },
   ctaButton: { backgroundColor: "#f97316", borderRadius: 12, paddingVertical: 16, alignItems: "center", marginBottom: 12 },
   ctaText: { color: "#ffffff", fontSize: 16, fontWeight: "700" },
+  guestBtn: { borderWidth: 1, borderColor: "#334155", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginBottom: 4 },
+  guestText: { color: "#e2e8f0", fontSize: 16, fontWeight: "600" },
   signInLink: { paddingVertical: 12, alignItems: "center" },
   signInText: { color: "#94a3b8", fontSize: 16 },
   signInHighlight: { color: "#fb923c", fontWeight: "600" },

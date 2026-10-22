@@ -19,6 +19,25 @@ import DatePicker, { offsetToDateStr } from "../../../components/DatePicker";
 import { LIVE_STATUSES } from "../../../lib/constants";
 import type { SportKey } from "../../../lib/types";
 import { useSport } from "../../../lib/sport-context";
+import { supabase } from "../../../lib/supabase";
+import { OnboardingChecklist } from "../../../components/OnboardingChecklist";
+import { GuestBanner } from "../../../components/GuestBanner";
+
+/** "signed_out" = guest, "new" = account under 14 days old (sees checklist). */
+function useAccountState(): "loading" | "signed_out" | "new" | "existing" {
+  const [state, setState] = useState<"loading" | "signed_out" | "new" | "existing">("loading");
+  useEffect(() => {
+    const apply = (user: { created_at?: string } | null | undefined) => {
+      if (!user) return setState("signed_out");
+      const age = Date.now() - new Date(user.created_at ?? 0).getTime();
+      setState(age < 14 * 86400e3 ? "new" : "existing");
+    };
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => apply(session?.user));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  return state;
+}
 
 type Tab = "all" | "live" | "following";
 
@@ -26,6 +45,7 @@ export default function GamesScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [selectedOffset, setSelectedOffset] = useState<number>(0);
   const { selectedSport, setSelectedSport } = useSport();
+  const accountState = useAccountState();
 
   const selectedDateStr = offsetToDateStr(selectedOffset);
 
@@ -165,6 +185,9 @@ export default function GamesScreen() {
           );
         })}
       </ScrollView>
+
+      {accountState === "signed_out" && <GuestBanner />}
+      {accountState === "new" && <OnboardingChecklist />}
 
       {/* Tabs */}
       <View style={s.tabs}>

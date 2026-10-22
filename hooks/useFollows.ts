@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "../lib/analytics";
 import { supabase } from "../lib/supabase";
+import { getGuestFollows, isGuestFollowing, toggleGuestFollow } from "../lib/guest";
 import { followedGamesQueryKey } from "../lib/demo-guard";
 
 export type FollowEntityType = "team" | "player" | "game";
@@ -28,7 +29,23 @@ export function useFollows(entityType?: FollowEntityType) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        const guest = await getGuestFollows();
+        return guest
+          .filter((f) => !entityType || f.entity_type === entityType)
+          .map((f, i) => ({
+            id: -1 - i,
+            user_id: "guest",
+            follow_type: f.entity_type,
+            entity_type: f.entity_type,
+            entity_id: f.entity_id,
+            game_id: f.entity_type === "game" ? f.entity_id : null,
+            team_id: f.entity_type === "team" ? f.entity_id : null,
+            source: "guest",
+            fantasy_source: null,
+            created_at: f.created_at,
+          }));
+      }
 
       let query = supabase
         .from("follows")
@@ -55,7 +72,13 @@ export function useIsFollowing(entityType: FollowEntityType, entityId: string) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        if (entityType === "player") return null;
+        return (await isGuestFollowing(entityType, entityId))
+          ? ({ id: -1, user_id: "guest", follow_type: entityType, entity_type: entityType, entity_id: entityId,
+               game_id: null, team_id: null, source: "guest", fantasy_source: null, created_at: "" } as FollowEntity)
+          : null;
+      }
 
       const { data, error } = await supabase
         .from("follows")
@@ -90,7 +113,11 @@ export function useAddFollow() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        if (entityType === "player") throw new Error("Not authenticated");
+        if (!(await isGuestFollowing(entityType, entityId))) await toggleGuestFollow(entityType, entityId);
+        return;
+      }
 
       const row: Record<string, unknown> = {
         user_id: user.id,
@@ -131,7 +158,12 @@ export function useRemoveFollow() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        if (entityType !== "player" && (await isGuestFollowing(entityType, entityId))) {
+          await toggleGuestFollow(entityType, entityId);
+        }
+        return;
+      }
 
       const { error } = await supabase
         .from("follows")

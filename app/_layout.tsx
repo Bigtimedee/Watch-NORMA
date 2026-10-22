@@ -15,6 +15,9 @@ import {
 import { recordAppOpen, maybeRequestReviewAfterAlertOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
 import { SportProvider } from "../lib/sport-context";
+import { isGuestMode, subscribeGuestMode, migrateGuestFollows } from "../lib/guest";
+import { trackEvent } from "../lib/analytics";
+import { hasSeenPushPrimer } from "../lib/onboarding";
 import { TransitionOverlay } from "../components/TransitionOverlay";
 import type { StreamingProvider } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
@@ -45,10 +48,17 @@ function AuthGate() {
   const [recoveryPending, setRecoveryPending] = useState(
     isPasswordRecoveryPending()
   );
+  const [guest, setGuest] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => subscribePasswordRecovery(setRecoveryPending), []);
+
+  // Guest mode (Spec C): browse games without an account.
+  useEffect(() => {
+    isGuestMode().then(setGuest);
+    return subscribeGuestMode(setGuest);
+  }, []);
 
   useEffect(() => {
     recordAppOpen();
@@ -61,6 +71,14 @@ function AuthGate() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === "SIGNED_IN" && session) {
+        // Carry guest follows into the new account (no-op if none).
+        migrateGuestFollows(session.user.id)
+          .then((moved) => {
+            if (moved > 0) trackEvent("guest_follows_migrated", { count: moved });
+          })
+          .catch(() => {});
+      }
       if (event === "PASSWORD_RECOVERY") {
         setPasswordRecoveryPending(true);
         router.replace("/(auth)/reset-password");
@@ -105,13 +123,20 @@ function AuthGate() {
     const onResetPassword = segments.includes("reset-password");
     const isAuthenticated = !!session;
 
-    if (!isAuthenticated && !inAuthGroup && !isAuthCallback) {
+    const seg1 = (segments as string[])[1];
+    const guestAllowed =
+      guest && segments[0] === "(tabs)" && (seg1 === "games" || seg1 === undefined);
+
+    if (!isAuthenticated && guest && segments[0] === "(tabs)" && !guestAllowed) {
+      // Guest tapped a tab that needs an account: ask for signup there.
+      router.replace("/(auth)/sign-up");
+    } else if (!isAuthenticated && !inAuthGroup && !isAuthCallback && !guestAllowed) {
       router.replace("/(auth)/welcome");
     } else if (isAuthenticated && inAuthGroup) {
       if (recoveryPending || onResetPassword) return;
       router.replace("/(tabs)/games");
     }
-  }, [session, segments, loading, recoveryPending, router]);
+  }, [session, segments, loading, recoveryPending, router, guest]);
 
   // Clear badge count when app comes to foreground
   const appState = useRef(AppState.currentState);
@@ -192,6 +217,10 @@ async function registerPushToken() {
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
+
+    // Spec C fix 6: never fire the OS prompt cold. The push primer screen
+    // (app/push-primer.tsx) asks first; until then we only register if granted.
+    if (existingStatus !== "granted" && !(await hasSeenPushPrimer())) return;
 
     if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync({

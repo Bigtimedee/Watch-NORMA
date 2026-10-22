@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isGoogleSignInEnabled, signInWithGoogle } from "../../lib/google-auth";
 import {
   View,
   Text,
@@ -30,6 +31,19 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [credentialError, setCredentialError] =
     useState<SignInErrorGuidance | null>(null);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    isGoogleSignInEnabled().then(setGoogleEnabled);
+  }, []);
+
+  const handleGoogle = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      Alert.alert("Google Sign-In Error", error?.message ?? "Please try again.");
+    }
+  };
 
   const openForgotPassword = () => {
     router.push({
@@ -159,7 +173,17 @@ export default function SignInScreen() {
             </>
           )}
 
-          {appleAvailable && (
+          {googleEnabled && (
+            <Pressable
+              style={[s.googleBtn, appleAvailable && { marginTop: 12 }]}
+              onPress={handleGoogle}
+              accessibilityLabel="Continue with Google"
+            >
+              <Text style={s.googleText}>Continue with Google</Text>
+            </Pressable>
+          )}
+
+          {(appleAvailable || googleEnabled) && (
             <View style={s.divider}>
               <View style={s.dividerLine} />
               <Text style={s.dividerText}>or email</Text>
@@ -260,6 +284,8 @@ const s = StyleSheet.create({
   },
   appleFallbackText: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
   recoveryLink: { color: "#fb923c", fontSize: 14, fontWeight: "600", textAlign: "center" },
+  googleBtn: { backgroundColor: "#ffffff", borderRadius: 12, height: 56, alignItems: "center", justifyContent: "center" },
+  googleText: { color: "#0f172a", fontSize: 17, fontWeight: "600" },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#475569" },
   dividerText: { color: "#64748b", marginHorizontal: 16, fontSize: 14 },
