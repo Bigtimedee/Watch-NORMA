@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "RACZS57SUP.com.norma.app",
+        "appIDs": ["RACZS57SUP.com.norma.app"],
+        "paths": ["/i/*", "/games/*"],
+        "components": [
+          { "/": "/i/*" },
+          { "/": "/games/*" }
+        ]
+      }
+    ]
+  }
+}

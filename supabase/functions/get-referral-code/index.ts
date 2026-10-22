@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
         // in every shared invite (fixed 2026-08-20). Deep-links to the app via the
         // registered "norma" scheme, with the site as the web fallback for people
         // who do not have the app installed yet.
-        link: `${APP_URL}/?ref=${data.code}`,
+        link: `${APP_URL}/i/${data.code}`,
         qualifying_referrals: qualifyingReferrals,
         insider_status: insiderStatus,
       }),

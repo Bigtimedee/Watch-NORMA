@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
       { source: "/.well-known/adagents.json", headers: adAgentHeaders },
       { source: "/.well-known/openapi.json", headers: openApiHeaders },
       { source: "/sellers.json", headers: openApiHeaders },
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
       { source: "/aamp-seller-profile.json", headers: openApiHeaders },
     ];
   },
@@ -43,6 +50,13 @@ const nextConfig: NextConfig = {
         has: [{ type: "query", key: "error_code" }],
         destination: "/auth/reset-password",
         permanent: false,
+      },
+      // Spec B: legacy invite links /?ref=CODE -> /i/CODE.
+      {
+        source: "/",
+        has: [{ type: "query", key: "ref", value: "(?<ref>[A-Za-z0-9_-]{4,32})" }],
+        destination: "/i/:ref",
+        permanent: true,
       },
       { source: "/api-docs", destination: "/api-docs/index.html", permanent: false },
     ];

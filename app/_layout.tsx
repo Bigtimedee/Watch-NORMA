@@ -1,3 +1,4 @@
+import { captureReferralFromUrl, claimStoredReferral, runDeferredReferralMatch } from "../lib/referral-claim";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, Platform, View, Text } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -72,6 +73,8 @@ function AuthGate() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (event === "SIGNED_IN" && session) {
+        // Spec B: Apple/Google paths miss the signup-metadata trigger; claim here.
+        void claimStoredReferral(session.user.app_metadata?.provider);
         // Carry guest follows into the new account (no-op if none).
         migrateGuestFollows(session.user.id)
           .then((moved) => {
@@ -92,6 +95,7 @@ function AuthGate() {
     let cancelled = false;
 
     async function handleAuthUrl(url: string | null) {
+      if (url && !cancelled) void captureReferralFromUrl(url);
       if (!url || cancelled || !isAuthCallbackUrl(url)) return;
       try {
         const result = await applyAuthCallback(url);
@@ -105,7 +109,10 @@ function AuthGate() {
       }
     }
 
-    Linking.getInitialURL().then(handleAuthUrl);
+    Linking.getInitialURL().then(async (url) => {
+      await handleAuthUrl(url);
+      void runDeferredReferralMatch();
+    });
     const sub = Linking.addEventListener("url", ({ url }) => {
       void handleAuthUrl(url);
     });

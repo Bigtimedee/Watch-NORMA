@@ -23,6 +23,11 @@ jest.mock("expo-linking", () => ({
 }));
 
 describe("getReferralCode", () => {
+  it("extracts code from a /i/CODE universal link", () => {
+    expect(getReferralCode("https://getnorma.app/i/ab12cd34")).toBe("ab12cd34");
+    expect(getReferralCode("https://www.getnorma.app/i/ab12cd34?x=1")).toBe("ab12cd34");
+  });
+
   it("extracts ref from a getnorma.app invite URL", () => {
     expect(getReferralCode("https://getnorma.app?ref=abc123")).toBe("abc123");
   });
