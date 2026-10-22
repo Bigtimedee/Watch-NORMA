@@ -1,3 +1,4 @@
+import { KFactorTile } from "./k-factor";
 import { SignupFunnel } from "./signup-funnel";
 import { requireAdmin } from "@/lib/admin";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -80,6 +81,7 @@ export default async function AdminGrowthPage() {
       </p>
 
       <SignupFunnel />
+      <KFactorTile />
 
       {/* Weekly Growth Reports */}
       <section className="mt-8">

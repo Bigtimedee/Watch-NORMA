@@ -1,3 +1,5 @@
+import { trackEvent } from "../../../lib/analytics";
+import { REFERRAL_SHARE_TEXT } from "../../../lib/referral-claim";
 import { useEffect, useState } from "react";
 import { View, Text, Pressable, Switch, Alert, ScrollView, Linking, Share, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -62,9 +64,10 @@ export default function ProfileScreen() {
 
   const shareReferralLink = async () => {
     if (!referralData) return;
+    trackEvent("referral_share_tapped", { source: "profile" });
     try {
       await Share.share({
-        message: `Join me on NORMA: ${referralData.link}`,
+        message: REFERRAL_SHARE_TEXT(referralData.link),
         url: referralData.link,
       });
     } catch (error: any) {

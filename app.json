@@ -27,6 +27,7 @@
       },
       "buildNumber": "36",
       "usesAppleSignIn": true,
+      "associatedDomains": ["applinks:getnorma.app", "applinks:www.getnorma.app"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "NORMA needs access to your camera to scan bet slips.",
