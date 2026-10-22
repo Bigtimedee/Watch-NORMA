@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { NormaDemo } from "@/components/norma-demo";
+import { TonightGames } from "@/components/sports/tonight-games";
+import { SPORTS, SPORT_LABEL } from "@/lib/sports";
 
 import type { Metadata } from "next";
 import { pageMetadata, APP_STORE_URL } from "@/lib/seo";
@@ -580,6 +582,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <TonightGames />
+
       {/* ════════════════════════════════════════
           FOOTER
       ════════════════════════════════════════ */}
@@ -601,6 +605,9 @@ export default function HomePage() {
               <a href="/privacy-policy" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Privacy</a>
               <a href="/terms-of-service" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Terms</a>
               <Link href="/status" style={{ color: "#64748b" }} className="hover:text-white transition-colors">Status</Link>
+              {SPORTS.map((sp) => (
+                <Link key={sp} href={`/schedule/${sp}/today`} style={{ color: "#64748b" }} className="hover:text-white transition-colors">{SPORT_LABEL[sp]} Today</Link>
+              ))}
             </div>
           </div>
           <div
