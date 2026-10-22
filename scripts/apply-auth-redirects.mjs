@@ -86,6 +86,17 @@ function lintRedirects(config) {
   return issues;
 }
 
+// Extra Auth settings this script may PATCH (Growth Spec C). Keep tight.
+const ALLOWED_AUTH_SETTINGS = new Set(["mailer_autoconfirm"]);
+
+function pickAuthSettings(settings) {
+  const out = {};
+  for (const [k, v] of Object.entries(settings || {})) {
+    if (ALLOWED_AUTH_SETTINGS.has(k) && typeof v === "boolean") out[k] = v;
+  }
+  return out;
+}
+
 async function managementRequest(method, projectRef, token, body) {
   const url = `https://api.supabase.com/v1/projects/${projectRef}/config/auth`;
   const res = await fetch(url, {
@@ -145,6 +156,10 @@ async function main() {
     `  uri_allow_list: ${typeof current.uri_allow_list === "string" ? current.uri_allow_list : JSON.stringify(current.uri_allow_list)}`
   );
 
+  console.log(`  mailer_autoconfirm: ${current.mailer_autoconfirm}`);
+  console.log(`  external_google_enabled: ${current.external_google_enabled}`);
+  console.log(`  external_google_client_id set: ${Boolean(current.external_google_client_id)}`);
+
   if (dryRun) {
     console.log("\n--dry-run: not PATCHing.");
     process.exit(0);
@@ -153,6 +168,7 @@ async function main() {
   const payload = {
     site_url: siteUrl,
     uri_allow_list: uriAllowList,
+    ...pickAuthSettings(config.auth_settings),
   };
 
   const updated = await managementRequest("PATCH", projectRef, token, payload);
@@ -179,6 +195,14 @@ async function main() {
     }
   }
 
+  if (verifyIssues.length) {
+    fail(`Apply verification failed:\n- ${verifyIssues.join("\n- ")}`);
+  }
+
+  console.log(`  mailer_autoconfirm: ${updated.mailer_autoconfirm}`);
+  for (const [k, v] of Object.entries(pickAuthSettings(config.auth_settings))) {
+    if (updated[k] !== v) verifyIssues.push(`live ${k} mismatch: ${JSON.stringify(updated[k])}`);
+  }
   if (verifyIssues.length) {
     fail(`Apply verification failed:\n- ${verifyIssues.join("\n- ")}`);
   }

@@ -16,5 +16,9 @@
     "https://www.getnorma.app/auth/reset-password",
     "https://www.getnorma.app/auth/callback",
     "https://www.getnorma.app/auth/callback?next=/auth/reset-password"
-  ]
+  ],
+  "auth_settings": {
+    "mailer_autoconfirm": true
+  },
+  "auth_settings_comment": "Growth Spec C (Dave approved 2026-10-22): no email-confirmation gate before entry. Only keys in ALLOWED_AUTH_SETTINGS in scripts/apply-auth-redirects.mjs are applied. Password recovery is unaffected."
 }

@@ -24,6 +24,10 @@ import { ReviewScannedWagersSheet } from "../../../components/ReviewScannedWager
 import { MarketPrices } from "../../../components/MarketPrices";
 import { LIVE_STATUSES } from "../../../lib/constants";
 import { formatPeriodLabel } from "../../../lib/alert-helpers";
+import { Alert } from "react-native";
+import { supabase } from "../../../lib/supabase";
+import { trackAnonEvent } from "../../../lib/analytics";
+import { hasSeenPushPrimer } from "../../../lib/onboarding";
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
@@ -65,7 +69,27 @@ export default function GameDetailScreen() {
 
   const handleFollow = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const wasFollowing = isFollowing;
     toggleFollow();
+    if (wasFollowing) return;
+    const matchup = game.away_team && game.home_team
+      ? `${game.away_team.abbreviation ?? game.away_team.name} at ${game.home_team.abbreviation ?? game.home_team.name}`
+      : "this game";
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      // Guest: the follow is saved on device. Alerts need an account.
+      trackAnonEvent("signup_prompt_shown", { source: "follow" });
+      Alert.alert(
+        `Turn on alerts for ${matchup}?`,
+        "Create a free account and NORMA will ping you when it gets close. Your follows come with you.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Create account", onPress: () => router.push("/(auth)/sign-up") },
+        ],
+      );
+    } else if (!(await hasSeenPushPrimer())) {
+      router.push({ pathname: "/push-primer", params: { game: matchup } });
+    }
   };
 
   return (

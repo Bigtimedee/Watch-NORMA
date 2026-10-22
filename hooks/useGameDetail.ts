@@ -1,3 +1,5 @@
+import { trackEvent } from "../lib/analytics";
+import { isGuestFollowing, toggleGuestFollow } from "../lib/guest";
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
@@ -75,7 +77,12 @@ export function useGameFollow(gameId: string) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        // Guest mode: local follow, shaped like a Follow row.
+        return (await isGuestFollowing("game", gameId))
+          ? ({ id: -1, game_id: gameId, follow_type: "game" } as unknown as Follow)
+          : null;
+      }
 
       const { data, error } = await supabase
         .from("follows")
@@ -96,7 +103,11 @@ export function useGameFollow(gameId: string) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        const nowFollowing = await toggleGuestFollow("game", gameId);
+        if (nowFollowing) trackEvent("guest_follow", { entity_type: "game" });
+        return;
+      }
 
       if (query.data) {
         // Unfollow

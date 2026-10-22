@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
+import { getGuestFollows } from "../lib/guest";
 import type { Game, SportKey } from "../lib/types";
 import {
   applyConsumerGameIdFilter,
@@ -155,32 +156,40 @@ export function useFollowedGames() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return [];
+      let gameIds: string[];
+      let teamIds: string[];
+      if (!user) {
+        // Guest mode: follows live on device until signup.
+        const guest = await getGuestFollows();
+        gameIds = guest.filter((f) => f.entity_type === "game").map((f) => f.entity_id).filter((id) => !isDemoGameId(id));
+        teamIds = guest.filter((f) => f.entity_type === "team").map((f) => f.entity_id);
+        if (gameIds.length === 0 && teamIds.length === 0) return [];
+      } else {
+        // Get followed game IDs
+        const { data: follows, error: followsError } = await supabase
+          .from("follows")
+          .select("game_id")
+          .eq("user_id", user.id)
+          .eq("follow_type", "game")
+          .not("game_id", "is", null);
 
-      // Get followed game IDs
-      const { data: follows, error: followsError } = await supabase
-        .from("follows")
-        .select("game_id")
-        .eq("user_id", user.id)
-        .eq("follow_type", "game")
-        .not("game_id", "is", null);
+        if (followsError) throw followsError;
+        if (!follows || follows.length === 0) return [];
 
-      if (followsError) throw followsError;
-      if (!follows || follows.length === 0) return [];
+        gameIds = follows
+          .map((f) => f.game_id)
+          .filter((id): id is string => Boolean(id) && !isDemoGameId(id));
 
-      const gameIds = follows
-        .map((f) => f.game_id)
-        .filter((id): id is string => Boolean(id) && !isDemoGameId(id));
+        // Get followed team IDs
+        const { data: teamFollows } = await supabase
+          .from("follows")
+          .select("team_id")
+          .eq("user_id", user.id)
+          .eq("follow_type", "team")
+          .not("team_id", "is", null);
 
-      // Get followed team IDs
-      const { data: teamFollows } = await supabase
-        .from("follows")
-        .select("team_id")
-        .eq("user_id", user.id)
-        .eq("follow_type", "team")
-        .not("team_id", "is", null);
-
-      const teamIds = (teamFollows ?? []).map((f) => f.team_id).filter(Boolean);
+        teamIds = (teamFollows ?? []).map((f) => f.team_id).filter(Boolean);
+      }
 
       // Get games for followed games + games involving followed teams
       let query = supabase

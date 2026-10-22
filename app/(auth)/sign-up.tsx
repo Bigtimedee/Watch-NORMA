@@ -20,6 +20,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { trackAnonEvent } from "../../lib/analytics";
+import { isGoogleSignInEnabled, signInWithGoogle } from "../../lib/google-auth";
 
 const normaLogo = require("../../assets/norma-logo.png");
 const REFERRAL_CODE_KEY = "norma.referralCode";
@@ -29,7 +31,11 @@ export default function SignUpScreen() {
   const { signUp, signInWithApple, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    isGoogleSignInEnabled().then(setGoogleEnabled);
+  }, []);
 
   useEffect(() => {
     async function storeReferralCode(url: string | null) {
@@ -67,25 +73,43 @@ export default function SignUpScreen() {
       Alert.alert("Error", "Please enter your email and password.");
       return;
     }
+    trackAnonEvent("signup_started", { method: "email" });
     try {
       const referralCode = await loadReferralCode();
-      const data = await signUp(email, password, displayName || undefined, referralCode);
+      await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "email");
+      const data = await signUp(email, password, undefined, referralCode);
       await loadOwnReferralCode(data.session?.access_token);
       await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
-      await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "email");
-      Alert.alert(
-        "Check Your Email",
-        "We sent you a confirmation link. Please check your email to continue."
-      );
+      if (!data.session) {
+        // Fallback only while hosted Auth still requires confirmation.
+        Alert.alert(
+          "Check Your Email",
+          "We sent you a confirmation link. Please check your email to continue."
+        );
+      }
+      // With a session the auth gate routes straight into the app.
     } catch (error: any) {
+      await AsyncStorage.removeItem(SIGNUP_TRACK_KEY);
       Alert.alert("Sign Up Error", error.message);
     }
   };
 
-  const handleApple = async () => {
+  const handleGoogle = async () => {
+    trackAnonEvent("signup_started", { method: "google" });
     try {
-      await signInWithApple();
+      await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "google");
+      await signInWithGoogle();
+    } catch (error: any) {
+      await AsyncStorage.removeItem(SIGNUP_TRACK_KEY);
+      Alert.alert("Google Sign-In Error", error.message);
+    }
+  };
+
+  const handleApple = async () => {
+    trackAnonEvent("signup_started", { method: "apple" });
+    try {
       await AsyncStorage.setItem(SIGNUP_TRACK_KEY, "apple");
+      await signInWithApple();
     } catch (error: any) {
       Alert.alert("Apple Sign-In Error", error.message);
     }
@@ -125,24 +149,23 @@ export default function SignUpScreen() {
             />
           )}
 
-          {Platform.OS === "ios" && (
+          {googleEnabled && (
+            <Pressable
+              style={[s.googleBtn, Platform.OS === "ios" && { marginTop: 12 }]}
+              onPress={handleGoogle}
+              accessibilityLabel="Continue with Google"
+            >
+              <Text style={s.googleText}>Continue with Google</Text>
+            </Pressable>
+          )}
+
+          {(Platform.OS === "ios" || googleEnabled) && (
             <View style={s.divider}>
               <View style={s.dividerLine} />
               <Text style={s.dividerText}>or</Text>
               <View style={s.dividerLine} />
             </View>
           )}
-
-          {/* Name */}
-          <Text style={s.label}>Name</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Your name"
-            placeholderTextColor="#64748b"
-            value={displayName}
-            onChangeText={setDisplayName}
-            autoCapitalize="words"
-          />
 
           {/* Email */}
           <Text style={s.label}>Email</Text>
@@ -206,6 +229,8 @@ const s = StyleSheet.create({
   backText: { color: "#fb923c", fontSize: 16 },
   title: { color: "#ffffff", fontSize: 30, fontWeight: "900", marginBottom: 8 },
   subtitle: { color: "#94a3b8", fontSize: 16, marginBottom: 32 },
+  googleBtn: { backgroundColor: "#ffffff", borderRadius: 12, height: 50, alignItems: "center", justifyContent: "center" },
+  googleText: { color: "#0f172a", fontSize: 17, fontWeight: "600" },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#475569" },
   dividerText: { color: "#64748b", marginHorizontal: 16, fontSize: 14 },

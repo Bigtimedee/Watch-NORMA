@@ -1,3 +1,4 @@
+import { SignupFunnel } from "./signup-funnel";
 import { requireAdmin } from "@/lib/admin";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -77,6 +78,8 @@ export default async function AdminGrowthPage() {
       <p className="mt-1 text-sm text-slate-400">
         Activation funnel and retention cohorts — trailing 30 days
       </p>
+
+      <SignupFunnel />
 
       {/* Weekly Growth Reports */}
       <section className="mt-8">
