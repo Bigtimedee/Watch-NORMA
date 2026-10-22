@@ -77,7 +77,28 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase start
+      # Only Postgres (+ auth/storage schemas) is needed to apply migrations.
+      # Excluding the other services cuts image pulls from ~13 to ~3, which is
+      # what kept tripping anonymous registry rate limits ("toomanyrequests").
+      # Pulls alternate between the CLI default (public.ecr.aws) and Docker Hub
+      # with backoff, so one registry throttling us doesn't fail the job.
+      - name: supabase start (migrations only, retry across registries)
+        run: |
+          EXCLUDE="studio,imgproxy,mailpit,realtime,edge-runtime,logflare,vector,supavisor,kong,postgrest,postgres-meta"
+          registries=(public.ecr.aws docker.io public.ecr.aws docker.io)
+          delay=15
+          for i in "${!registries[@]}"; do
+            reg="${registries[$i]}"
+            echo "::group::Attempt $((i+1)) via $reg"
+            if SUPABASE_INTERNAL_IMAGE_REGISTRY="$reg" supabase start -x "$EXCLUDE"; then
+              echo "::endgroup::"; exit 0
+            fi
+            echo "::endgroup::"
+            supabase stop --no-backup || true
+            echo "::warning::supabase start failed via $reg; retrying in ${delay}s"
+            sleep "$delay"; delay=$((delay*2))
+          done
+          echo "::error::supabase start failed on all registries"; exit 1
       - run: supabase stop
 
   deploy-functions:
