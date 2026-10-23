@@ -1,0 +1,29 @@
+name: EAS Status
+on:
+  workflow_dispatch:
+    inputs:
+      build_id: { description: "EAS build id", required: false, default: "" }
+      submission_id: { description: "EAS submission id", required: false, default: "" }
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: expo/expo-github-action@v8
+        with: { eas-version: latest, token: "${{ secrets.EXPO_TOKEN }}" }
+      - name: Recent iOS builds
+        run: eas build:list --platform ios --limit 5 --json --non-interactive | jq '[.[]|{id,status,appVersion,appBuildVersion,createdAt,completedAt,error}]'
+      - name: Build detail
+        if: inputs.build_id != ''
+        run: eas build:view ${{ inputs.build_id }} --json | jq '{id,status,appVersion,appBuildVersion,error,completedAt,artifacts:(.artifacts|keys?)}'
+      - name: Submissions (GraphQL)
+        run: |
+          Q='{"query":"query($id:ID!){submissions{byId(submissionId:$id){id status createdAt updatedAt error{errorCode message} logsUrl}}}","variables":{"id":"'"${{ inputs.submission_id }}"'"}}'
+          if [ -n "${{ inputs.submission_id }}" ]; then
+            curl -s https://api.expo.dev/graphql -H "Authorization: Bearer $EXPO_TOKEN" -H 'content-type: application/json' -d "$Q" | jq .
+          fi
