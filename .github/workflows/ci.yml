@@ -227,7 +227,20 @@ jobs:
       - name: Queue iOS production build (auto-submit)
         if: env.EXPO_TOKEN != ''
         # --no-wait: EAS builds and submits server-side; CI does not block.
-        run: eas build --platform ios --profile production --non-interactive --no-wait --auto-submit
+        env:
+          # ASC API key lets non-interactive EAS sync App ID capabilities and
+          # regenerate the provisioning profile when entitlements change.
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          EXPO_APPLE_TEAM_ID: RACZS57SUP
+          EXPO_APPLE_TEAM_TYPE: INDIVIDUAL
+        run: |
+          if [ -n "$ASC_API_KEY_P8" ]; then
+            printf '%s' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc.p8"
+            export EXPO_ASC_API_KEY_PATH="$RUNNER_TEMP/asc.p8"
+          fi
+          eas build --platform ios --profile production --non-interactive --no-wait --auto-submit
       - name: Warn if EXPO_TOKEN missing
         if: env.EXPO_TOKEN == ''
         run: echo "::warning::EXPO_TOKEN not set - build was NOT queued."
