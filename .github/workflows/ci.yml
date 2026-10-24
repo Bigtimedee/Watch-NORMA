@@ -239,6 +239,7 @@ jobs:
           if [ -n "$ASC_API_KEY_P8" ]; then
             printf '%s' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc.p8"
             export EXPO_ASC_API_KEY_PATH="$RUNNER_TEMP/asc.p8"
+            node scripts/asc-sync-capabilities.mjs || true
           fi
           eas build --platform ios --profile production --non-interactive --no-wait --auto-submit
       - name: Warn if EXPO_TOKEN missing
