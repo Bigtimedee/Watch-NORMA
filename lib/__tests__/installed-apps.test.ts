@@ -41,7 +41,7 @@ describe("detectInstalledApps", () => {
   it("probes each scheme once on iOS and maps by provider key", async () => {
     const can = jest.fn(async (u: string) => u === "aiv://" || u === "sportscenter://");
     const map = await detectInstalledApps(ALL, can, "ios");
-    expect(map).toEqual({ prime_video: true, youtube_tv: false, hulu_live: false, espn_plus: true, espn_fantasy: true });
+    expect(map).toEqual({ prime_video: true, hulu_live: false, espn_plus: true, espn_fantasy: true });
     expect(can).toHaveBeenCalledTimes(4);
   });
 

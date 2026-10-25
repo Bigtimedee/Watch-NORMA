@@ -20,6 +20,8 @@ export function schemeUrlFor(provider: Pick<StreamingProvider, "ios_scheme">): s
   return s.includes("://") ? s : `${s.replace(/:$/, "")}://`;
 }
 
+const UNPROBEABLE_KEYS = new Set(["youtube_tv"]);
+
 export function isDetectionSupported(os: string = Platform.OS): boolean {
   return os === "ios";
 }
@@ -47,6 +49,10 @@ export async function detectInstalledApps(
         );
       }
       const v = await byScheme.get(url)!;
+      // YouTube TV's real scheme (youtubetv) is not whitelisted in the 1.8.1
+      // binary, so a false probe is meaningless: leave it unknown so the CTA
+      // still opens YouTube TV (scheme -> tv.youtube.com fallback).
+      if (v === false && UNPROBEABLE_KEYS.has(p.key)) return;
       if (v !== null) out[p.key] = v;
     })
   );

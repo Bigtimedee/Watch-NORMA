@@ -191,14 +191,12 @@ describe("getBestWatchProvider — returned YouTube TV provider has correct sche
 });
 
 describe("getBestWatchProvider — priority ordering", () => {
-  it("prefers a more specific streaming provider over a live-TV bundle when both are connected", () => {
-    // For an ESPN broadcast, espn_plus appears before youtube_tv in the key list.
-    // If user has both, espn_plus should win.
+  it("prefers YouTube TV over the network app when YTTV carries the network (rule 2026-10-25)", () => {
     const connectedKeys = ["espn_plus", "youtube_tv"];
     const result = getBestWatchProvider("ESPN", connectedKeys, ALL_PROVIDERS);
 
     expect(result).not.toBeNull();
-    expect(result!.key).toBe("espn_plus");
+    expect(result!.key).toBe("youtube_tv");
   });
 
   it("falls through to youtube_tv when the specific provider is not connected", () => {
