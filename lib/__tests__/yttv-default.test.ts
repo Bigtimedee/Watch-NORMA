@@ -23,7 +23,7 @@ const all = [P("paramount_plus", "paramountplus://"), P("cbs_sports", "cbssports
 const connected = all.map((p) => p.key);
 
 describe("YouTube TV is the default when it carries the network", () => {
-  it.each(["CBS", "FOX", "NBC", "ABC", "ESPN", "ESPN2", "FS1", "NFL Network", "NFLN", "CBSSN", "ESPNU", "ABC/ESPN", "ESPN/ESPN+"])(
+  it.each(["CBS", "FOX", "NBC", "ABC", "ESPN", "ESPN2", "FS1", "NFL Network", "NFLN", "NFL Net", "CBSSN", "ESPNU", "ABC/ESPN", "ESPN/ESPN+"])(
     "%s -> youtube_tv first", (b) => {
       expect(isCarriedOnYouTubeTV(b)).toBe(true);
       expect(getBroadcastProviderKeys(b)[0]).toBe("youtube_tv");

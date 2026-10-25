@@ -232,7 +232,7 @@ export const YOUTUBE_TV_WEB_URL = "https://tv.youtube.com/";
  * default watch target (product rule, Dave 2026-10-25).
  */
 const YTTV_CARRIED_RE =
-  /\b(ESPN(?!\+)|ESPN2|ESPNU|ESPNEWS|ABC|CBS|CBSSN|FOX|FS1|FS2|NBC|USA|TNT|TBS|TRUTV|NFL NETWORK|NFLNET|NFLN|BTN|BIG TEN NETWORK|SEC NETWORK|SECN|ACC NETWORK|ACCN|NBA TV|NBATV|NHL NETWORK|MLB NETWORK|MLBN|CW|GOLF)\b/;
+  /\b(ESPN(?!\+)|ESPN2|ESPNU|ESPNEWS|ABC|CBS|CBSSN|FOX|FS1|FS2|NBC|USA|TNT|TBS|TRUTV|NFL NETWORK|NFL NET|NFLNET|NFLN|BTN|BIG TEN NETWORK|SEC NETWORK|SECN|ACC NETWORK|ACCN|NBA TV|NBATV|NHL NETWORK|MLB NETWORK|MLBN|CW|GOLF)\b/;
 
 export function isCarriedOnYouTubeTV(broadcast: string | null): boolean {
   if (!broadcast) return false;
@@ -530,7 +530,7 @@ export function getBroadcastProviderKeys(
   if (normalized.includes("APPLE TV") || normalized.includes("APPLE TV+")) {
     providers.push("apple_tv_plus");
   }
-  if (normalized.includes("NFL NETWORK") || normalized.includes("NFLNET")) {
+  if (normalized.includes("NFL NET") || normalized.includes("NFLNET")) {
     providers.push("nfl_network");
   }
   // NFL Sunday Ticket is exclusive to YouTube Primetime Channels (per YouTube).
