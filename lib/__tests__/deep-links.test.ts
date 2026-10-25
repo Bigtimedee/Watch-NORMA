@@ -29,7 +29,8 @@ import type { StreamingProvider } from "../types";
 
 function makeProvider(overrides: Partial<StreamingProvider> = {}): StreamingProvider {
   return {
-    key: "youtube_tv",
+    // Generic tv provider (YouTube TV has its own scheme override; see yttv-default.test.ts)
+    key: "generic_tv",
     name: "YouTube TV",
     provider_type: "tv",
     logo_url: null,

@@ -223,6 +223,24 @@ export function preferPrimePlaybackLink(url: string): string {
   return url;
 }
 
+export const YOUTUBE_TV_IOS_SCHEMES = ["youtubetv://"] as const;
+export const YOUTUBE_TV_WEB_URL = "https://tv.youtube.com/";
+
+/**
+ * Networks YouTube TV carries nationally. When a game airs on one of these
+ * (and is not a regional/streaming-exclusive broadcast), YouTube TV is the
+ * default watch target (product rule, Dave 2026-10-25).
+ */
+const YTTV_CARRIED_RE =
+  /\b(ESPN(?!\+)|ESPN2|ESPNU|ESPNEWS|ABC|CBS|CBSSN|FOX|FS1|FS2|NBC|USA|TNT|TBS|TRUTV|NFL NETWORK|NFL NET|NFLNET|NFLN|BTN|BIG TEN NETWORK|SEC NETWORK|SECN|ACC NETWORK|ACCN|NBA TV|NBATV|NHL NETWORK|MLB NETWORK|MLBN|CW|GOLF)\b/;
+
+export function isCarriedOnYouTubeTV(broadcast: string | null): boolean {
+  if (!broadcast) return false;
+  const n = broadcast.toUpperCase().trim();
+  if (isRegionalBroadcast(broadcast) || isStreamingExclusiveBroadcast(broadcast)) return false;
+  return YTTV_CARRIED_RE.test(n);
+}
+
 // Stored game links: tiny in-memory cache so pre-resolve + open hit the DB once.
 const storedLinkCache = new Map<string, string | null>();
 
@@ -284,7 +302,15 @@ export async function buildLinkCandidates(
   const appUl = provider.app_universal_link ?? null;
   push(appUl ? applyPrimeAffiliateTag(appUl, provider) : null, "app_universal", "universal_link");
 
-  if (Platform.OS === "ios") push(provider.ios_scheme, "scheme", "native_app");
+  if (Platform.OS === "ios") {
+    if (provider.key === "youtube_tv") {
+      // The YouTube TV app registers youtubetv:// (verified 2026-10-25). Prod
+      // carried "youtube-tv://", which no app handles, so every tap fell to
+      // the App Store. Try the real scheme first regardless of the DB value.
+      for (const sch of YOUTUBE_TV_IOS_SCHEMES) push(sch, "scheme", "native_app");
+    }
+    push(provider.ios_scheme, "scheme", "native_app");
+  }
   if (Platform.OS === "android") push(provider.android_deep_link, "scheme", "native_app");
 
   // Legacy universal_link (subscriber-only URLs are NULL in the DB, mig 036).
@@ -293,6 +319,10 @@ export async function buildLinkCandidates(
     const tag = provider.affiliate_tag ?? null;
     push(tag ? appendAffiliateTag(legacyUl, provider.key, tag) : legacyUl, "app_universal", "universal_link", true);
   }
+
+  // YouTube TV: web player is a working fallback (opens the app via universal
+  // link when installed, otherwise tv.youtube.com in Safari) before the store.
+  if (provider.key === "youtube_tv") push(YOUTUBE_TV_WEB_URL, "app_universal", "universal_link");
 
   push(provider.fallback_store_url ?? provider.ios_app_store_url ?? null, "app_store", "app_store");
   return out;
@@ -500,7 +530,7 @@ export function getBroadcastProviderKeys(
   if (normalized.includes("APPLE TV") || normalized.includes("APPLE TV+")) {
     providers.push("apple_tv_plus");
   }
-  if (normalized.includes("NFL NETWORK") || normalized.includes("NFLNET")) {
+  if (normalized.includes("NFL NET") || normalized.includes("NFLNET")) {
     providers.push("nfl_network");
   }
   // NFL Sunday Ticket is exclusive to YouTube Primetime Channels (per YouTube).
@@ -533,6 +563,11 @@ export function getBroadcastProviderKeys(
     providers.push("youtube_tv", "hulu_live", "fubo", "sling", "directv_stream");
   }
 
+  // YouTube TV first whenever it carries the network; network apps
+  // (Paramount+, FOX Sports, ESPN...) remain as fallbacks.
+  if (isCarriedOnYouTubeTV(broadcast)) {
+    return ["youtube_tv", ...providers.filter((k) => k !== "youtube_tv")];
+  }
   return providers;
 }
 
