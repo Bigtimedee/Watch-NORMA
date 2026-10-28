@@ -54,6 +54,7 @@ import {
   type GuardReason,
 } from "./logic.ts";
 import { uploadMediaToX } from "./x-media.ts";
+import { planSelfReply, runSelfReply, type SelfReplyOutcome } from "./reply.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +78,8 @@ interface ContentCalendarRow {
   platform_post_id: string | null;
   generation_prompt: string | null;
   human_notes: string | null;
+  reply_question?: string | null;
+  reply_platform_post_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +107,8 @@ interface PublishResult {
   /** Visible guard flag, e.g. 'over_length: 299 chars (max 280, target 270)'. */
   detail?: string;
   warning?: string;
+  /** Self-reply outcome (never affects success). */
+  reply?: SelfReplyOutcome | { would: string; detail?: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -249,6 +254,7 @@ async function postTweet(
     accessTokenSecret: string;
   },
   mediaIds?: string[],
+  inReplyToTweetId?: string,
 ): Promise<{ tweetId: string }> {
   const url = `${TWITTER_API_BASE}/tweets`;
   const method = "POST";
@@ -269,6 +275,9 @@ async function postTweet(
   const payload: Record<string, unknown> = { text };
   if (mediaIds && mediaIds.length > 0) {
     payload.media = { media_ids: mediaIds };
+  }
+  if (inReplyToTweetId) {
+    payload.reply = { in_reply_to_tweet_id: inReplyToTweetId };
   }
 
   const body = JSON.stringify(payload);
@@ -710,11 +719,21 @@ serve(async (req: Request): Promise<Response> => {
           `[cmo-publish] Post ${post.id} is ${tweetLength} chars (target ${X_TARGET_TWEET_LENGTH}, max ${X_MAX_TWEET_LENGTH}); would publish with warning.`,
         );
       }
+      const replyPlan = disposition.kind === "publish" ? planSelfReply(post) : null;
       results.push({
         id: post.id,
         success: false,
         skipped: true,
         would: disposition.kind === "publish" ? "publish" : `${disposition.kind}:${disposition.reason}`,
+        ...(replyPlan && replyPlan.kind !== "none"
+          ? {
+            reply: replyPlan.kind === "reply"
+              ? { would: "reply", detail: `${replyPlan.length} chars` }
+              : replyPlan.kind === "skip"
+              ? { would: "skip", detail: replyPlan.reason }
+              : { would: "already_replied" },
+          }
+          : {}),
         ...(typeof tweetLength === "number" ? { tweet_length: tweetLength } : {}),
         ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_OVER_LENGTH
           ? { detail: overLengthFlag(tweetLength ?? 0) }
@@ -876,7 +895,31 @@ serve(async (req: Request): Promise<Response> => {
         `[cmo-publish] Post ${post.id} published successfully. Tweet ID: ${tweetId}`,
       );
 
-      results.push({ id: post.id, success: true, tweet_id: tweetId });
+      // Self-reply: never throws, never changes the published row status.
+      const reply = await runSelfReply(post, tweetId, {
+        postReply: (text, inReplyTo) => postTweet(text, credentials, undefined, inReplyTo),
+        saveReplyId: async (postId, replyId) => {
+          const { data, error } = await supabase
+            .from("content_calendar")
+            .update({ reply_platform_post_id: replyId, reply_error: null })
+            .eq("id", postId)
+            .is("reply_platform_post_id", null)
+            .select("id")
+            .maybeSingle();
+          if (error) throw new Error(error.message);
+          return !!data;
+        },
+        saveReplyError: async (postId, message) => {
+          await supabase.from("content_calendar").update({ reply_error: message }).eq("id", postId);
+        },
+      });
+
+      results.push({
+        id: post.id,
+        success: true,
+        tweet_id: tweetId,
+        ...(reply.kind !== "none" ? { reply } : {}),
+      });
     } catch (publishErr) {
       const message =
         publishErr instanceof Error ? publishErr.message : String(publishErr);
