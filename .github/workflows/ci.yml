@@ -59,6 +59,7 @@ jobs:
           deno check supabase/functions/_shared/quiet-hours.ts
           deno check supabase/functions/cmo-publish/logic.ts
           deno check supabase/functions/cmo-publish/index.ts
+          deno check supabase/functions/cmo-publish/reply.ts
           deno check supabase/functions/cmo-publish-linkedin/logic.ts
           deno check supabase/functions/cmo-publish-linkedin/linkedin-client.ts
           deno check supabase/functions/cmo-publish-linkedin/index.ts
