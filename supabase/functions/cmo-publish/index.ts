@@ -3,6 +3,8 @@
 // Queries twitter-only draft/scheduled posts due for publishing and posts them
 // to X (Twitter) v2 API. Non-X content_calendar rows (linkedin, instagram,
 // tiktok, facebook) are never selected and must never be tweeted.
+// After the X loop, crosspost.ts posts already-published X video rows to IG
+// Reels, the FB Page and TikTok (per-platform, idempotent, never touches X).
 // Invoked by pg_cron every 5 minutes (cmo-publish-content, migration
 // 20261002170100_cmo_publish_every_5_min_stale_guard) and optionally via HTTP. POST {"dry_run":true,"as_of":ISO}
 // classifies due rows without uploading, claiming, tweeting or writing.
@@ -55,6 +57,19 @@ import {
 } from "./logic.ts";
 import { uploadMediaToX } from "./x-media.ts";
 import { planSelfReply, runSelfReply, type SelfReplyOutcome } from "./reply.ts";
+import {
+  CROSSPOST_PLATFORMS,
+  CROSSPOST_WINDOW_MS,
+  crossPostRow,
+  planCrossPost,
+  postFacebookVideo,
+  postInstagramReel,
+  postTikTokVideo,
+  readCrossCreds,
+  type CrossOutcome,
+  type CrossPlatform,
+  type CrossRow,
+} from "./crosspost.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,6 +122,8 @@ interface PublishResult {
   /** Visible guard flag, e.g. 'over_length: 299 chars (max 280, target 270)'. */
   detail?: string;
   warning?: string;
+  /** Dry run: per-platform IG/FB/TikTok intent if this row publishes to X. */
+  crosspost?: Record<string, string>;
   /** Self-reply outcome (never affects success). */
   reply?: SelfReplyOutcome | { would: string; detail?: string };
 }
@@ -554,6 +571,72 @@ async function findStuckPublishing(
 // Main handler
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// IG Reels / FB Page / TikTok cross-post sweep (crosspost.ts). Runs after the
+// X loop on already-published X rows; never touches status/platform_post_id.
+// ---------------------------------------------------------------------------
+
+async function runCrossPostSweep(
+  supabase: Db,
+  now: Date,
+  dryRun: boolean,
+): Promise<Array<{ id: string; platforms: CrossOutcome[] }> | { error: string }> {
+  try {
+    const since = new Date(now.getTime() - CROSSPOST_WINDOW_MS).toISOString();
+    const { data, error } = await supabase
+      .from("content_calendar")
+      .select(
+        "id,platform,status,body,hashtags,media_urls,published_at," +
+          CROSSPOST_PLATFORMS.map((p) => `${p}_post_id,${p}_error,${p}_attempted_at`).join(","),
+      )
+      .eq("platform", "twitter")
+      .eq("status", "published")
+      .gte("published_at", since)
+      .order("published_at", { ascending: true })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    const creds = readCrossCreds((k) => Deno.env.get(k));
+    const claim = async (rowId: string, p: CrossPlatform) => {
+      const { data: won, error: e } = await supabase
+        .from("content_calendar")
+        .update({ [`${p}_attempted_at`]: new Date().toISOString() })
+        .eq("id", rowId)
+        .is(`${p}_attempted_at`, null)
+        .is(`${p}_post_id`, null)
+        .select("id")
+        .maybeSingle();
+      if (e) throw new Error(e.message);
+      return !!won;
+    };
+    const save = async (rowId: string, p: CrossPlatform, patch: { post_id?: string | null; error?: string | null }) => {
+      const upd: Record<string, string | null> = {};
+      if ("post_id" in patch) upd[`${p}_post_id`] = patch.post_id ?? null;
+      if ("error" in patch) upd[`${p}_error`] = patch.error ?? null;
+      const { error: e } = await supabase.from("content_calendar").update(upd).eq("id", rowId);
+      if (e) throw new Error(e.message);
+    };
+    const out: Array<{ id: string; platforms: CrossOutcome[] }> = [];
+    for (const row of (data ?? []) as unknown as CrossRow[]) {
+      const platforms = await crossPostRow(row, {
+        creds,
+        claim,
+        save,
+        post: {
+          ig: (u, c) => postInstagramReel(creds.ig!, u, c),
+          fb: (u, c) => postFacebookVideo(creds.fb!, u, c),
+          tiktok: (u, c) => postTikTokVideo(creds.tiktok!, u, c),
+        },
+      }, now, dryRun);
+      if (platforms.some((x) => x.result !== "done")) out.push({ id: row.id, platforms });
+    }
+    return out;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[cmo-publish] crosspost sweep error (X unaffected): ${msg}`);
+    return { error: msg };
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Health check
   if (req.method === "GET") {
@@ -643,6 +726,7 @@ serve(async (req: Request): Promise<Response> => {
         success: true,
         skipped: true,
         reason: "daily_limit_reached",
+        crosspost: await runCrossPostSweep(supabase, dryRun ? asOf : now, dryRun),
         published_today: publishedTodayCount,
         limit: MAX_POSTS_PER_DAY,
         dry_run: dryRun,
@@ -676,6 +760,7 @@ serve(async (req: Request): Promise<Response> => {
         success: true,
         published: 0,
         message: "No posts due",
+        crosspost: await runCrossPostSweep(supabase, dryRun ? asOf : now, dryRun),
         dry_run: dryRun,
         as_of: asOf.toISOString(),
         stuck_publishing: stuckPublishing,
@@ -732,6 +817,19 @@ serve(async (req: Request): Promise<Response> => {
               : replyPlan.kind === "skip"
               ? { would: "skip", detail: replyPlan.reason }
               : { would: "already_replied" },
+          }
+          : {}),
+        ...(disposition.kind === "publish"
+          ? {
+            crosspost: Object.fromEntries(CROSSPOST_PLATFORMS.map((p) => {
+              const plan = planCrossPost(
+                { ...post, status: "published", published_at: asOf.toISOString() } as CrossRow,
+                p,
+                readCrossCreds((k) => Deno.env.get(k)),
+                asOf,
+              );
+              return [p, plan.kind === "post" ? `would_post (${plan.caption.length} chars)` : plan.kind === "skip" ? `skip: ${plan.reason}` : "done"];
+            })),
           }
           : {}),
         ...(typeof tweetLength === "number" ? { tweet_length: tweetLength } : {}),
@@ -955,6 +1053,7 @@ serve(async (req: Request): Promise<Response> => {
         as_of: asOf.toISOString(),
         due: results.length,
         results,
+        crosspost: await runCrossPostSweep(supabase, asOf, true),
         stuck_publishing: stuckPublishing,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
@@ -977,6 +1076,7 @@ serve(async (req: Request): Promise<Response> => {
       skipped: skippedCount,
       total_today: publishedTodayCount + publishedCount,
       results,
+      crosspost: await runCrossPostSweep(supabase, new Date(), false),
       stuck_publishing: stuckPublishing,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
