@@ -60,7 +60,13 @@ import { planSelfReply, runSelfReply, type SelfReplyOutcome } from "./reply.ts";
 import {
   CROSSPOST_PLATFORMS,
   CROSSPOST_WINDOW_MS,
+  createIgContainer,
   crossPostRow,
+  IG_CHECK_LEASE_MS,
+  IG_PENDING,
+  igContainerStatus,
+  publishIgContainer,
+  resumeIgRow,
   planCrossPost,
   postFacebookVideo,
   postInstagramReel,
@@ -615,19 +621,70 @@ async function runCrossPostSweep(
       const { error: e } = await supabase.from("content_calendar").update(upd).eq("id", rowId);
       if (e) throw new Error(e.message);
     };
+    const saveIgContainer = async (rowId: string, cid: string) => {
+      const { error: e } = await supabase.from("content_calendar")
+        .update({ ig_container_id: cid, ig_container_created_at: new Date().toISOString() })
+        .eq("id", rowId);
+      if (e) throw new Error(e.message);
+    };
     const out: Array<{ id: string; platforms: CrossOutcome[] }> = [];
     for (const row of (data ?? []) as unknown as CrossRow[]) {
       const platforms = await crossPostRow(row, {
         creds,
         claim,
         save,
+        saveIgContainer,
         post: {
-          ig: (u, c) => postInstagramReel(creds.ig!, u, c),
+          ig: (u, c) =>
+            postInstagramReel(creds.ig!, u, c, {
+              maxPolls: 10,
+              onContainer: (cid) => saveIgContainer(row.id, cid),
+            }),
           fb: (u, c) => postFacebookVideo(creds.fb!, u, c),
           tiktok: (u, c) => postTikTokVideo(creds.tiktok!, u, c),
         },
       }, now, dryRun);
       if (platforms.some((x) => x.result !== "done")) out.push({ id: row.id, platforms });
+    }
+    if (!dryRun && creds.ig) {
+      // Deferred IG: re-check still-processing Reels containers (any age; 2h cap in resumeIgRow).
+      const { data: pend, error: pe } = await supabase
+        .from("content_calendar")
+        .select("id,platform,status,body,hashtags,media_urls,published_at,ig_post_id,ig_error,ig_attempted_at,ig_container_id,ig_container_created_at,ig_container_retried,ig_checked_at")
+        .eq("ig_error", IG_PENDING)
+        .is("ig_post_id", null)
+        .not("ig_container_id", "is", null)
+        .limit(20);
+      if (pe) throw new Error(pe.message);
+      const ig = creds.ig;
+      for (const row of (pend ?? []) as unknown as CrossRow[]) {
+        const r = await resumeIgRow(row, {
+          lease: async (rowId) => {
+            const cutoff = new Date(Date.now() - IG_CHECK_LEASE_MS).toISOString();
+            const { data: won, error: e } = await supabase.from("content_calendar")
+              .update({ ig_checked_at: new Date().toISOString() })
+              .eq("id", rowId).is("ig_post_id", null).eq("ig_error", IG_PENDING)
+              .or(`ig_checked_at.is.null,ig_checked_at.lt.${cutoff}`)
+              .select("id").maybeSingle();
+            if (e) throw new Error(e.message);
+            return !!won;
+          },
+          save: async (rowId, patch) => {
+            const { error: e } = await supabase.from("content_calendar").update(patch).eq("id", rowId);
+            if (e) throw new Error(e.message);
+          },
+          status: (cid) => igContainerStatus(ig, cid),
+          publish: (cid) => publishIgContainer(ig, cid),
+          create: (u, c) => createIgContainer(ig, u, c),
+        }, now);
+        if (r.result !== "skipped") {
+          out.push({ id: row.id, platforms: [r.result === "posted"
+            ? { platform: "ig", result: "posted", post_id: r.post_id }
+            : r.result === "failed"
+            ? { platform: "ig", result: "failed", error: r.error }
+            : { platform: "ig", result: "pending", container_id: r.container_id }] });
+        }
+      }
     }
     return out;
   } catch (e) {

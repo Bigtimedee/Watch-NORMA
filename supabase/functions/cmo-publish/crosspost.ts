@@ -50,6 +50,10 @@ export interface CrossRow {
   ig_post_id?: string | null;
   ig_error?: string | null;
   ig_attempted_at?: string | null;
+  ig_container_id?: string | null;
+  ig_container_created_at?: string | null;
+  ig_container_retried?: boolean | null;
+  ig_checked_at?: string | null;
   fb_post_id?: string | null;
   fb_error?: string | null;
   fb_attempted_at?: string | null;
@@ -156,15 +160,25 @@ export interface ClientOpts {
   maxPolls?: number;
 }
 
-/** Instagram Reels: container (video_url) -> poll FINISHED -> media_publish. */
-export async function postInstagramReel(
+/** Thrown when the IG container is still processing; the row stays pending. */
+export class IgContainerPending extends Error {
+  constructor(public containerId: string) {
+    super(`ig container ${containerId} still processing`);
+  }
+}
+export const IG_PENDING = "ig_container_pending";
+/** Give up on a container that is still not FINISHED after this long. */
+export const IG_PENDING_MAX_MS = 2 * 60 * 60 * 1000;
+/** Lease so two overlapping runs never check/publish the same container. */
+export const IG_CHECK_LEASE_MS = 4 * 60 * 1000;
+
+export async function createIgContainer(
   c: NonNullable<CrossCreds["ig"]>,
   videoUrl: string,
   caption: string,
   o: ClientOpts = {},
 ): Promise<string> {
   const f = o.fetch ?? fetch;
-  const wait = o.sleep ?? sleep;
   const create = await json(
     await f(`${META_GRAPH}/${c.userId}/media`, {
       method: "POST",
@@ -180,29 +194,144 @@ export async function postInstagramReel(
   );
   const containerId = String(create.id ?? "");
   if (!containerId) throw new Error("ig container: no id");
+  return containerId;
+}
+
+export async function igContainerStatus(
+  c: NonNullable<CrossCreds["ig"]>,
+  containerId: string,
+  o: ClientOpts = {},
+): Promise<{ code: string; status: string }> {
+  const f = o.fetch ?? fetch;
+  const st = await json(
+    await f(`${META_GRAPH}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(c.token)}`),
+    "ig status",
+  );
+  return { code: String(st.status_code ?? ""), status: String(st.status ?? "") };
+}
+
+export async function publishIgContainer(
+  c: NonNullable<CrossCreds["ig"]>,
+  containerId: string,
+  o: ClientOpts = {},
+): Promise<string> {
+  const f = o.fetch ?? fetch;
+  const pub = await json(
+    await f(`${META_GRAPH}/${c.userId}/media_publish`, {
+      method: "POST",
+      body: new URLSearchParams({ creation_id: containerId, access_token: c.token }),
+    }),
+    "ig publish",
+  );
+  if (!pub.id) throw new Error("ig publish: no id");
+  return String(pub.id);
+}
+
+/**
+ * Instagram Reels: container (video_url) -> short poll -> media_publish.
+ * If the container is not FINISHED within the short poll, throws
+ * IgContainerPending (caller saves the id; later runs resume it).
+ * onContainer is called as soon as the container exists so the id is durable.
+ */
+export async function postInstagramReel(
+  c: NonNullable<CrossCreds["ig"]>,
+  videoUrl: string,
+  caption: string,
+  o: ClientOpts & { onContainer?: (id: string) => Promise<void> } = {},
+): Promise<string> {
+  const wait = o.sleep ?? sleep;
+  const containerId = await createIgContainer(c, videoUrl, caption, o);
+  if (o.onContainer) await o.onContainer(containerId);
   const max = o.maxPolls ?? 15;
   for (let i = 0; i < max; i++) {
-    const st = await json(
-      await f(`${META_GRAPH}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(c.token)}`),
-      "ig status",
-    );
-    if (st.status_code === "FINISHED") {
-      const pub = await json(
-        await f(`${META_GRAPH}/${c.userId}/media_publish`, {
-          method: "POST",
-          body: new URLSearchParams({ creation_id: containerId, access_token: c.token }),
-        }),
-        "ig publish",
-      );
-      if (!pub.id) throw new Error("ig publish: no id");
-      return String(pub.id);
-    }
-    if (st.status_code === "ERROR" || st.status_code === "EXPIRED") {
-      throw new Error(`ig container ${st.status_code}: ${st.status ?? ""}`);
+    const st = await igContainerStatus(c, containerId, o);
+    if (st.code === "FINISHED") return await publishIgContainer(c, containerId, o);
+    if (st.code === "ERROR" || st.code === "EXPIRED") {
+      throw new Error(`ig container ${st.code}: ${st.status}`);
     }
     await wait(o.pollMs ?? 4000);
   }
-  throw new Error(`ig container ${containerId} not FINISHED after ${max} polls`);
+  throw new IgContainerPending(containerId);
+}
+
+export type IgResumeAction =
+  | { kind: "check" }
+  | { kind: "timeout" }
+  | { kind: "skip" };
+
+/** Should a later run look at this row's pending IG container? */
+export function planIgResume(row: CrossRow, now: Date): IgResumeAction {
+  if (row.ig_post_id || !row.ig_container_id || row.ig_error !== IG_PENDING) return { kind: "skip" };
+  const created = Date.parse(row.ig_container_created_at ?? row.ig_attempted_at ?? "");
+  if (Number.isFinite(created) && now.getTime() - created > IG_PENDING_MAX_MS) return { kind: "timeout" };
+  return { kind: "check" };
+}
+
+export interface IgResumeDeps {
+  /** Atomic lease on ig_checked_at; true only for the winner. */
+  lease: (rowId: string) => Promise<boolean>;
+  save: (rowId: string, patch: Record<string, unknown>) => Promise<void>;
+  status: (containerId: string) => Promise<{ code: string; status: string }>;
+  publish: (containerId: string) => Promise<string>;
+  create: (videoUrl: string, caption: string) => Promise<string>;
+  log?: (m: string) => void;
+}
+
+export type IgResumeOutcome =
+  | { result: "posted"; post_id: string }
+  | { result: "pending"; container_id: string }
+  | { result: "recreated"; container_id: string }
+  | { result: "failed"; error: string }
+  | { result: "skipped"; reason: string };
+
+/** Re-check a pending IG container; publish when FINISHED. Never double-posts. */
+export async function resumeIgRow(row: CrossRow, d: IgResumeDeps, now: Date): Promise<IgResumeOutcome> {
+  const log = d.log ?? console.log;
+  const plan = planIgResume(row, now);
+  if (plan.kind === "skip") return { result: "skipped", reason: "not_pending" };
+  if (!(await d.lease(row.id))) return { result: "skipped", reason: "leased_elsewhere" };
+  if (plan.kind === "timeout") {
+    const error = `ig container ${row.ig_container_id} not FINISHED after 2h`;
+    await d.save(row.id, { ig_error: error });
+    return { result: "failed", error };
+  }
+  try {
+    const cid = row.ig_container_id!;
+    const st = await d.status(cid);
+    if (st.code === "FINISHED") {
+      const id = await d.publish(cid);
+      await d.save(row.id, { ig_post_id: id, ig_error: null });
+      log(`[cmo-publish] crosspost ig row ${row.id} -> ${id} (deferred)`);
+      return { result: "posted", post_id: id };
+    }
+    if (st.code === "ERROR" || st.code === "EXPIRED") {
+      if (row.ig_container_retried) {
+        const error = `ig container ${st.code} (after retry): ${st.status}`.slice(0, 500);
+        await d.save(row.id, { ig_error: error });
+        return { result: "failed", error };
+      }
+      const videoUrl = (row.media_urls ?? []).find((u) => isVideoMediaUrl(u));
+      if (!videoUrl) {
+        await d.save(row.id, { ig_error: "no_video" });
+        return { result: "failed", error: "no_video" };
+      }
+      const fresh = await d.create(videoUrl, composeCaption(row));
+      await d.save(row.id, {
+        ig_container_id: fresh,
+        ig_container_created_at: now.toISOString(),
+        ig_container_retried: true,
+        ig_error: IG_PENDING,
+      });
+      log(`[cmo-publish] ig row ${row.id} container ${cid} ${st.code}; fresh container ${fresh}`);
+      return { result: "recreated", container_id: fresh };
+    }
+    return { result: "pending", container_id: cid };
+  } catch (e) {
+    // Transient (network / Graph 5xx): stay pending; the 2h cap still applies.
+    const msg = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+    log(`[cmo-publish] ig resume row ${row.id} error (stays pending): ${msg}`);
+    return { result: "failed", error: msg };
+  }
 }
 
 /** Facebook Page video via file_url (Graph fetches the public Storage URL). */
@@ -296,6 +425,8 @@ export interface CrossDeps {
   /** Atomic claim; true only for the winner. */
   claim: (rowId: string, p: CrossPlatform) => Promise<boolean>;
   save: (rowId: string, p: CrossPlatform, patch: { post_id?: string | null; error?: string | null }) => Promise<void>;
+  /** Persist a still-processing IG container so later runs can resume it. */
+  saveIgContainer?: (rowId: string, containerId: string) => Promise<void>;
   post: Record<CrossPlatform, (videoUrl: string, caption: string) => Promise<string>>;
   log?: (m: string) => void;
 }
@@ -305,6 +436,7 @@ export type CrossOutcome =
   | { platform: CrossPlatform; result: "skipped"; reason: string }
   | { platform: CrossPlatform; result: "failed"; error: string }
   | { platform: CrossPlatform; result: "would_post"; caption_length: number }
+  | { platform: CrossPlatform; result: "pending"; container_id: string }
   | { platform: CrossPlatform; result: "done" };
 
 export async function crossPostRow(
@@ -346,6 +478,14 @@ export async function crossPostRow(
         log(`[cmo-publish] crosspost ${p} row ${row.id} -> ${id}`);
         out.push({ platform: p, result: "posted", post_id: id });
       } catch (e) {
+        if (e instanceof IgContainerPending) {
+          // Not a failure: keep the claim, record the container, resume later.
+          if (deps.saveIgContainer) await deps.saveIgContainer(row.id, e.containerId).catch(() => {});
+          await deps.save(row.id, p, { error: IG_PENDING }).catch(() => {});
+          log(`[cmo-publish] crosspost ig row ${row.id} container ${e.containerId} pending`);
+          out.push({ platform: p, result: "pending", container_id: e.containerId });
+          continue;
+        }
         const msg = (e instanceof Error ? e.message : String(e)).slice(0, 500);
         log(`[cmo-publish] crosspost ${p} row ${row.id} failed: ${msg}`);
         await deps.save(row.id, p, { error: msg }).catch(() => {});
