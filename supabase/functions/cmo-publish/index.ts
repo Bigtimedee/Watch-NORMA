@@ -657,6 +657,7 @@ async function runCrossPostSweep(
         .limit(20);
       if (pe) throw new Error(pe.message);
       const ig = creds.ig;
+      const igPermalinks: Record<string, string> = {};
       for (const row of (pend ?? []) as unknown as CrossRow[]) {
         const r = await resumeIgRow(row, {
           lease: async (rowId) => {
@@ -674,12 +675,21 @@ async function runCrossPostSweep(
             if (e) throw new Error(e.message);
           },
           status: (cid) => igContainerStatus(ig, cid),
-          publish: (cid) => publishIgContainer(ig, cid),
+          publish: async (cid) => {
+            const id = await publishIgContainer(ig, cid);
+            try {
+              const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=permalink&access_token=${encodeURIComponent(ig.token)}`);
+              const j = await r.json();
+              console.log(`[cmo-publish] ig ${id} permalink ${j.permalink ?? "?"}`);
+              igPermalinks[id] = String(j.permalink ?? "");
+            } catch { /* best effort */ }
+            return id;
+          },
           create: (u, c) => createIgContainer(ig, u, c),
         }, now);
         if (r.result !== "skipped") {
           out.push({ id: row.id, platforms: [r.result === "posted"
-            ? { platform: "ig", result: "posted", post_id: r.post_id }
+            ? { platform: "ig", result: "posted", post_id: r.post_id, permalink: igPermalinks[r.post_id] } as CrossOutcome
             : r.result === "failed"
             ? { platform: "ig", result: "failed", error: r.error }
             : { platform: "ig", result: "pending", container_id: r.container_id }] });
