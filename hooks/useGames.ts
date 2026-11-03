@@ -10,6 +10,7 @@ import {
   gamesQueryKey,
   isDemoGameId,
 } from "../lib/demo-guard";
+import { dedupeGames } from "../lib/dedupe-games";
 
 /** Get the Eastern-timezone calendar date as YYYY-MM-DD (matches DatePicker's Eastern-based today) */
 function localDateStr(date?: string): string {
@@ -111,7 +112,7 @@ export function useGames(date?: string, sport?: SportKey) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return excludeDemoGames((data ?? []) as Game[]);
+      return dedupeGames(excludeDemoGames((data ?? []) as Game[]));
     },
     // Poll frequently for today's live games; future dates only need occasional refreshes
     refetchInterval: date === todayStr ? 30_000 : 5 * 60 * 1000,
@@ -215,7 +216,7 @@ export function useFollowedGames() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return excludeDemoGames((data ?? []) as Game[]);
+      return dedupeGames(excludeDemoGames((data ?? []) as Game[]));
     },
     refetchInterval: 30_000,
   });

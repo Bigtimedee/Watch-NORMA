@@ -406,7 +406,12 @@ Deno.serve(async (req) => {
       // Fetch all teams once for matching (mutable — we'll add new teams as we create them)
       const { data: initialDbTeams } = await supabase
         .from("teams")
-        .select("id, name, market, abbreviation, sportsdataio_id");
+        .select("id, name, market, abbreviation, sportsdataio_id")
+        // NCAAM only: matching across all sports attached NCAAF team rows
+        // (espn-ncaaf-tenn) to basketball games, which helped create duplicate
+        // games (P0 2026-11-03). Cross-source dedupe itself is enforced in the DB
+        // by trg_games_canonicalize + games_canonical_key_unique.
+        .eq("sport", "ncaam");
       const allDbTeams = initialDbTeams ?? [];
 
       /** Create a team from ESPN data if it doesn't exist in the DB.
@@ -421,6 +426,7 @@ Deno.serve(async (req) => {
           name: displayName,
           market,
           abbreviation: abbreviation.slice(0, 4).toUpperCase(),
+          sport: "ncaam",
         };
         const { error } = await supabase
           .from("teams")
@@ -475,6 +481,7 @@ Deno.serve(async (req) => {
 
         const gameData: Record<string, unknown> = {
           id: `espn-${espn.espnId}`,
+          espn_id: String(espn.espnId),
           sportsdataio_id: null,
           sport: "ncaam",
           status,
