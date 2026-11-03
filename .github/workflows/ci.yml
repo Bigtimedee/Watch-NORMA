@@ -122,7 +122,7 @@ jobs:
           echo "::warning::Edge Functions were NOT deployed. Repo and production will drift."
       - name: Deploy all Edge Functions
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
-        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" --yes
       - name: List deployed functions
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: supabase functions list --project-ref "$SUPABASE_PROJECT_REF"
