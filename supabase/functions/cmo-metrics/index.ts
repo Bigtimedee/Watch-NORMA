@@ -103,8 +103,17 @@ async function runFb(rows: CcRow[], out: MetricRow[], followers: Record<string, 
   for (const r of rows.filter((r) => r.fb_post_id)) {
     const id = r.fb_post_id!;
     const fields = await getJson(`${META_GRAPH}/${id}?fields=likes.summary(true).limit(0),comments.summary(true).limit(0)&${tok}`);
-    const ins = await getJson(`${META_GRAPH}/${id}/video_insights?metric=total_video_impressions,total_video_views,total_video_reactions_by_type_total&${tok}`);
-    if (!ins.ok) (errs.fb ??= []).push(`video_insights:${id}:${apiError(ins.status, ins.body)}`);
+    // One metric per call: Graph rejects the whole request if any metric is invalid
+    // for this video type (#100), so keep whichever ones are supported.
+    const data: unknown[] = [];
+    let lastErr = "";
+    for (const m of ["total_video_impressions", "total_video_views", "total_video_reactions_by_type_total", "blue_reels_play_count", "post_video_followers"]) {
+      const r1 = await getJson(`${META_GRAPH}/${id}/video_insights?metric=${m}&${tok}`);
+      // deno-lint-ignore no-explicit-any
+      if (r1.ok) data.push(...((r1.body as any)?.data ?? [])); else lastErr = `${m}:${apiError(r1.status, r1.body)}`;
+    }
+    const ins = { ok: data.length > 0, status: 200, body: { data } };
+    if (!ins.ok) (errs.fb ??= []).push(`video_insights:${id}:${lastErr}`);
     if (!fields.ok && !ins.ok) { (errs.fb ??= []).push(`video:${id}:${apiError(fields.status, fields.body)}`); continue; }
     out.push(parseFb(id, r.id, ins.ok ? ins.body : null, fields.ok ? fields.body : null));
   }
