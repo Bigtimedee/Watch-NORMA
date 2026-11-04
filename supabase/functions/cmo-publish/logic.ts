@@ -553,3 +553,45 @@ export function describePossibleOrphanTweet(postId: string, tweetId: string): st
     `Not marking failed.`
   );
 }
+
+// ---------------------------------------------------------------------------
+// 3 posts/day cadence (Dave, 2026-11-04): slots 09:00, 13:00, 19:00 America/Chicago.
+// Job 48 runs every 5 min and publishes any due row, so each slot is picked up
+// within <= 5 min. Slots are >= 4h apart, so the 3h stale guard (per row) never
+// holds an on-time later slot. MAX_POSTS_PER_DAY (10) stays above 3.
+// ---------------------------------------------------------------------------
+export const DAILY_SLOTS_CT = ["09:00", "13:00", "19:00"] as const;
+
+/** UTC offset (minutes, e.g. -360 for CST) of America/Chicago at `at`. */
+export function chicagoOffsetMinutes(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(at);
+  const g = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const asUtc = Date.UTC(g("year"), g("month") - 1, g("day"), g("hour"), g("minute"), g("second"));
+  return Math.round((asUtc - Math.floor(at.getTime() / 1000) * 1000) / 60000);
+}
+
+/** Midnight America/Chicago (DST-correct) of the CT calendar day containing `at`. */
+export function chicagoStartOfDay(at: Date): Date {
+  const off = chicagoOffsetMinutes(at);
+  const local = new Date(at.getTime() + off * 60000);
+  const midLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  const guess = new Date(midLocal - off * 60000);
+  // Re-check offset at midnight (DST switch days).
+  const off2 = chicagoOffsetMinutes(guess);
+  return new Date(midLocal - off2 * 60000);
+}
+
+/** UTC instants of the 3 daily slots for the CT day containing `at`. */
+export function dailySlotsUtc(at: Date): Date[] {
+  const start = chicagoStartOfDay(at);
+  return DAILY_SLOTS_CT.map((hm) => {
+    const [h, m] = hm.split(":").map(Number);
+    const naive = new Date(start.getTime() + (h * 60 + m) * 60000);
+    const fix = chicagoOffsetMinutes(start) - chicagoOffsetMinutes(naive);
+    return new Date(naive.getTime() + fix * 60000);
+  });
+}
