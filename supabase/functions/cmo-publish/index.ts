@@ -54,6 +54,7 @@ import {
   parseRunOptions,
   preflightPublishRow,
   type GuardReason,
+  chicagoStartOfDay,
 } from "./logic.ts";
 import { uploadMediaToX } from "./x-media.ts";
 import { planSelfReply, runSelfReply, type SelfReplyOutcome } from "./reply.ts";
@@ -352,12 +353,8 @@ async function countPublishedToday(
   supabase: Db,
   platform: string,
 ): Promise<number> {
-  const startOfDayET = new Date();
-  // Approximate ET by subtracting 5 hours from UTC (conservative — uses EST year-round)
-  // A production implementation would use a proper timezone library.
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() - 5);
-  startOfDayET.setUTCHours(0, 0, 0, 0);
-  startOfDayET.setUTCHours(startOfDayET.getUTCHours() + 5);
+  // DST-correct America/Chicago day (was EST-approximate UTC-5 year-round).
+  const startOfDayET = chicagoStartOfDay(new Date());
 
   const { count, error } = await supabase
     .from("content_calendar")
