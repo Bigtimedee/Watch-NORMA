@@ -18,5 +18,5 @@ const s = StyleSheet.create({
   card: { backgroundColor: "rgba(249,115,22,0.1)", borderColor: "rgba(249,115,22,0.35)", borderWidth: 1, borderRadius: 14, padding: 14, marginHorizontal: 16, marginBottom: 12 },
   text: { color: "#e2e8f0", fontSize: 14, marginBottom: 10 },
   btn: { backgroundColor: "#f97316", borderRadius: 10, paddingVertical: 10, alignItems: "center" },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  btnText: { color: "#0f172a", fontWeight: "700", fontSize: 14 },
 });
