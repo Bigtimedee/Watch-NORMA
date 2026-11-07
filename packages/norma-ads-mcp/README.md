@@ -128,7 +128,7 @@ Get your API key at [getnorma.app/developers](https://getnorma.app/developers).
 
 ### `list_moment_types`
 
-Returns NORMA's full moment type taxonomy with floor prices and historical CTR ranges.
+Returns NORMA's full moment type taxonomy with floor prices and available sports. CTR fields are `null` until published — Delivery and CTR metrics are published after campaigns reach real volume.
 
 **Input**: none
 
@@ -140,8 +140,9 @@ Returns NORMA's full moment type taxonomy with floor prices and historical CTR r
     "display_name": "Bet Resolved",
     "description": "Fires when a user's active wager is settled",
     "floor_price_usd": 0.50,
-    "typical_ctr_low": 8.0,
-    "typical_ctr_high": 14.0,
+    "typical_ctr_low": null,
+    "typical_ctr_high": null,
+    "ctr_note": "Delivery and CTR metrics are published after campaigns reach real volume.",
     "available_sports": ["ncaa_basketball", "nfl", "nba"]
   }
 ]

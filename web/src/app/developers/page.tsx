@@ -60,13 +60,13 @@ const QUICKSTART_STEPS = [
   -H "Authorization: Bearer {token}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "March Madness Push",
+    "name": "College Hoops Push",
     "moment_types": ["bet_resolved", "overtime"],
     "sports": ["ncaa_basketball"],
     "bid_cpm_usd": 0.80,
     "daily_budget_usd": 50.00,
     "total_budget_usd": 500.00,
-    "start_date": "2025-03-15",
+    "start_date": "2026-12-05",
     "creative": {
       "headline": "Your bet just went live",
       "body": "Check the line before the final buzzer.",
@@ -80,7 +80,7 @@ const QUICKSTART_STEPS = [
     step: 6,
     title: "Pull performance after 24 hours",
     body: null,
-    code: `curl "https://api.getnorma.app/api/ads/reporting/campaigns/CAMPAIGN_ID?start_date=2025-03-15&end_date=2025-03-16" \\
+    code: `curl "https://api.getnorma.app/api/ads/reporting/campaigns/CAMPAIGN_ID?start_date=2026-12-05&end_date=2026-12-06" \\
   -H "Authorization: Bearer {token}"`,
   },
 ];
@@ -88,11 +88,11 @@ const QUICKSTART_STEPS = [
 const FAQS = [
   {
     q: "Is this OpenRTB-compatible?",
-    a: "Not currently. NORMA uses its own REST API with a second-price Vickrey auction model. OpenRTB integration is on the roadmap for Q3 2025. If you need OpenRTB, contact ads@getnorma.app — we can discuss a DSP adapter.",
+    a: "Not currently. NORMA uses its own REST API with a second-price Vickrey auction model. Contact ads@getnorma.app to discuss a DSP adapter.",
   },
   {
     q: "How do I verify NORMA is an authorized seller in AAMP?",
-    a: "NORMA is registered in the IAB AAMP seller registry. Check getnorma.app/adagents.json for the agent discovery manifest. We also serve seller-domain verification at /.well-known/openapi.json.",
+    a: "AAMP seller registration is in progress. In the meantime, check getnorma.app/adagents.json for the agent discovery manifest. We also serve seller-domain verification at /.well-known/openapi.json.",
   },
   {
     q: "What attribution partners are supported?",

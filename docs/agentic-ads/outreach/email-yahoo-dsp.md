@@ -6,13 +6,13 @@
 
 ---
 
-**Subject:** NORMA MCP server — new tool for your Yours/Mine/Ours stack (12–18% CTR push inventory)
+**Subject:** NORMA MCP server — new tool for your Yours/Mine/Ours stack (high-intent sports push inventory)
 
 Hi Adam,
 
 Your "Yours, Mine, Ours" MCP framework has been live since January. I have an MCP server that registers as a new tool in under a minute and adds an inventory type your agents don't currently have access to.
 
-NORMA delivers push notification ads to sports bettors at the exact second their bet is live and at risk — bet resolved, overtime, spread cross. We see 12–18% CTR on the highest-intent moments. That's not a model prediction; that's the design of the trigger.
+NORMA delivers push notification ads to sports bettors at the exact second their bet is live and at risk — bet resolved, overtime, spread cross. Delivery and CTR metrics are published after campaigns reach real volume.
 
 The server is already published:
 

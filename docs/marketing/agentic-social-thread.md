@@ -18,11 +18,11 @@ Here is what we built and how it works.
 
 **2/9**
 
-NORMA is a push notification app for NCAA basketball, NBA, and MLB bettors.
+NORMA is a push notification app for NFL, college football, NBA, college basketball, and MLB bettors.
 
 The app fires alerts at 11 named in-game moments: spread moves, close games, overtime, resolved predictions, and more.
 
-Each moment is a named inventory slot with a documented floor CPM and CTR range.
+Each moment is a named inventory slot with a documented floor CPM.
 
 ---
 
@@ -30,13 +30,15 @@ Each moment is a named inventory slot with a documented floor CPM and CTR range.
 
 Floor CPMs by moment:
 
-prediction_resolved: $0.60 (11–17% CTR)
-bet_resolved: $0.50 (9–15%)
-overtime: $0.40 (12–18%)
-close_game: $0.35 (7–13%)
-spread_alert: $0.30 (6–10%)
+prediction_resolved: $0.60
+bet_resolved: $0.50
+overtime: $0.40
+close_game: $0.35
+spread_alert: $0.30
 
 Down to follow_alert at $0.10 floor.
+
+Delivery and CTR metrics are published after campaigns reach real volume.
 
 Second-price Vickrey auction. You pay $0.01 above second-highest bid.
 

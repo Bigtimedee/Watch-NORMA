@@ -71,7 +71,7 @@ Returns `{ "status": "ok", "transport": "http-sse" }` — no auth required.
 
 | Tool | Description |
 |------|-------------|
-| `list_moment_types` | Returns all 11 moment types with floor CPMs, typical CTR ranges, and trigger conditions |
+| `list_moment_types` | Returns all 11 moment types with floor CPMs and trigger conditions |
 | `get_inventory_forecast` | Returns a 7-day supply forecast (projected impressions) for a given moment type, sport, or date range |
 | `create_campaign` | Creates a new campaign with creative, targeting (moment type, sport, geo), bid, and daily budget |
 | `update_campaign` | Updates an active campaign's bid, budget cap, creative, or status (pause/resume) |
@@ -82,19 +82,21 @@ Returns `{ "status": "ok", "transport": "http-sse" }` — no auth required.
 
 ## Moment Types and Floor CPMs
 
-| Moment | Floor CPM | Typical CTR |
-|--------|-----------|-------------|
-| Prediction Resolved | $0.60 | 11–17% |
-| Bet Resolved | $0.50 | 9–15% |
-| Overtime | $0.40 | 12–18% |
-| Close Game | $0.35 | 7–13% |
-| Spread Alert | $0.30 | 6–10% |
-| Moneyline Alert | $0.30 | 5–9% |
-| Total Alert | $0.25 | 4–8% |
-| Prop Alert | $0.25 | 4–8% |
-| Position Alert | $0.20 | 3–7% |
-| Foul Trouble | $0.15 | 2–6% |
-| Follow Alert | $0.10 | 2–4% |
+| Moment | Floor CPM |
+|--------|-----------|
+| Prediction Resolved | $0.60 |
+| Bet Resolved | $0.50 |
+| Overtime | $0.40 |
+| Close Game | $0.35 |
+| Spread Alert | $0.30 |
+| Moneyline Alert | $0.30 |
+| Total Alert | $0.25 |
+| Prop Alert | $0.25 |
+| Position Alert | $0.20 |
+| Foul Trouble | $0.15 |
+| Follow Alert | $0.10 |
+
+Delivery and CTR metrics are published after campaigns reach real volume.
 
 All pricing via Vickrey (second-price) auction. You pay one cent above the second-highest bid, never your max.
 

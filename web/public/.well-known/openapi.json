@@ -225,13 +225,20 @@
           },
           "typical_ctr_low": {
             "type": "integer",
-            "description": "Lower end of typical click-through rate range (percent)",
-            "example": 9
+            "nullable": true,
+            "description": "Lower end of the click-through rate range (percent). Null until published: Delivery and CTR metrics are published after campaigns reach real volume.",
+            "example": null
           },
           "typical_ctr_high": {
             "type": "integer",
-            "description": "Upper end of typical click-through rate range (percent)",
-            "example": 15
+            "nullable": true,
+            "description": "Upper end of the click-through rate range (percent). Null until published: Delivery and CTR metrics are published after campaigns reach real volume.",
+            "example": null
+          },
+          "ctr_note": {
+            "type": "string",
+            "description": "Why CTR fields are null",
+            "example": "Delivery and CTR metrics are published after campaigns reach real volume."
           },
           "available_sports": {
             "type": "array",
@@ -1435,8 +1442,9 @@
                     "display_name": "Bet Resolved",
                     "description": "User's wager is settled",
                     "floor_cpm_usd": 0.5,
-                    "typical_ctr_low": 9,
-                    "typical_ctr_high": 15,
+                    "typical_ctr_low": null,
+                    "typical_ctr_high": null,
+                    "ctr_note": "Delivery and CTR metrics are published after campaigns reach real volume.",
                     "available_sports": [
                       "ncaa_basketball",
                       "nba",
