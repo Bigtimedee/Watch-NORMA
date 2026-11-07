@@ -65,6 +65,11 @@ jobs:
           deno check supabase/functions/cmo-publish-linkedin/index.ts
           deno check supabase/functions/_shared/social-generate-gate.ts
           deno check supabase/functions/_shared/social-media-select.ts
+          deno check supabase/functions/_shared/social-copy-guard.ts
+          deno check supabase/functions/_shared/social-formats.ts
+          deno check supabase/functions/cmo-publish/crosspost.ts
+          deno check supabase/functions/cmo-live-moments/logic.ts
+          deno check supabase/functions/cmo-live-moments/index.ts
       - name: Run tests
         # --allow-read: parse-bet-slip_test.ts and geo/migration source tests
         # read live files. No network; --allow-net=none stays.

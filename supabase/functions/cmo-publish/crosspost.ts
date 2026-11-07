@@ -21,6 +21,13 @@
 // =============================================================================
 
 import { isVideoMediaUrl } from "./logic.ts";
+import { copyGuardFlag, guardCopyForPlatform } from "../_shared/social-copy-guard.ts";
+import {
+  CONTENT_TYPE_LIVE_MOMENT,
+  CROSS_KEY_TO_PLATFORM,
+  LIVE_MOMENT_HOURLY_CAP,
+  LIVE_MOMENT_STALE_AFTER_MS,
+} from "../_shared/social-formats.ts";
 
 export const CROSSPOST_PLATFORMS = ["ig", "fb", "tiktok"] as const;
 export type CrossPlatform = typeof CROSSPOST_PLATFORMS[number];
@@ -47,6 +54,14 @@ export interface CrossRow {
   hashtags?: string[] | null;
   media_urls: string[] | null;
   published_at: string | null;
+  /** content_calendar.content_type (live_moment rows get a shorter window + hourly cap). */
+  content_type?: string | null;
+  /**
+   * Per-platform utility captions (growth plan 2026-11-07). When set for a
+   * platform it replaces the X body as that platform's caption. Either way the
+   * caption must pass the utility-only guard (no betting terms on IG/FB/TikTok).
+   */
+  platform_captions?: Partial<Record<string, string>> | null;
   ig_post_id?: string | null;
   ig_error?: string | null;
   ig_attempted_at?: string | null;
@@ -99,6 +114,20 @@ const MENTION_RE = /(^|[^\w.@/])@[A-Za-z0-9_.]{1,30}/;
 /** Brand word must be 'NORMA'; 'Norma'/'norma' as a standalone word is blocked. getnorma.app / watchNORMA are fine. */
 const BAD_BRAND_RE = /\bnorma\b/gi;
 
+/** Caption for one platform: its utility caption when present, else the X body (+hashtags). */
+export function captionForPlatform(row: CrossRow, platform: CrossPlatform): string {
+  const own = row.platform_captions?.[platform];
+  if (typeof own === "string" && own.trim()) return own.trim();
+  return composeCaption(row);
+}
+
+/** Live Moments cross-posted per platform in the last rolling hour (mutable; the sweep increments it). */
+export type LiveMomentCounts = Partial<Record<CrossPlatform, number>>;
+
+export function liveMomentCapFor(platform: CrossPlatform): number {
+  return LIVE_MOMENT_HOURLY_CAP[CROSS_KEY_TO_PLATFORM[platform]] ?? 0;
+}
+
 export type CrossPlan =
   | { kind: "post"; caption: string; videoUrl: string }
   | { kind: "skip"; reason: string; claim: boolean }
@@ -109,20 +138,31 @@ export function planCrossPost(
   platform: CrossPlatform,
   creds: CrossCreds,
   now: Date,
+  liveCounts?: LiveMomentCounts,
 ): CrossPlan {
   if (row[`${platform}_post_id`]) return { kind: "done" };
   if (row[`${platform}_attempted_at`]) return { kind: "done" };
   if (row.status !== "published" || row.platform !== "twitter") {
     return { kind: "skip", reason: "not_published_on_x", claim: false };
   }
-  if (!row.published_at || now.getTime() - Date.parse(row.published_at) > CROSSPOST_WINDOW_MS) {
+  const isLive = row.content_type === CONTENT_TYPE_LIVE_MOMENT;
+  const window = isLive ? LIVE_MOMENT_STALE_AFTER_MS : CROSSPOST_WINDOW_MS;
+  if (!row.published_at || now.getTime() - Date.parse(row.published_at) > window) {
     return { kind: "skip", reason: "outside_window", claim: false };
   }
   const videoUrl = (row.media_urls ?? []).find((u) => isVideoMediaUrl(u));
   if (!videoUrl) return { kind: "skip", reason: "no_video", claim: false };
   if (!creds[platform]) return { kind: "skip", reason: NOT_CONFIGURED, claim: false };
-  const caption = composeCaption(row);
+  // Live Moments: max LIVE_MOMENT_HOURLY_CAP per platform per rolling hour.
+  // No claim: the 20-min window ends it if no slot frees up.
+  if (isLive && (liveCounts?.[platform] ?? 0) >= liveMomentCapFor(platform)) {
+    return { kind: "skip", reason: "live_moment_rate_cap", claim: false };
+  }
+  const caption = captionForPlatform(row, platform);
   if (!caption) return { kind: "skip", reason: "empty_caption", claim: true };
+  // Platform-split creative: IG/FB/TikTok copy is sports-utility only.
+  const guard = guardCopyForPlatform(platform, caption);
+  if (!guard.ok) return { kind: "skip", reason: copyGuardFlag(guard), claim: true };
   if (MENTION_RE.test(caption)) return { kind: "skip", reason: "mention_blocked", claim: true };
   for (const m of caption.matchAll(BAD_BRAND_RE)) {
     if (m[0] !== "NORMA") return { kind: "skip", reason: "brand_case: NORMA must be caps", claim: true };
@@ -315,7 +355,7 @@ export async function resumeIgRow(row: CrossRow, d: IgResumeDeps, now: Date): Pr
         await d.save(row.id, { ig_error: "no_video" });
         return { result: "failed", error: "no_video" };
       }
-      const fresh = await d.create(videoUrl, composeCaption(row));
+      const fresh = await d.create(videoUrl, captionForPlatform(row, "ig"));
       await d.save(row.id, {
         ig_container_id: fresh,
         ig_container_created_at: now.toISOString(),
@@ -429,6 +469,8 @@ export interface CrossDeps {
   saveIgContainer?: (rowId: string, containerId: string) => Promise<void>;
   post: Record<CrossPlatform, (videoUrl: string, caption: string) => Promise<string>>;
   log?: (m: string) => void;
+  /** Live Moments already cross-posted per platform this rolling hour; incremented on each post. */
+  liveMomentCounts?: LiveMomentCounts;
 }
 
 export type CrossOutcome =
@@ -449,7 +491,7 @@ export async function crossPostRow(
   const out: CrossOutcome[] = [];
   for (const p of CROSSPOST_PLATFORMS) {
     try {
-      const plan = planCrossPost(row, p, deps.creds, now);
+      const plan = planCrossPost(row, p, deps.creds, now, deps.liveMomentCounts);
       if (plan.kind === "done") {
         out.push({ platform: p, result: "done" });
         continue;
@@ -475,6 +517,9 @@ export async function crossPostRow(
       try {
         const id = await deps.post[p](plan.videoUrl, plan.caption);
         await deps.save(row.id, p, { post_id: id, error: null });
+        if (row.content_type === CONTENT_TYPE_LIVE_MOMENT && deps.liveMomentCounts) {
+          deps.liveMomentCounts[p] = (deps.liveMomentCounts[p] ?? 0) + 1;
+        }
         log(`[cmo-publish] crosspost ${p} row ${row.id} -> ${id}`);
         out.push({ platform: p, result: "posted", post_id: id });
       } catch (e) {

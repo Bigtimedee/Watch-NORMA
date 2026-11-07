@@ -167,6 +167,7 @@ All items verified from repository files.
 *Social Content:*
 - `cmo-generate` (6 hours) — Claude-generated brand tweets **only when there is a strong live/slate moment and non-stock media**. Wednesday-style empty slates (no live games, no near-term NFL/NCAAF, no recent alerts) skip rather than inserting `draft`+due `content_calendar` rows attached to catalog `game-detail-watch.png`. PR #40 pause-skip at publish time is unchanged.
 - `cmo-publish` (30 min) — publishes **twitter-only** `content_calendar` rows to X with OAuth 1.0a. LinkedIn/Instagram/TikTok/Facebook drafts are never tweeted (PR #32). Immediately before `postTweet`, the loop re-reads the row and skips (no tweet, no `markFailed`) if status is no longer `draft`/`scheduled` — closes the pause TOCTOU on `310441ec` (2026-09-15). Drafts still auto-publish when due.
+- `cmo-live-moments` (growth plan, 2026-11-07) — producer only; inserts `content_calendar` rows, never posts. `{"mode":"live"}` (pg_cron every minute, gated in SQL on an in-progress NFL/NCAAF/NBA/NCAAM game in its final period or OT) detects **game-level** Live Moments by reusing `checkMustNotify` (overtime; football two-minute drill in a one-score Q4; basketball one-possession finish) on nationally relevant games (NFL, NBA; NCAAF/NCAAM with an AP top-25 team or national TV), and writes a `content_type='live_moment'` X row (score, clock, channel from `games.broadcast`, streams from `game_watch_links`, link to the getnorma.app game page with `utm_source=<platform>&utm_campaign=live_moment`). `{"mode":"todays_games"}` (13:30 UTC daily) writes one `todays_games` row listing the day's top games (ET + CT, channel) linking `/schedule/<sport>/today`. Idempotent via `social_live_moments.moment_key` (UNIQUE). Caps: 3 Live Moments/h on X, 1/h on IG/FB/TikTok (`_shared/social-formats.ts`). `dry_run` supported. Kicks `cmo-publish` by forwarding the cron Authorization. See `docs/marketing/live-moments.md`.
 - `cmo-publish-linkedin` (30 min) — publishes **linkedin-only** `content_calendar` rows to the NORMA LinkedIn company page (`https://www.linkedin.com/company/watch-norma/`, org `146336141`). Twitter rows are never selected. `LINKEDIN_ORGANIZATION_ID` is optional.
 - `generate-social-content` (daily 6 AM UTC) — multi-platform content
 - `publish-social-posts` (hourly) — routes posts to platform publishers
@@ -331,6 +332,8 @@ All client queries go through the Supabase JS client which auto-generates REST c
 | `cmo-generate` | Every 6 hours | Generate social content |
 | `cmo-publish` | Every 30 min | Publish twitter-only calendar rows to X |
 | `cmo-publish-linkedin` | Every 30 min | Publish linkedin-only calendar rows to the NORMA company page |
+| `cmo-live-moments` (live) | Every minute while a relevant game is in its final period/OT | Queue Live Moment X rows (growth plan) |
+| `cmo-live-moments` (todays_games) | 13:30 UTC daily | Queue the Today's Games X row (growth plan) |
 | `generate-social-content` | Daily 6 AM UTC | Multi-platform content |
 | `publish-social-posts` | Hourly | Route to platform publishers |
 | `generate-recap-content` | Daily 11 PM UTC | Post-game recaps |

@@ -301,13 +301,13 @@ Deno.test("tweet body over 280 is paused (over_length), never truncated, only fo
 Deno.test("cmo-publish/index.ts filters platform in the due-posts query", async () => {
   const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
   assert(src.includes('.eq("platform", DUE_POSTS_QUERY.platform)'));
-  assert(src.includes("classifyPublishCandidate(post, asOf)"));
+  assert(src.includes("classifyPublishCandidate(post, asOf, classifyOptions)"));
   assert(
     src.includes('.eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)'),
     "markPublished/markFailed must constrain platform",
   );
   // postTweet must not run before the platform gate
-  const classifyAt = src.indexOf("classifyPublishCandidate(post, asOf)");
+  const classifyAt = src.indexOf("classifyPublishCandidate(post, asOf, classifyOptions)");
   const tweetAt = src.indexOf("await postTweet(");
   assert(classifyAt >= 0 && tweetAt >= 0 && classifyAt < tweetAt);
 });

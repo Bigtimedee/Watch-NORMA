@@ -168,7 +168,7 @@ Deno.test("dry run: as_of honoured only when dry_run is true", () => {
 
 Deno.test("index.ts: dry run returns before hold/upload/claim/tweet; guards wired", async () => {
   const src = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
-  const loopStart = src.indexOf("classifyPublishCandidate(post, asOf)");
+  const loopStart = src.indexOf("classifyPublishCandidate(post, asOf, classifyOptions)");
   const dryAt = src.indexOf("if (dryRun) {", loopStart);
   const uploadAt = src.indexOf("await uploadMediaToTwitter(", loopStart);
   const claimAt = src.indexOf("await claimForPublish(", loopStart);

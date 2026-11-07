@@ -116,3 +116,9 @@ verify_jwt = false
 # Cron-invoked (vault Bearer may be a new-format secret key, not a JWT).
 [functions.cmo-publish-linkedin]
 verify_jwt = false
+
+# Cron-invoked (vault Bearer may be a new-format secret key, not a JWT).
+# Growth plan 2026-11-07: Live Moments + Today's Games producer. It only inserts
+# content_calendar rows from live game state; payload is limited to mode/dry_run/as_of.
+[functions.cmo-live-moments]
+verify_jwt = false
