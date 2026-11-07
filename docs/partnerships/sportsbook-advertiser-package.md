@@ -10,19 +10,21 @@ NORMA sends push notifications to sports fans at the exact moment their wager, p
 
 ## 2. Available Moment Types and Floor CPMs
 
-| Moment Type         | Floor CPM | Typical CTR Range |
-|---------------------|-----------|-------------------|
-| prediction_resolved | $0.60     | 11–17%            |
-| bet_resolved        | $0.50     | 9–15%             |
-| overtime            | $0.40     | 12–18%            |
-| close_game          | $0.35     | 7–13%             |
-| spread_alert        | $0.30     | 6–10%             |
-| moneyline_alert     | $0.30     | 5–9%              |
-| total_alert         | $0.25     | 4–8%              |
-| prop_alert          | $0.25     | 4–8%              |
-| position_alert      | $0.20     | 3–7%              |
-| foul_trouble        | $0.15     | 2–6%              |
-| follow_alert        | $0.10     | 2–4%              |
+| Moment Type         | Floor CPM |
+|---------------------|-----------|
+| prediction_resolved | $0.60     |
+| bet_resolved        | $0.50     |
+| overtime            | $0.40     |
+| close_game          | $0.35     |
+| spread_alert        | $0.30     |
+| moneyline_alert     | $0.30     |
+| total_alert         | $0.25     |
+| prop_alert          | $0.25     |
+| position_alert      | $0.20     |
+| foul_trouble        | $0.15     |
+| follow_alert        | $0.10     |
+
+Delivery and CTR metrics are published after campaigns reach real volume.
 
 ---
 

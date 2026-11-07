@@ -12,7 +12,7 @@ Hi,
 
 Kochava is first to open-beta AAMP. You need AAMP-registered sellers to populate the marketplace. We're registering.
 
-NORMA is a push notification ad network for sports bettors. Our inventory fires at 11 moment types — bet resolved, overtime, spread cross — reaching users with active, verified financial exposure at the exact second it matters. We see 9–18% CTR by moment type. Second-price Vickrey auction with published floor prices.
+NORMA is a push notification ad network for sports bettors. Our inventory fires at 11 moment types — bet resolved, overtime, spread cross — reaching users with active, verified financial exposure at the exact second it matters. Delivery and CTR metrics are published after campaigns reach real volume. Second-price Vickrey auction with published floor prices.
 
 What we've already implemented:
 - MCP server: `npm install -g norma-ads-mcp`

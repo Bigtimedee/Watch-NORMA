@@ -398,13 +398,13 @@ Until those two steps are complete, `mcp.getnorma.app` resolves to nothing. The 
 Published at `getnorma.app/adagents.json`. Declares:
 - MCP server URL and transport types (`stdio`, `http-sse`)
 - OAuth token endpoint and required scopes
-- All 11 moment types with floor CPMs and CTR ranges
+- All 11 moment types with floor CPMs (no CTR ranges; `inventory.ctr_note` says CTR is published after campaigns reach real volume — removed 2026-11-07, the ranges were never measured)
 - Attribution configuration (postback, click tracking, conversion windows)
-- IAB AAMP protocol support (`adcp@1.0`, `mcp@1.0`, `openrtb@2.6`)
+- Protocol support (`adcp@1.0`, `mcp@1.0`). `openrtb@2.6` was removed 2026-11-07: NORMA has no OpenRTB bid stream (`aamp-seller-profile.json` says `openrtb_bid_stream: false`). AAMP seller registration is **in progress**, not complete — public copy must say so.
 
 ### OAuth Token Endpoint (`/api/auth/token`)
 
-Implements RFC 6749 Client Credentials. POST `client_id` + `client_secret` → RS256-signed JWT (1-hour TTL) scoped to `campaigns:read`, `campaigns:write`, `reporting:read`, `inventory:read`. Rate-limited at 10 req/min per IP. Every `/api/ads/*` route requires a valid Bearer token (except `GET /api/ads/moment-types`).
+Implements RFC 6749 Client Credentials. POST `client_id` + `client_secret` → RS256-signed JWT (1-hour TTL) scoped to `campaigns:read`, `campaigns:write`, `reporting:read`, `inventory:read`. Rate-limited at 10 req/min per IP. Every `/api/ads/*` route requires a valid Bearer token (except `GET /api/ads/moment-types`). `GET /api/ads/moment-types` returns `typical_ctr_low`/`typical_ctr_high` as `null` plus `ctr_note` until real delivery data exists (fields kept so API/MCP clients still parse); do not reintroduce hardcoded CTR ranges.
 
 ### REST API (`/api/ads/`)
 

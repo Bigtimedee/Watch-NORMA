@@ -8,21 +8,23 @@ NORMA built a marketplace around that gap.
 
 ## The Intent-Moment Model
 
-NORMA is a push notification app for NCAA basketball, NBA, and MLB bettors. The app fires alerts at specific in-game moments: spread movements, close games, overtime, resolved predictions, and eleven moment types in total. Each of those moments is a named inventory slot with a floor CPM and a documented click-through range.
+NORMA is a push notification app for NFL, college football, NBA, college basketball, and MLB bettors. The app fires alerts at specific in-game moments: spread movements, close games, overtime, resolved predictions, and eleven moment types in total. Each of those moments is a named inventory slot with a floor CPM.
 
-| Moment | Floor CPM | Typical CTR |
-|---|---|---|
-| prediction_resolved | $0.60 | 11–17% |
-| bet_resolved | $0.50 | 9–15% |
-| overtime | $0.40 | 12–18% |
-| close_game | $0.35 | 7–13% |
-| spread_alert | $0.30 | 6–10% |
-| moneyline_alert | $0.30 | 5–9% |
-| total_alert | $0.25 | 4–8% |
-| prop_alert | $0.25 | 4–8% |
-| position_alert | $0.20 | 3–7% |
-| foul_trouble | $0.15 | 2–6% |
-| follow_alert | $0.10 | 2–4% |
+| Moment | Floor CPM |
+|---|---|
+| prediction_resolved | $0.60 |
+| bet_resolved | $0.50 |
+| overtime | $0.40 |
+| close_game | $0.35 |
+| spread_alert | $0.30 |
+| moneyline_alert | $0.30 |
+| total_alert | $0.25 |
+| prop_alert | $0.25 |
+| position_alert | $0.20 |
+| foul_trouble | $0.15 |
+| follow_alert | $0.10 |
+
+Delivery and CTR metrics are published after campaigns reach real volume.
 
 The floor CPMs are hard floors. Programmatic bids run a second-price Vickrey auction: you pay one cent above the second-highest bid, not your full bid. There is no separate pricing tier for programmatic versus managed campaigns.
 
@@ -36,7 +38,7 @@ The core problem with live-sports advertising is that the decision window is sec
 
 The `norma-ads-mcp` npm package exposes six tools:
 
-- `list_moment_types` — returns the full moment type catalog with floor CPMs and CTR ranges
+- `list_moment_types` — returns the full moment type catalog with floor CPMs
 - `get_inventory_forecast` — returns a 7-day supply forecast by moment type and sport
 - `create_campaign` — creates a new campaign with creative, targeting, and bid parameters
 - `get_campaign_performance` — pulls spend, impressions, taps, and inferred conversions for a campaign

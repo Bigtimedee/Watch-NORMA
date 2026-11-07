@@ -14,7 +14,7 @@ AdMaven runs push notification inventory at scale. NORMA does too, but our trigg
 
 AdMaven push fires on a schedule or audience match. NORMA push fires when a user's bet is live and at risk — bet settled, overtime, live line cross. The user doesn't just happen to be a sports fan; they have an active financial position. That's the entire trigger condition.
 
-Result: 9–18% CTR by moment type versus the industry push average of 0.5–2%. For sportsbook advertisers — your highest-value vertical — the CPA math is different by an order of magnitude.
+That trigger is the difference. Delivery and CTR metrics are published after campaigns reach real volume.
 
 We have a full REST API, second-price Vickrey auction with published floors, AppsFlyer/Adjust/Singular postback integration, and a working MCP server for AI buyers:
 

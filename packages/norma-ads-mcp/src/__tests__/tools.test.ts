@@ -39,8 +39,9 @@ describe("list_moment_types", () => {
       display_name: "Bet Resolved",
       description: "Fires when a user's active wager is settled",
       floor_price_usd: 0.5,
-      typical_ctr_low: 8.0,
-      typical_ctr_high: 14.0,
+      typical_ctr_low: null,
+      typical_ctr_high: null,
+      ctr_note: "Delivery and CTR metrics are published after campaigns reach real volume.",
       available_sports: ["ncaa_basketball", "nfl"],
     },
   ];

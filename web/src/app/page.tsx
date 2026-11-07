@@ -160,7 +160,7 @@ export default function HomePage() {
                   className="w-1.5 h-1.5 rounded-full"
                   style={{ background: "#f97316", animation: "pulse-dot 1.6s ease-in-out infinite", display: "inline-block" }}
                 />
-                Live Now — NBA · MLB · NCAA
+                Live Now — NFL · NCAAF · NBA · NCAAM · MLB
               </div>
 
               {/* Headline */}
@@ -197,19 +197,14 @@ export default function HomePage() {
                 <p style={{ fontSize: 13, color: "#64748b" }}>iPhone · Free · No account required to start</p>
               </div>
 
-              {/* Social proof */}
+              {/* Product facts (no ratings/reviews until there are real third-party ones) */}
               <div
                 className="mt-10 flex flex-wrap items-center gap-4 justify-center lg:justify-start"
                 style={{ fontSize: 13 }}
               >
-                <span className="flex items-center gap-1.5" style={{ color: "#94a3b8" }}>
-                  <span style={{ color: "#f97316" }}>★★★★★</span>
-                  5.0 App Store
-                </span>
-                <span style={{ color: "#64748b" }}>|</span>
                 <span style={{ color: "#94a3b8" }}>11 Alert Types</span>
                 <span style={{ color: "#64748b" }}>|</span>
-                <span style={{ color: "#94a3b8" }}>3 Sports Covered</span>
+                <span style={{ color: "#94a3b8" }}>{SPORTS.length} Leagues Covered</span>
               </div>
             </div>
 

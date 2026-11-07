@@ -7,8 +7,12 @@ export interface MomentType {
   display_name: string;
   description: string;
   floor_price_usd: number;
-  typical_ctr_low: number;
-  typical_ctr_high: number;
+  /** Null until CTR is published (after campaigns reach real volume). */
+  typical_ctr_low: number | null;
+  /** Null until CTR is published (after campaigns reach real volume). */
+  typical_ctr_high: number | null;
+  /** Explains why the CTR fields are null. */
+  ctr_note?: string;
   available_sports: string[];
 }
 

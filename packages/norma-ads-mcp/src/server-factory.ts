@@ -27,7 +27,7 @@ export function createNormaServer(): Server {
       {
         name: "list_moment_types",
         description:
-          "Returns NORMA's full moment type taxonomy — the 11 intent signals fired during live sports push notifications (e.g. bet_resolved, close_game, overtime). Includes floor prices, historical CTR ranges, and available sports. Call this first when planning a campaign.",
+          "Returns NORMA's full moment type taxonomy — the 11 intent signals fired during live sports push notifications (e.g. bet_resolved, close_game, overtime). Includes floor prices and available sports. CTR fields are null: Delivery and CTR metrics are published after campaigns reach real volume. Call this first when planning a campaign.",
         inputSchema: {
           type: "object",
           properties: {},
