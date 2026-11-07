@@ -7,6 +7,13 @@
 // because fetchDuePosts ignored platform. These helpers are the guardrail.
 // =============================================================================
 
+import { findAdviceTerms } from "../_shared/social-copy-guard.ts";
+import {
+  CONTENT_TYPE_LIVE_MOMENT,
+  LIVE_MOMENT_STALE_AFTER_MS,
+  X_TEXT_ONLY_FORMATS_DEFAULT,
+} from "../_shared/social-formats.ts";
+
 /** Canonical content_calendar value for X. CHECK constraint does not allow "x". */
 export const CONTENT_CALENDAR_TWITTER_PLATFORM = "twitter";
 
@@ -47,13 +54,22 @@ export interface CalendarPublishCandidate {
   media_urls?: string[] | null;
   /** Hashtag column. Appended to body only when not already present in it. */
   hashtags?: string[] | null;
+  /** live_moment / todays_games / post / ... (growth-plan formats, 2026-11-07). */
+  content_type?: string | null;
 }
 
 export type PublishDisposition =
-  | { kind: "publish"; tweetBody: string; tweetLength: number; overTarget?: boolean }
+  | {
+    kind: "publish";
+    tweetBody: string;
+    tweetLength: number;
+    overTarget?: boolean;
+    /** True when the row is a text-only format with no media: tweet without media. */
+    textOnly?: boolean;
+  }
   | { kind: "skip"; reason: string; mutateStatus: false }
   | { kind: "fail"; reason: string; mutateStatus: true }
-  | { kind: "pause"; reason: GuardReason; mutateStatus: true; tweetLength?: number };
+  | { kind: "pause"; reason: GuardReason; mutateStatus: true; tweetLength?: number; detail?: string };
 
 // ---------------------------------------------------------------------------
 // Late / empty-media guards (incident 2026-09-26..10-02)
@@ -92,7 +108,10 @@ export const GUARD_REASON_STALE = "stale";
 export const GUARD_REASON_OVER_LENGTH = "over_length";
 export const GUARD_REASON_STATIC_MEDIA = "static_media";
 export const GUARD_REASON_MEDIA_UPLOAD_FAILED = "media_upload_failed";
+/** X copy giving picks / tips / guarantees (growth plan 2026-11-07, hard rule 8). */
+export const GUARD_REASON_ADVICE_LANGUAGE = "advice_language";
 export type GuardReason =
+  | typeof GUARD_REASON_ADVICE_LANGUAGE
   | typeof GUARD_REASON_EMPTY_MEDIA
   | typeof GUARD_REASON_STALE
   | typeof GUARD_REASON_OVER_LENGTH
@@ -259,9 +278,42 @@ export function lateByMs(
 export function isStale(
   scheduledFor: string | null | undefined,
   now: Date,
+  staleAfterMs: number = STALE_AFTER_MS,
 ): boolean {
   const late = lateByMs(scheduledFor, now);
-  return late !== null && late > STALE_AFTER_MS;
+  return late !== null && late > staleAfterMs;
+}
+
+/** Stale window for a row: 20 min for Live Moments (rule 6), 3h otherwise. */
+export function staleAfterMsFor(contentType: string | null | undefined): number {
+  return contentType === CONTENT_TYPE_LIVE_MOMENT ? LIVE_MOMENT_STALE_AFTER_MS : STALE_AFTER_MS;
+}
+
+/** Options for classifyPublishCandidate. */
+export interface ClassifyOptions {
+  /**
+   * content_type values that may tweet text-only (no media). Default: the
+   * growth-plan formats (live_moment, todays_games). Pass an empty set to
+   * enforce strict video-only for every row (SOCIAL_X_TEXT_FORMATS=none).
+   */
+  textOnlyFormats?: ReadonlySet<string>;
+}
+
+export function isTextOnlyFormat(
+  contentType: string | null | undefined,
+  opts: ClassifyOptions = {},
+): boolean {
+  const set = opts.textOnlyFormats ?? new Set(X_TEXT_ONLY_FORMATS_DEFAULT);
+  return !!contentType && set.has(contentType);
+}
+
+/**
+ * Daily cap bucket. Live Moments have their own X ceiling
+ * (LIVE_MOMENT_MAX_PER_DAY_X) so a busy game day never starves the 3 scheduled
+ * slots, and scheduled posts never block a Live Moment.
+ */
+export function dailyCapBucket(contentType: string | null | undefined): "live" | "scheduled" {
+  return contentType === CONTENT_TYPE_LIVE_MOMENT ? "live" : "scheduled";
 }
 
 /** "YYYY-MM-DD HH:MM" in America/Chicago, matching the SQL guard's to_char. */
@@ -279,8 +331,22 @@ export function formatChicago(now: Date): string {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
+/** Visible advice_language flag, e.g. 'advice_language: guaranteed, lock'. */
+export function adviceLanguageFlag(terms: string[]): string {
+  return `advice_language: ${terms.join(", ") || "picks/tips/guarantee"}`;
+}
+
 /** human_notes line for a guard hold; mirrors the SQL guard's wording. */
-export function guardHoldNote(reason: GuardReason, now: Date, tweetLength?: number): string {
+export function guardHoldNote(
+  reason: GuardReason,
+  now: Date,
+  tweetLength?: number,
+  detail?: string,
+): string {
+  if (reason === GUARD_REASON_ADVICE_LANGUAGE) {
+    return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${detail ?? "advice_language"} (reason=${reason}). ` +
+      `X copy may address bettors but never gives picks/tips or "guaranteed"/"lock"/"risk-free" language. Rewrite and set status=draft to publish.`;
+  }
   if (reason === GUARD_REASON_MEDIA_UPLOAD_FAILED) {
     return `[${formatChicago(now)} CT stale-guard] Held by cmo-publish: ${mediaUploadFailedFlag()} (reason=${reason}). ` +
       `Check or replace the video and set status=draft to retry.`;
@@ -349,6 +415,7 @@ export function isPausedStatus(status: string | null | undefined): boolean {
 export function classifyPublishCandidate(
   post: CalendarPublishCandidate,
   now: Date = new Date(),
+  opts: ClassifyOptions = {},
 ): PublishDisposition {
   if (!isTwitterPlatform(post.platform)) {
     return {
@@ -377,13 +444,16 @@ export function classifyPublishCandidate(
   // Guards: empty media first, then the video-only rule, then stale.
   // All hold the row as paused; none ever tweets. (The SQL cron guard only
   // knows empty/stale, so static rows reach this function and are held here.)
-  if (!hasMedia(post.media_urls)) {
+  // Growth-plan text formats (live_moment, todays_games) are exempt from the
+  // media guards on X only; everything else stays video-only (2026-10-18).
+  const textFormat = isTextOnlyFormat(post.content_type, opts);
+  if (!textFormat && !hasMedia(post.media_urls)) {
     return { kind: "pause", reason: GUARD_REASON_EMPTY_MEDIA, mutateStatus: true };
   }
-  if (!hasVideoMedia(post.media_urls)) {
+  if (!textFormat && !hasVideoMedia(post.media_urls)) {
     return { kind: "pause", reason: GUARD_REASON_STATIC_MEDIA, mutateStatus: true };
   }
-  if (isStale(post.scheduled_for, now)) {
+  if (isStale(post.scheduled_for, now, staleAfterMsFor(post.content_type))) {
     return { kind: "pause", reason: GUARD_REASON_STALE, mutateStatus: true };
   }
 
@@ -410,11 +480,24 @@ export function classifyPublishCandidate(
     };
   }
 
+  // X may address bettors, but never picks/tips/guarantees (hard rule 8).
+  const advice = findAdviceTerms(composedForLength);
+  if (advice.length > 0) {
+    return {
+      kind: "pause",
+      reason: GUARD_REASON_ADVICE_LANGUAGE,
+      mutateStatus: true,
+      tweetLength,
+      detail: adviceLanguageFlag(advice),
+    };
+  }
+
   return {
     kind: "publish",
     tweetBody: composedForLength,
     tweetLength,
     ...(tweetLength > X_TARGET_TWEET_LENGTH ? { overTarget: true } : {}),
+    ...(textFormat && !hasMedia(post.media_urls) ? { textOnly: true } : {}),
   };
 }
 

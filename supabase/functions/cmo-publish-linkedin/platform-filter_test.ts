@@ -361,9 +361,9 @@ Deno.test("PR #32 twitter-only guard in cmo-publish is intact", async () => {
     new URL("../cmo-publish/index.ts", import.meta.url),
   );
   assert(src.includes('.eq("platform", DUE_POSTS_QUERY.platform)'));
-  assert(src.includes("classifyPublishCandidate(post, asOf)"));
+  assert(src.includes("classifyPublishCandidate(post, asOf, classifyOptions)"));
   assert(src.includes('.eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)'));
-  const classifyAt = src.indexOf("classifyPublishCandidate(post, asOf)");
+  const classifyAt = src.indexOf("classifyPublishCandidate(post, asOf, classifyOptions)");
   const tweetAt = src.indexOf("await postTweet(");
   assert(classifyAt >= 0 && tweetAt >= 0 && classifyAt < tweetAt);
 });

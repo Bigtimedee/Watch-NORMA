@@ -55,7 +55,15 @@ import {
   preflightPublishRow,
   type GuardReason,
   chicagoStartOfDay,
+  dailyCapBucket,
+  GUARD_REASON_ADVICE_LANGUAGE,
+  type ClassifyOptions,
 } from "./logic.ts";
+import {
+  CONTENT_TYPE_LIVE_MOMENT,
+  LIVE_MOMENT_MAX_PER_DAY_X,
+  parseXTextOnlyFormats,
+} from "../_shared/social-formats.ts";
 import { uploadMediaToX } from "./x-media.ts";
 import { planSelfReply, runSelfReply, type SelfReplyOutcome } from "./reply.ts";
 import {
@@ -76,6 +84,7 @@ import {
   type CrossOutcome,
   type CrossPlatform,
   type CrossRow,
+  type LiveMomentCounts,
 } from "./crosspost.ts";
 
 // ---------------------------------------------------------------------------
@@ -352,16 +361,23 @@ async function postTweet(
 async function countPublishedToday(
   supabase: Db,
   platform: string,
+  bucket: "live" | "scheduled" = "scheduled",
 ): Promise<number> {
   // DST-correct America/Chicago day (was EST-approximate UTC-5 year-round).
   const startOfDayET = chicagoStartOfDay(new Date());
 
-  const { count, error } = await supabase
+  // Live Moments have their own daily ceiling (growth plan 2026-11-07), so
+  // the scheduled bucket excludes them and the live bucket counts only them.
+  let q = supabase
     .from("content_calendar")
     .select("id", { count: "exact", head: true })
     .eq("platform", platform)
     .eq("status", "published")
     .gte("published_at", startOfDayET.toISOString());
+  q = bucket === "live"
+    ? q.eq("content_type", CONTENT_TYPE_LIVE_MOMENT)
+    : q.neq("content_type", CONTENT_TYPE_LIVE_MOMENT);
+  const { count, error } = await q;
 
   if (error) {
     console.error(`[cmo-publish] Error counting today's posts: ${error.message}`);
@@ -502,12 +518,13 @@ async function markGuardHold(
   reason: GuardReason,
   now: Date,
   tweetLength?: number,
+  detail?: string,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("content_calendar")
     .update({
       status: GUARD_HOLD_STATUS,
-      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now, tweetLength)),
+      human_notes: appendNote(post.human_notes, guardHoldNote(reason, now, tweetLength, detail)),
     })
     .eq("id", post.id)
     .eq("platform", TWITTER_STATUS_MUTATION_FILTER.platform)
@@ -579,6 +596,27 @@ async function findStuckPublishing(
 // X loop on already-published X rows; never touches status/platform_post_id.
 // ---------------------------------------------------------------------------
 
+/**
+ * Live Moments cross-posted per platform in the last rolling hour
+ * (LIVE_MOMENT_HOURLY_CAP: 1/h on IG, FB and TikTok). Errors count as 0
+ * for that platform, never block the sweep.
+ */
+async function countLiveMomentCrossPosts(supabase: Db, now: Date): Promise<LiveMomentCounts> {
+  const since = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const out: LiveMomentCounts = {};
+  for (const p of CROSSPOST_PLATFORMS) {
+    const { count, error } = await supabase
+      .from("content_calendar")
+      .select("id", { count: "exact", head: true })
+      .eq("content_type", CONTENT_TYPE_LIVE_MOMENT)
+      .not(`${p}_post_id`, "is", null)
+      .gte(`${p}_attempted_at`, since);
+    if (error) console.error(`[cmo-publish] live moment cap count (${p}) failed: ${error.message}`);
+    out[p] = count ?? 0;
+  }
+  return out;
+}
+
 async function runCrossPostSweep(
   supabase: Db,
   now: Date,
@@ -588,10 +626,9 @@ async function runCrossPostSweep(
     const since = new Date(now.getTime() - CROSSPOST_WINDOW_MS).toISOString();
     const { data, error } = await supabase
       .from("content_calendar")
-      .select(
-        "id,platform,status,body,hashtags,media_urls,published_at," +
-          CROSSPOST_PLATFORMS.map((p) => `${p}_post_id,${p}_error,${p}_attempted_at`).join(","),
-      )
+      // "*" (not a column list) so the sweep keeps working whether or not
+      // migration 20261107180000 (platform_captions) has been applied yet.
+      .select("*")
       .eq("platform", "twitter")
       .eq("status", "published")
       .gte("published_at", since)
@@ -599,6 +636,7 @@ async function runCrossPostSweep(
       .limit(20);
     if (error) throw new Error(error.message);
     const creds = readCrossCreds((k) => Deno.env.get(k));
+    const liveMomentCounts = await countLiveMomentCrossPosts(supabase, now);
     const claim = async (rowId: string, p: CrossPlatform) => {
       const { data: won, error: e } = await supabase
         .from("content_calendar")
@@ -628,6 +666,7 @@ async function runCrossPostSweep(
     for (const row of (data ?? []) as unknown as CrossRow[]) {
       const platforms = await crossPostRow(row, {
         creds,
+        liveMomentCounts,
         claim,
         save,
         saveIgContainer,
@@ -647,7 +686,7 @@ async function runCrossPostSweep(
       // Deferred IG: re-check still-processing Reels containers (any age; 2h cap in resumeIgRow).
       const { data: pend, error: pe } = await supabase
         .from("content_calendar")
-        .select("id,platform,status,body,hashtags,media_urls,published_at,ig_post_id,ig_error,ig_attempted_at,ig_container_id,ig_container_created_at,ig_container_retried,ig_checked_at")
+        .select("*")
         .eq("ig_error", IG_PENDING)
         .is("ig_post_id", null)
         .not("ig_container_id", "is", null)
@@ -780,10 +819,14 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  const publishedTodayCount = await countPublishedToday(supabase, PLATFORM);
-  console.log(`[cmo-publish] Published today: ${publishedTodayCount}/${MAX_POSTS_PER_DAY}`);
+  const publishedTodayCount = await countPublishedToday(supabase, PLATFORM, "scheduled");
+  const liveTodayCount = await countPublishedToday(supabase, PLATFORM, "live");
+  console.log(
+    `[cmo-publish] Published today: ${publishedTodayCount}/${MAX_POSTS_PER_DAY} scheduled, ` +
+      `${liveTodayCount}/${LIVE_MOMENT_MAX_PER_DAY_X} live moments`,
+  );
 
-  if (publishedTodayCount >= MAX_POSTS_PER_DAY) {
+  if (publishedTodayCount >= MAX_POSTS_PER_DAY && liveTodayCount >= LIVE_MOMENT_MAX_PER_DAY_X) {
     console.log("[cmo-publish] Daily post limit reached. Skipping run.");
     return new Response(
       JSON.stringify({
@@ -800,7 +843,15 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  const remainingSlots = MAX_POSTS_PER_DAY - publishedTodayCount;
+  const remaining = {
+    scheduled: Math.max(0, MAX_POSTS_PER_DAY - publishedTodayCount),
+    live: Math.max(0, LIVE_MOMENT_MAX_PER_DAY_X - liveTodayCount),
+  };
+  const remainingSlots = remaining.scheduled + remaining.live;
+  // SOCIAL_X_TEXT_FORMATS: growth-plan formats allowed to tweet text-only (default live_moment,todays_games; "none" = strict video-only).
+  const classifyOptions: ClassifyOptions = {
+    textOnlyFormats: parseXTextOnlyFormats(Deno.env.get("SOCIAL_X_TEXT_FORMATS") ?? null),
+  };
 
   // ---------------------------------------------------------------------------
   // Fetch posts due for publishing
@@ -845,7 +896,14 @@ serve(async (req: Request): Promise<Response> => {
 
     // Defense in depth: never tweet (or mutate) a non-X calendar row even if
     // the due-posts query regresses and drops the platform filter.
-    const disposition = classifyPublishCandidate(post, asOf);
+    const disposition = classifyPublishCandidate(post, asOf, classifyOptions);
+
+    // Per-bucket daily ceiling (scheduled 10/day, live moments 24/day).
+    const bucket = dailyCapBucket(post.content_type);
+    if (remaining[bucket] <= 0) {
+      results.push({ id: post.id, success: false, skipped: true, error: `daily_limit_reached:${bucket}` });
+      continue;
+    }
 
     // Dry run: report the disposition and stop. No media upload, no claim,
     // no tweet, no status write.
@@ -903,6 +961,12 @@ serve(async (req: Request): Promise<Response> => {
         ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_STATIC_MEDIA
           ? { detail: staticMediaFlag() }
           : {}),
+        ...(disposition.kind === "pause" && disposition.reason === GUARD_REASON_ADVICE_LANGUAGE
+          ? { detail: disposition.detail }
+          : {}),
+        ...(disposition.kind === "publish" && disposition.textOnly
+          ? { warning: "text_only: growth-plan format, no media attached" }
+          : {}),
         ...(disposition.kind === "publish" && disposition.overTarget
           ? { warning: `over_target: ${tweetLength} chars (max ${X_MAX_TWEET_LENGTH}, target ${X_TARGET_TWEET_LENGTH})` }
           : {}),
@@ -911,12 +975,19 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     if (disposition.kind === "pause") {
-      const wrote = await markGuardHold(supabase, post, disposition.reason, now, disposition.tweetLength);
+      const wrote = await markGuardHold(
+        supabase,
+        post,
+        disposition.reason,
+        now,
+        disposition.tweetLength,
+        disposition.detail,
+      );
       const detail = disposition.reason === GUARD_REASON_OVER_LENGTH
         ? overLengthFlag(disposition.tweetLength ?? 0)
         : disposition.reason === GUARD_REASON_STATIC_MEDIA
         ? staticMediaFlag()
-        : disposition.reason;
+        : disposition.detail ?? disposition.reason;
       console.log(
         `[cmo-publish] Post ${post.id} NOT posted (${detail}); ` +
           (wrote ? "held as status='paused'." : "row changed concurrently; left as-is."),
@@ -929,7 +1000,8 @@ serve(async (req: Request): Promise<Response> => {
         error: disposition.reason,
         ...(typeof disposition.tweetLength === "number" ? { tweet_length: disposition.tweetLength } : {}),
         ...(disposition.reason === GUARD_REASON_OVER_LENGTH ||
-            disposition.reason === GUARD_REASON_STATIC_MEDIA
+            disposition.reason === GUARD_REASON_STATIC_MEDIA ||
+            disposition.reason === GUARD_REASON_ADVICE_LANGUAGE
           ? { detail }
           : {}),
       });
@@ -977,8 +1049,12 @@ serve(async (req: Request): Promise<Response> => {
       // Video-only rule: upload the video when one is attached (X cannot mix
       // a video with images in one tweet); otherwise the first medium.
       const firstMedia = selectPublishMediaUrl(post.media_urls);
+      // Growth-plan text formats (live_moment / todays_games) with no media
+      // tweet text-only by design. A row that CARRIES media never falls back
+      // to text when its upload fails.
+      const textOnlyByFormat = !firstMedia && disposition.textOnly === true;
       const mediaId = firstMedia ? await uploadMediaToTwitter(firstMedia, credentials) : null;
-      if (!mediaId) {
+      if (!mediaId && !textOnlyByFormat) {
         // Upload failure (incl. chunked video INIT/APPEND/FINALIZE/STATUS):
         // pause with a visible flag. Never fall back to text-only, and do
         // not silently retry every 5 minutes until the stale guard fires.
@@ -1002,7 +1078,7 @@ serve(async (req: Request): Promise<Response> => {
         });
         continue;
       }
-      mediaIds.push(mediaId);
+      if (mediaId) mediaIds.push(mediaId);
 
       // Re-select immediately before the X API call. A pause after fetchDuePosts
       // (or during media upload) must skip — never tweet, never markFailed.
@@ -1076,6 +1152,7 @@ serve(async (req: Request): Promise<Response> => {
         },
       });
 
+      remaining[bucket] -= 1;
       results.push({
         id: post.id,
         success: true,
