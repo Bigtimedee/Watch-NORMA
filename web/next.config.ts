@@ -27,14 +27,29 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "public, max-age=3600" },
         ],
       },
+      // Android App Links (getnorma.app/i/*, /games/*). Mirrors the AASA entry
+      // above; Android also fetches it without following redirects, which the
+      // /.well-known/ carve-out in redirects() already guarantees.
+      // TODO(android-release): the sha256_cert_fingerprints value in
+      // public/.well-known/assetlinks.json is a placeholder until the Play app
+      // signing key exists (Play Console > App integrity). Until then Android
+      // verification fails and links open in the browser, which is harmless.
+      {
+        source: "/.well-known/assetlinks.json",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
       { source: "/aamp-seller-profile.json", headers: openApiHeaders },
     ];
   },
   async redirects() {
     return [
       // Canonical host: bare getnorma.app -> www for every path EXCEPT
-      // /.well-known/* (iOS fetches apple-app-site-association without
-      // following redirects, so applinks:getnorma.app needs a direct 200).
+      // /.well-known/* (iOS fetches apple-app-site-association and Android fetches
+      // assetlinks.json without following redirects, so both hosts need a
+      // direct 200).
       // Requires the Vercel domain getnorma.app to serve production directly
       // (not a Vercel-level redirect). Query strings are preserved.
       {

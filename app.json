@@ -27,7 +27,10 @@
       },
       "buildNumber": "38",
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:getnorma.app", "applinks:www.getnorma.app"],
+      "associatedDomains": [
+        "applinks:getnorma.app",
+        "applinks:www.getnorma.app"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "NORMA needs access to your camera to scan bet slips.",
@@ -75,16 +78,65 @@
       }
     },
     "android": {
+      "package": "com.norma.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.norma.app",
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "NOTIFICATIONS",
         "POST_NOTIFICATIONS",
-        "READ_MEDIA_IMAGES"
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "getnorma.app",
+              "pathPrefix": "/i/"
+            },
+            {
+              "scheme": "https",
+              "host": "getnorma.app",
+              "pathPrefix": "/games/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.getnorma.app",
+              "pathPrefix": "/i/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.getnorma.app",
+              "pathPrefix": "/games/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "plugins": [
@@ -92,12 +144,62 @@
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#f97316",
+          "defaultChannel": "game-alerts"
+        }
+      ],
       [
         "expo-image-picker",
         {
           "photosPermission": "NORMA needs access to your photo library to scan bet slip screenshots.",
-          "cameraPermission": "NORMA needs access to your camera to scan bet slips."
+          "cameraPermission": "NORMA needs access to your camera to scan bet slips.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "./plugins/withAndroidPackageVisibility",
+        {
+          "schemes": [
+            "sportscenter",
+            "paramountplus",
+            "peacocktv",
+            "hbomax",
+            "hulu",
+            "youtube-tv",
+            "youtubetv",
+            "fubo",
+            "slingtv",
+            "directvstream",
+            "draftkings",
+            "fanduel",
+            "betmgm",
+            "caesarssportsbook",
+            "kalshi",
+            "tntdrama",
+            "tbs",
+            "trutv",
+            "cbssports",
+            "xfinitystream",
+            "spectrumtv",
+            "mlbatbat",
+            "foxsports",
+            "aiv",
+            "nflx",
+            "videos",
+            "nfl",
+            "nba",
+            "nhl",
+            "dazn",
+            "prizepicks",
+            "underdog",
+            "sleeper",
+            "yahoosports",
+            "youtube"
+          ]
         }
       ]
     ],

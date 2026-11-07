@@ -14,6 +14,7 @@ import {
 } from "../hooks/useConnections";
 import { useInstalledApps } from "../hooks/useInstalledApps";
 import { appStoreUrlFor, resolveWatchChoice } from "../lib/installed-apps";
+import { storeName } from "../lib/store-links";
 import { LIVE_STATUSES } from "../lib/constants";
 import { useTapToStream } from "../lib/tap-to-stream-context";
 import { trackEvent } from "../lib/analytics";
@@ -69,7 +70,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
           return;
         } catch {}
       }
-      RNAlert.alert(`Get ${getProvider.name}`, `Search for "${getProvider.name}" in the App Store to watch.`);
+      RNAlert.alert(`Get ${getProvider.name}`, `Search for "${getProvider.name}" in the ${storeName()} to watch.`);
       return;
     }
     if (bestProvider) {
@@ -81,7 +82,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
       if (!resolved) {
         RNAlert.alert(
           `${bestProvider.name} app not found`,
-          `Search for "${bestProvider.name}" in the App Store to watch.`
+          `Search for "${bestProvider.name}" in the ${storeName()} to watch.`
         );
         return;
       }
@@ -152,7 +153,7 @@ export function WatchNowButton({ game }: WatchNowButtonProps) {
               : "Broadcast TBD"}
         </Text>
         {bestProvider && <Text style={s.sub}>Tap to open app</Text>}
-        {getProvider && <Text style={s.sub}>App not installed · opens the App Store</Text>}
+        {getProvider && <Text style={s.sub}>App not installed · opens the {storeName()}</Text>}
         {isRegional && (
           <Text testID="blackout-caveat" style={s.caveat}>May be subject to local blackout</Text>
         )}

@@ -26,7 +26,8 @@ export async function recordAppOpen(): Promise<void> {
 }
 
 /**
- * Request an App Store review if all gating conditions are met.
+ * Request an in-app store review (App Store on iOS, Google Play In-App Review
+ * on Android; expo-store-review handles both) if all gating conditions are met.
  * Never throws — safe to call at any delight moment.
  *
  * Gating rules (all must pass):

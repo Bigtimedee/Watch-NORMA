@@ -6,6 +6,7 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "../lib/supabase";
 import { trackEvent } from "../lib/analytics";
 import { markPushPrimerSeen, completeStep } from "../lib/onboarding";
+import { ensureAndroidNotificationChannel } from "../lib/notification-channel";
 
 export default function PushPrimerScreen() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function PushPrimerScreen() {
     await markPushPrimerSeen();
     let granted = false;
     try {
+      // Android 13+: the POST_NOTIFICATIONS prompt needs a channel to exist.
+      await ensureAndroidNotificationChannel();
       const { status } = await Notifications.requestPermissionsAsync({
         ios: { allowAlert: true, allowSound: true, allowBadge: true },
       });

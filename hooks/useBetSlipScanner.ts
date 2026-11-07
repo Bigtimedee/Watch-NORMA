@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../lib/supabase";
 import type { WagerType } from "../lib/types";
@@ -32,13 +32,19 @@ export function useBetSlipScanner() {
 
   const scanBetSlip = async (gameId?: string): Promise<ScanResult | null> => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "NORMA needs access to your photo library to scan bet slips. Please enable it in Settings."
-        );
-        return null;
+      // Android uses the system Photo Picker (PickVisualMedia), which needs no
+      // media permission. READ_MEDIA_IMAGES is deliberately blocked in app.json
+      // (Google Play Photo & Video Permissions policy), so asking for it would
+      // always come back denied and block the scan. iOS is unchanged.
+      if (Platform.OS !== "android") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission Required",
+            "NORMA needs access to your photo library to scan bet slips. Please enable it in Settings."
+          );
+          return null;
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({

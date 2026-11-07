@@ -5,11 +5,16 @@
  * ios.infoPlist.LSApplicationQueriesSchemes (app.json); iOS caps that list at
  * ~50 queried schemes. Android/web: detection is not attempted and every
  * provider is treated as "unknown", which callers must treat as installed so
- * behaviour there is unchanged.
+ * the Watch CTA still runs the full fallback chain (scheme -> universal link
+ * -> Play Store). The Android manifest already declares matching <queries>
+ * (plugins/withAndroidPackageVisibility.js), but provider schemes have not
+ * been verified on Android devices, and a false "not installed" would swap
+ * Watch for Get (rule 3), so Android stays "unknown" until they are.
  */
 import { Platform } from "react-native";
 import type { StreamingProvider } from "./types";
 import { getBroadcastProviderKeys } from "./deep-links";
+import { providerStoreUrl } from "./store-links";
 
 /** true = installed, false = definitely not installed, missing key = unknown */
 export type InstalledMap = Record<string, boolean>;
@@ -90,7 +95,9 @@ export function resolveWatchChoice(
   return null;
 }
 
-export function appStoreUrlFor(provider: StreamingProvider): string | null {
+export function appStoreUrlFor(provider: StreamingProvider, os: string = Platform.OS): string | null {
+  // Android: Play Store listing (android_package) instead of an Apple link.
+  if (os === "android") return providerStoreUrl(provider, os) || provider.web_url || null;
   return provider.ios_app_store_url || provider.fallback_store_url || provider.web_url || null;
 }
 

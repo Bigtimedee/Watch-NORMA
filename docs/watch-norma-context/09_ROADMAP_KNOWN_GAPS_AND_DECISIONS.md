@@ -47,6 +47,8 @@ Based on repository inspection and the outage report:
 ### Streaming and Watch Flow
 
 - **No automated streaming availability check.** The app relies on broadcast strings from ESPN/SportsDataIO and the user's self-reported connections. There is no API that definitively confirms "this user can watch this game on YouTube TV right now."
+- **Android provider data is incomplete (2026-11-07).** The Android build path is configured (see 08, "Mobile App (Android)"), but `android_package` / `android_deep_link` are unverified or empty for many `streaming_providers` rows, so Android falls back to universal links and then Google Play or the provider website, and installed-app detection is off on Android. Populate and device-test these before an Android launch.
+- **Android Play-policy decision pending.** Sportsbook "Bet Now" / sponsor CTAs in an app that tracks wagers and odds conflict with Google Play's Real-Money Gambling policy unless NORMA is accepted through Play's gambling/DFS process; see 08.
 - **No watch-party or social features.** The app is single-user focused. There are no shared watch lists, group alerts, or social viewing features.
 
 ### Advertising

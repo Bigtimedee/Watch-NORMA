@@ -5,6 +5,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
+import { ensureAndroidNotificationChannel } from "../lib/notification-channel";
 import * as Linking from "expo-linking";
 import { supabase } from "../lib/supabase";
 import { applyAuthCallback, isAuthCallbackUrl } from "../lib/auth-callback";
@@ -208,18 +209,9 @@ function AuthGate() {
 
 async function registerPushToken() {
   try {
-    // Create Android notification channel (must exist before notifications arrive)
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("game-alerts", {
-        name: "Game Alerts",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: "default",
-        enableVibrate: true,
-        enableLights: true,
-        lightColor: "#f97316",
-      });
-    }
+    // Android channel must exist before notifications arrive (and before the
+    // Android 13+ POST_NOTIFICATIONS prompt). No-op on iOS.
+    await ensureAndroidNotificationChannel();
 
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
