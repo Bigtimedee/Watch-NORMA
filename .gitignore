@@ -52,3 +52,6 @@ AGENTS.md
 .claude/
 *.xlsx#
 supabase/.temp/
+
+# Google Play service-account key for `eas submit` (never commit; see docs/watch-norma-context/08)
+play-store-key.json

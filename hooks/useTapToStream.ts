@@ -12,6 +12,7 @@ import {
 import type { StreamingProvider } from "../lib/types";
 import { resolveDeepLinkUrl, openStreamingApp } from "../lib/deep-links";
 import type { WatchGameContext } from "../lib/deep-links";
+import { storeName } from "../lib/store-links";
 
 // Phase constants
 export const PHASE_IDLE = 0;
@@ -120,7 +121,7 @@ export function useTapToStreamEngine() {
       resetToIdle();
       RNAlert.alert(
         `Could not open ${provider.name}`,
-        `The app doesn't appear to be installed. Search for "${provider.name}" in the App Store to watch.`,
+        `The app doesn't appear to be installed. Search for "${provider.name}" in the ${storeName()} to watch.`,
       );
       return;
     }

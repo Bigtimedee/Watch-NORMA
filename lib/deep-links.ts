@@ -1,6 +1,7 @@
 import { Platform, Linking } from "react-native";
 import type { SportKey, StreamingProvider } from "./types";
 import { supabase } from "./supabase";
+import { providerStoreUrl } from "./store-links";
 
 // ---------------------------------------------------------------------------
 // Observability: fire-and-forget structured event logging
@@ -280,7 +281,7 @@ export async function fetchStoredGameLink(
  *   3. app universal link (streaming_providers.app_universal_link)
  *   4. native scheme (ios_scheme / android_deep_link)
  *   5. legacy universal_link (unchanged behavior, affiliate-tagged)
- *   6. App Store
+ *   6. App Store (iOS) / Google Play (Android), via providerStoreUrl
  */
 export async function buildLinkCandidates(
   provider: StreamingProvider,
@@ -324,7 +325,8 @@ export async function buildLinkCandidates(
   // link when installed, otherwise tv.youtube.com in Safari) before the store.
   if (provider.key === "youtube_tv") push(YOUTUBE_TV_WEB_URL, "app_universal", "universal_link");
 
-  push(provider.fallback_store_url ?? provider.ios_app_store_url ?? null, "app_store", "app_store");
+  // Store fallback: App Store on iOS (unchanged), Play Store on Android.
+  push(providerStoreUrl(provider), "app_store", "app_store");
   return out;
 }
 
