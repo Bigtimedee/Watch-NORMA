@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
-// Anonymous web analytics sink (seo_cta_click etc). Allowlisted names only.
-const ALLOWED = new Set(["seo_cta_click", "referral_link_open", "referral_cta_click"]);
+// Anonymous web analytics sink (page_view, seo_cta_click etc). Allowlisted names only.
+// page_view comes from components/page-view-tracker.tsx on every route change.
+const ALLOWED = new Set(["page_view", "seo_cta_click", "referral_link_open", "referral_cta_click"]);
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
       if (v == null) continue;
       properties[k.slice(0, 40)] = String(v).slice(0, 200);
     }
-    await createSupabaseAdmin().from("web_events").insert({ event_name: name, properties });
+    const { error } = await createSupabaseAdmin().from("web_events").insert({ event_name: name, properties });
+    if (error) return NextResponse.json({ ok: false }, { status: 502 });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });

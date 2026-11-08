@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { formatCents, formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/status-badge";
@@ -215,3 +216,5 @@ export default async function AdminCampaignsPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Campaigns | NORMA Admin", "NORMA admin: campaigns.");

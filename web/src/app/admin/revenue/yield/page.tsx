@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { formatCents } from "@/lib/utils";
 
@@ -132,3 +133,5 @@ export default async function YieldPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Yield | NORMA Admin", "NORMA admin: yield.");

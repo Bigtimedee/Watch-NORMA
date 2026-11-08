@@ -1,7 +1,8 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { LiveAuctionDashboard } from "@/components/live-auction-dashboard";
 
-export const metadata = { title: "Live Auction Monitor — NORMA Admin" };
+export const metadata = privateMeta("Live Auction Monitor — NORMA Admin", "NORMA admin: live auction monitor.");
 
 export default async function LiveAuctionPage() {
   await requireAdmin();

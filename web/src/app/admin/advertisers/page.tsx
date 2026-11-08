@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { formatCents, formatNumber } from "@/lib/utils";
 import Link from "next/link";
@@ -106,3 +107,5 @@ export default async function AdminAdvertisersPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Advertisers | NORMA Admin", "NORMA admin: advertisers.");

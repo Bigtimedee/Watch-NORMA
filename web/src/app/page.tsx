@@ -99,13 +99,16 @@ export default function HomePage() {
           <Link href="/">
             <img src="/logo.png" alt="NORMA" className="h-11 w-auto" />
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
+            {/* Primary consumer CTA: kept in the sticky nav so it is above the
+                fold on every viewport (the hero badge sits below it). */}
             <a
               href="https://apps.apple.com/us/app/watch-norma/id6759508383"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:block text-sm font-medium"
-              style={{ color: "#94a3b8" }}
+              data-cta="nav_download_app"
+              className="rounded-lg px-3 py-2 text-sm font-semibold sm:px-4"
+              style={{ color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
             >
               Download App
             </a>
@@ -114,7 +117,7 @@ export default function HomePage() {
             </a>
             <Link
               href="/auth"
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-white sm:px-4"
               style={{ background: "#f97316" }}
             >
               Advertiser Portal

@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 
 function pacingStatus(committed: number, delivered: number, daysElapsed: number, totalDays: number) {
@@ -138,3 +139,5 @@ export default async function DirectDealsPage() {
     </div>
   );
 }
+
+export const metadata = privateMeta("Direct Deals | NORMA Admin", "NORMA admin: direct deals.");

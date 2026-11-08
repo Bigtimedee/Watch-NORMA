@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { KpiCard } from "@/components/kpi-card";
 import { formatCents, formatNumber, formatPercent } from "@/lib/utils";
@@ -783,3 +784,5 @@ export default async function AuctionEnginePage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Auction Engine | NORMA Admin", "NORMA admin: auction engine.");

@@ -1,5 +1,8 @@
 import { requireAdmin } from "@/lib/admin";
 import { AdminNav } from "@/components/admin-nav";
+import { privateMeta } from "@/lib/seo";
+
+export const metadata = privateMeta("Admin | NORMA", "NORMA internal admin console.");
 
 export default async function AdminLayout({
   children,

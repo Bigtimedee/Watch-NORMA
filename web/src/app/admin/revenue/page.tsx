@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { formatCents } from "@/lib/utils";
 import { KpiCard } from "@/components/kpi-card";
@@ -167,3 +168,5 @@ export default async function AdminRevenuePage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Revenue | NORMA Admin", "NORMA admin: revenue.");

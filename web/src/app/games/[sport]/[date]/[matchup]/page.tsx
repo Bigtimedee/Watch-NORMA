@@ -7,6 +7,7 @@ import {
   type GameWithTeams,
 } from "@/lib/sports";
 import { AppCta } from "@/components/sports/app-cta";
+import { OG_IMAGE } from "@/lib/seo";
 import { JsonLd } from "@/components/sports/json-ld";
 import { SportsShell, Crumbs } from "@/components/sports/shell";
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, siteName: "NORMA", type: "website", images: [{ url: "/og-image.jpg", width: 1400, height: 930 }] },
+    openGraph: { title, description, url, siteName: "NORMA", type: "website", images: [OG_IMAGE] },
     twitter: { card: "summary_large_image", title, description, images: ["/og-image.jpg"] },
     other: { "apple-itunes-app": `app-id=6759508383, app-argument=norma://games/${g.id}` },
   };
