@@ -85,6 +85,9 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       { source: "/api-docs", destination: "/api-docs/index.html", permanent: false },
+      // Short legal paths: partner pages and openapi.json used /privacy and /terms.
+      { source: "/privacy", destination: "/privacy-policy", permanent: true },
+      { source: "/terms", destination: "/terms-of-service", permanent: true },
     ];
   },
   async rewrites() {

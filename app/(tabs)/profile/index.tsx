@@ -11,13 +11,11 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
-// Both of these returned 404 in every shipped build (the d10dave.github.io/norma
-// path does not exist). These are the live documents, verified 200. An App Store
-// reviewer follows these links. Fixed 2026-08-20.
-const PRIVACY_POLICY_URL =
-  "https://bigtimedee.github.io/norma-site/privacy-policy.html";
-const TERMS_URL =
-  "https://bigtimedee.github.io/norma-site/terms-of-service.html";
+// The legal pages are served by the web app on getnorma.app (verified 200 on
+// 2026-11-08). The earlier github.io copies were stale. An App Store reviewer
+// follows these links.
+const PRIVACY_POLICY_URL = "https://www.getnorma.app/privacy-policy";
+const TERMS_URL = "https://www.getnorma.app/terms-of-service";
 
 export default function ProfileScreen() {
   const router = useRouter();

@@ -165,9 +165,9 @@ export default async function PartnerLandingPage({
       <footer className="border-t border-slate-800 px-6 py-4 text-center text-xs text-slate-600">
         <Link href="/" className="hover:text-slate-400">getnorma.app</Link>
         {" · "}
-        <Link href="/privacy" className="hover:text-slate-400">Privacy</Link>
+        <Link href="/privacy-policy" className="hover:text-slate-400">Privacy</Link>
         {" · "}
-        <Link href="/terms" className="hover:text-slate-400">Terms</Link>
+        <Link href="/terms-of-service" className="hover:text-slate-400">Terms</Link>
       </footer>
     </div>
   );
