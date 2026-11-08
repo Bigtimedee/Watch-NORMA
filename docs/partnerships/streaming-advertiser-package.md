@@ -1,7 +1,7 @@
 # Watch NORMA — Streaming Advertiser Package
 ### Subscriber Acquisition at the Moment of Maximum Engagement
 
-*Prepared June 2026 — getnorma.app · bd@norma-app.com*
+*Prepared June 2026 — getnorma.app · dtm@getnorma.app*
 
 ---
 
@@ -82,8 +82,8 @@ Streaming campaigns run in NORMA's Vickrey (second-price) auction. You set a max
 4. Submit for brand review
 5. Campaign goes live after approval (typically < 24 hours)
 
-For direct deal or guaranteed impression arrangements, contact bd@norma-app.com.
+For direct deal or guaranteed impression arrangements, contact dtm@getnorma.app.
 
 ---
 
-*Watch NORMA · getnorma.app · bd@norma-app.com*
+*Watch NORMA · getnorma.app · dtm@getnorma.app*

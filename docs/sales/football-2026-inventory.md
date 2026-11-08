@@ -120,4 +120,4 @@ Single-game slates. Alert volume is lower in absolute terms but highly concentra
 ## Contact
 
 Advertiser self-serve: `getnorma.app/advertise`  
-Sales contact: `partnerships@norma-app.com`
+Sales contact: `dtm@getnorma.app`

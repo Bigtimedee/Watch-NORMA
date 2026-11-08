@@ -2,7 +2,7 @@
 
 **Platform:** NORMA — Real-time sports alerts for bettors and fantasy players  
 **Version:** August 2026 (updated for football season launch)  
-**Contact:** partnerships@norma-app.com
+**Contact:** dtm@getnorma.app
 
 ---
 
@@ -107,7 +107,7 @@ This drives direct value perception for the partner in every alert.
 2. NORMA provides a sandbox environment for integration testing.
 3. Agree on co-marketing launch plan alongside the API go-live.
 
-Contact: partnerships@norma-app.com
+Contact: dtm@getnorma.app
 
 ---
 
@@ -150,7 +150,7 @@ A Tier B integration would extend `parse-bet-slip` and `ingest-email-wagers` to 
 
 A Tier A integration would require a partner API agreement providing a read-only roster/entry endpoint. The NORMA architecture supports this via the existing `BetIngestor` interface in `_shared/bet-ingestor.ts` and the `connections.auth_mode = 'partner_api'` pattern. No architectural changes are needed when a partnership is secured — only an adapter implementation.
 
-**Next step:** Schedule a technical call to review PrizePicks and Underdog roster API specifications for a potential Tier B/A roadmap. Contact: partnerships@norma-app.com
+**Next step:** Schedule a technical call to review PrizePicks and Underdog roster API specifications for a potential Tier B/A roadmap. Contact: dtm@getnorma.app
 
 ---
 

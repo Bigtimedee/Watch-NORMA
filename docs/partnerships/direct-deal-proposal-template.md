@@ -7,7 +7,7 @@
 
 **Partner:** [Partner Name — e.g., FanDuel Sportsbook]
 **Campaign:** [Campaign Description — e.g., FanDuel March Madness Awareness Push]
-**Prepared by:** NORMA Advertising · bd@norma-app.com
+**Prepared by:** NORMA Advertising · dtm@getnorma.app
 **Proposal Date:** [YYYY-MM-DD]
 **Expiration:** [YYYY-MM-DD — proposals valid 14 days]
 
@@ -94,7 +94,7 @@ Title: _________________________
 
 **NORMA**
 Authorized Signatory: _________________________ Date: _________
-Contact: bd@norma-app.com
+Contact: dtm@getnorma.app
 
 ---
 

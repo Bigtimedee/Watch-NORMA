@@ -2,7 +2,7 @@
 
 **For:** Kalshi Business Development  
 **Date:** June 2026  
-**Contact:** hello@norma-app.com
+**Contact:** dtm@getnorma.app
 
 ---
 
@@ -85,4 +85,4 @@ NORMA promotes Kalshi to our user base (sports bettors considering prediction ma
 
 NORMA is a React Native app available on iOS. It is built on Supabase and uses the Expo push notification stack. The Kalshi integration is live and in production.
 
-For questions or to discuss co-marketing terms, contact: hello@norma-app.com
+For questions or to discuss co-marketing terms, contact: dtm@getnorma.app

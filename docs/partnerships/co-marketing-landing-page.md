@@ -58,7 +58,7 @@ No integration required. Just add the link.
 Let me know if you'd like custom creative assets or a co-branded email template.
 
 — Dave / NORMA
-bd@norma-app.com
+dtm@getnorma.app
 
 ---
 

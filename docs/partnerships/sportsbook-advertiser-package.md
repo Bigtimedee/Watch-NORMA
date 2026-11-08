@@ -46,7 +46,7 @@ Active sports bettors tracking DraftKings, FanDuel, and BetMGM wagers in-app. Pr
 
 Second-price Vickrey auction. You pay $0.01 above the second-highest competing bid, never your max bid. No minimum commitment. No setup fee. Self-serve at getnorma.app/auth.
 
-Direct deals are available for advertisers seeking guaranteed monthly impression volumes. Contact bd@norma-app.com to discuss a reserved inventory agreement.
+Direct deals are available for advertisers seeking guaranteed monthly impression volumes. Contact dtm@getnorma.app to discuss a reserved inventory agreement.
 
 ---
 
@@ -70,6 +70,6 @@ Built in. Sportsbook campaigns are automatically filtered by state-level sports 
 
 ## 8. Contact
 
-**Business development**: bd@norma-app.com
+**Business development**: dtm@getnorma.app
 
 **30-minute walkthrough**: getnorma.app/demo

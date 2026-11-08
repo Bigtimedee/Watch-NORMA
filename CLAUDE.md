@@ -585,7 +585,7 @@ Already built. Enhancements for v2:
 - Gets `source = 'bet_slip_scan'`
 
 **Email Parse** (new in v2):
-- User forwards bet confirmation email to `bets@norma-app.com`
+- User forwards bet confirmation email to `dtm@getnorma.app`
 - Supabase Edge Function receives via webhook (SendGrid/Mailgun inbound parse)
 - Parses email body for: sportsbook, game, market type, line, odds, stake
 - Creates wager with `source = 'email_parse'`, `status = 'pending_review'`
