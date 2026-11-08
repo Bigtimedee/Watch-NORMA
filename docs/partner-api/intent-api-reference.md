@@ -3,7 +3,7 @@
 **Base URL:** `https://kbqybsrnlmhpxskvhftd.supabase.co/functions/v1/intent-api`
 **Version:** v1
 **Status:** Live (requires `INTENT_API_ENABLED=true` secret)
-**Contact:** bd@norma-app.com
+**Contact:** dtm@getnorma.app
 
 ---
 

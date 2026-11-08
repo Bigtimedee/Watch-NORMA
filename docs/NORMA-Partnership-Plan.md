@@ -211,8 +211,8 @@ Create a sportsbook advertiser onboarding package for NORMA. This includes:
    - Pricing (Vickrey auction, second-price clearing, no minimum commitment)
    - Geo-compliance (built-in state-level filtering for sportsbook ads)
    - Self-serve portal walkthrough (create account → deposit via Stripe → create campaign → live in under 30 min)
-   - Contact: bd@norma-app.com
-4. Add a "Request a Demo" CTA to the advertiser portal's landing page that emails bd@norma-app.com with the requester's name, company, and monthly budget range.
+   - Contact: dtm@getnorma.app
+4. Add a "Request a Demo" CTA to the advertiser portal's landing page that emails dtm@getnorma.app with the requester's name, company, and monthly budget range.
 ```
 
 ---
@@ -441,7 +441,7 @@ Create a press and editorial partnership package for NORMA. Specifically:
    c. Founder bio placeholder (Dave to fill in)
    d. Product screenshots guidance (which screens to include in press coverage)
    e. Boilerplate quote from Dave for press
-   f. Contact: press@norma-app.com (or current contact)
+   f. Contact: dtm@getnorma.app (or current contact)
 2. Create docs/partnerships/editorial-partnership-pitch.md: a pitch template for sports media editors/journalists covering:
    - The pitch angle: "The sports app that tells you when to tune in, not just the final score"
    - Data angle: "We analyzed 10,000+ sports moments and found that users with active bets are 4x more likely to watch a game when they receive a contextual alert vs. a generic score update" (frame as hypothesis to validate with real data)

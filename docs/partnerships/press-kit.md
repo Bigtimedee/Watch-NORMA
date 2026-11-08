@@ -2,7 +2,7 @@
 
 **App:** Watch NORMA
 **Platform:** iOS (App Store)
-**Contact:** press@norma-app.com
+**Contact:** dtm@getnorma.app
 
 ---
 
@@ -46,7 +46,7 @@ MLB: close game (margin ≤ 2, 7th inning+), scoring threat, no-hitter in progre
 
 ## Product Screenshots for Press Coverage
 
-The following six screens best represent NORMA for editorial and media coverage. Request high-resolution assets at press@norma-app.com.
+The following six screens best represent NORMA for editorial and media coverage. Request high-resolution assets at dtm@getnorma.app.
 
 1. **Game Alert (push notification view)** — Shows the full push notification with "Why Now" headline, bullet context, and a single "Watch on [Provider]" action. This is the core product moment.
 
@@ -70,4 +70,4 @@ Available free on the iOS App Store. Search "Watch NORMA" or visit getnorma.app.
 
 ## Press Contact
 
-press@norma-app.com
+dtm@getnorma.app

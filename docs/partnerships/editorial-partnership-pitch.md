@@ -1,6 +1,6 @@
 # Editorial Partnership Pitch — Watch NORMA
 
-**Contact:** press@norma-app.com
+**Contact:** dtm@getnorma.app
 **Date:** June 2026
 
 ---
@@ -56,7 +56,7 @@ The story I would pitch: what does it look like to rebuild sports media attentio
 Happy to coordinate whenever works for you.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 ---
 
@@ -73,7 +73,7 @@ Given ESPN's position at the center of sports betting media (ESPN Bet, ESPN+, in
 I can offer a product demo, founder interview, and early engagement data. Let me know if this fits anything you are working on.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: Reference ESPN Bet integration angle — NORMA tracks DraftKings, FanDuel, BetMGM, ESPNBet odds. If ESPN Bet advertises in the NORMA auction, this is a natural tie-in. Lead with the streaming angle (ESPN+) if pitching to the streaming/product desk rather than betting desk.*
 
@@ -92,7 +92,7 @@ We fire one push notification per game moment — not per quarter, not per score
 I think B/R's audience would respond strongly to a "here's the app that knows when to interrupt you" angle. Happy to give you early access, walk through the product, or set up a founder interview.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: B/R skews toward visual-first and social content. Offer app screenshots and alert card visuals upfront. Frame around the betting audience specifically.*
 
@@ -111,7 +111,7 @@ We're a free iOS app that monitors live game state, sportsbook odds (DraftKings,
 I would love to explore whether there is a story fit here — particularly around how NORMA handles prediction markets alongside traditional sportsbook bets, which I believe is unique in the space.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: Yahoo DailyFantasy and Yahoo Sportsbook history makes the betting-native angle relevant. Lead with prediction market angle (Kalshi/Polymarket) if pitching to a finance-adjacent reporter.*
 
@@ -130,7 +130,7 @@ Watch NORMA is that notification. Free iOS app, NCAA basketball, NBA, MLB. We ro
 I think there is a fun angle for The Ringer around the philosophy of the app — why building a notification product in an era of notification fatigue requires strong opinions about what a push notification should and should not be. Happy to do an interview or walkthrough.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: The Ringer publishes a mix of straight features and longer cultural takes. Pitch both: a quick news item on the product launch, and a longer piece on the philosophy of sports attention in the streaming era. Bill Simmons angle: the app for the gambler who is also watching something else.*
 
@@ -149,7 +149,7 @@ We monitor sportsbook odds from DraftKings, FanDuel, BetMGM, and ESPNBet alongsi
 I think Action Network's readers are the clearest target audience for NORMA, and I would love to explore coverage — whether that is a review, a feature, or a partnership opportunity.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: Action Network readers are power bettors. Lead with specific features: spread proximity scoring, bet slip scanning via Claude Vision, Gmail wager ingest, parlay leg tracking. Do not over-explain what a push notification is. These readers will want to know which sportsbooks are covered and how accurately bets are tracked.*
 
@@ -168,7 +168,7 @@ We fire a push notification when a sportsbook odds movement or game state signal
 The monetization side may also be relevant to VSiN's editorial audience: NORMA runs a Vickrey auction ad engine that lets sportsbooks buy contextual ads attached to specific alert moment types. We can talk about both the consumer product and the advertising infrastructure.
 
 Dave Maloney
-press@norma-app.com
+dtm@getnorma.app
 
 *Personalization note: VSiN is radio-first with a sophisticated gambling audience. Pitch both the product story and the business model. VSiN reporters understand odds mechanics, so use specific language: second-price auction, floor CPM, clearing price, moment type targeting. Offer to come on a show for a live product demo if relevant.*
 
