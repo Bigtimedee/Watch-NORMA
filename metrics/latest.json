@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-06",
+  "report_date": "2026-11-07",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-07T16:54:52.048Z",
+  "generated_at": "2026-11-08T17:46:35.966Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -24,9 +24,9 @@
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 1,
     "dau": 2,
-    "wau": 3,
+    "wau": 4,
     "mau": 7,
-    "push_sent_yesterday": 3,
+    "push_sent_yesterday": 0,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 7,
@@ -40,7 +40,7 @@
     "social_posts_published_yesterday_by_platform": {},
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-07",
+        "date": "2026-11-08",
         "likes": 0,
         "views": null,
         "follows": null,
@@ -49,12 +49,12 @@
         "platform": "fb",
         "impressions": null,
         "link_clicks": null,
-        "posts_tracked": 11,
+        "posts_tracked": 12,
         "follower_count": 0,
         "follower_delta": 0
       },
       {
-        "date": "2026-11-07",
+        "date": "2026-11-08",
         "likes": 5,
         "views": null,
         "follows": null,
@@ -63,21 +63,21 @@
         "platform": "ig",
         "impressions": null,
         "link_clicks": null,
-        "posts_tracked": 11,
+        "posts_tracked": 12,
         "follower_count": 35,
         "follower_delta": 0
       },
       {
-        "date": "2026-11-07",
-        "likes": 19,
-        "views": 1295,
+        "date": "2026-11-08",
+        "likes": 20,
+        "views": 1499,
         "follows": null,
-        "replies": 16,
+        "replies": 19,
         "reposts": 0,
         "platform": "x",
-        "impressions": 1295,
+        "impressions": 1499,
         "link_clicks": 1,
-        "posts_tracked": 23,
+        "posts_tracked": 26,
         "follower_count": 17,
         "follower_delta": 0
       }
