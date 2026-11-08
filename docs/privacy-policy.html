@@ -9,23 +9,26 @@
     h1 { color: #ffffff; font-size: 28px; }
     h2 { color: #f97316; font-size: 20px; margin-top: 32px; }
     p, li { font-size: 15px; }
+    code { font-size: 13px; color: #fbbf24; }
     a { color: #60a5fa; }
     ul { padding-left: 20px; }
   </style>
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p><strong>Effective Date:</strong> February 21, 2026</p>
-  <p>NORMA ("we", "our", "the app") is a sports alerts and wager tracking application. This Privacy Policy explains what data we collect, how we use it, and your choices.</p>
+  <p><strong>Last updated:</strong> November 8, 2026</p>
+  <p>NORMA ("we", "our", "the app") is a sports alerts and wager tracking application, with a website at getnorma.app and an advertiser portal for businesses that run sponsored messages in NORMA. This Privacy Policy explains what data we collect, how we use it, who we share it with, and your choices.</p>
 
-  <h2>1. Data We Collect</h2>
+  <h2>1. Data We Collect in the App</h2>
   <ul>
-    <li><strong>Account information:</strong> Email address, display name, and authentication credentials (via email/password or Apple Sign-In).</li>
-    <li><strong>Wager data:</strong> Wager descriptions, lines, odds, sportsbook selections, and bet slip images you choose to scan.</li>
-    <li><strong>Preferences:</strong> Favorite teams, notification settings, quiet hours, and timezone.</li>
+    <li><strong>Account information:</strong> Email address, display name, and authentication credentials (via email/password, Sign in with Apple, or Google sign-in).</li>
+    <li><strong>Wager data:</strong> Wager descriptions, lines, odds, stakes, potential payouts, and sportsbook, whether you enter them yourself or import them by forwarding a confirmation email (see Section 3). Bet slip screenshot scanning is currently turned off: if you pick an image, it is not read or stored, and you are asked to enter the wager manually.</li>
+    <li><strong>Preferences:</strong> Followed teams, notification settings, quiet hours, your Ad Personalization setting, and timezone.</li>
     <li><strong>Connections:</strong> Which streaming services and sportsbooks you indicate you use (no login credentials are stored for these services).</li>
-    <li><strong>Prediction market positions:</strong> If you connect Kalshi or Polymarket, your API credentials and position data.</li>
+    <li><strong>Prediction market positions:</strong> If you connect Kalshi, your Kalshi API Key ID and private key (used only to read your positions) and your position data. If you connect Polymarket, your public wallet address and position data. No Polymarket private key is requested.</li>
     <li><strong>Device information:</strong> Push notification token (Expo Push), device type, and app version.</li>
+    <li><strong>In-app usage events:</strong> Records of actions in the app (for example, opening a screen or tapping a sponsored button), linked to your account. Before you create an account, a small set of onboarding events (such as viewing the welcome screen or starting sign-up) is recorded without any account or device identifier.</li>
+    <li><strong>Referral information:</strong> Your invite code, and which invited users joined through it.</li>
   </ul>
 
   <h2>2. How We Use Your Data</h2>
@@ -34,40 +37,91 @@
     <li>Track and display your wager history and outcomes.</li>
     <li>Send push notifications for games you follow.</li>
     <li>Provide deep links to streaming apps you have connected.</li>
+    <li>Select and show sponsored messages (see Section 4).</li>
+    <li>Understand how the app and website are used so we can improve them.</li>
+    <li>Attribute new sign-ups to the invite links that brought them.</li>
   </ul>
 
-  <h2>3. Third-Party Services</h2>
-  <p>NORMA integrates with the following services:</p>
+  <h2>3. Forwarded Bet Confirmation Emails</h2>
+  <p>You can import wagers by forwarding sportsbook confirmation emails to <strong>bets@getnorma.app</strong>. That inbox is hosted on Google (Gmail), and we read new messages through the Gmail API. For each forwarded email we:</p>
+  <ul>
+    <li>Match the sender's email address to a NORMA account. If no account uses that address, no wager is created.</li>
+    <li>Read the subject and plain-text body to extract wager details (sportsbook, bet type, description, line, odds, stake, potential payout), save them as wagers on your account, and send you an in-app notification to review them.</li>
+    <li>Keep an import record (the Gmail message ID, the sender address, the detected sportsbook, the number of wagers created, and whether parsing succeeded) so the same email is not imported twice.</li>
+  </ul>
+  <p>We do not store the full email body in our database. Only forward emails you are comfortable sharing, and forward them from the email address on your NORMA account.</p>
+
+  <h2>4. Sponsored Messages and Ad Personalization</h2>
+  <p>NORMA is supported by advertising. Some alerts include a clearly labeled "Sponsored" message from an advertiser, such as a sportsbook, streaming service, or other brand. To choose which sponsored message, if any, appears on an alert, we use:</p>
+  <ul>
+    <li>The game and the type of moment the alert is about.</li>
+    <li>Your audience segment: whether you hold a wager on the game, follow one of the teams, or hold a prediction market position on it.</li>
+    <li>Your state, inferred from the timezone on your profile (we do not use device location). Sportsbook messages are shown only where that advertiser is allowed to operate; if your state cannot be determined, they are not shown.</li>
+    <li>How many sponsored messages you have recently received, so we can cap how often you see them.</li>
+  </ul>
+  <p>Sponsored text may include your first name, a team name, or details of a settled prediction market position (platform, market, payout). This text is filled in on our servers and is not sent to the advertiser.</p>
+  <p>We record each sponsored message delivered (an impression), whether you tapped it, and, if the advertiser reports one, a resulting conversion (for example, an install or registration) tied to that tap. Advertisers see reports on their campaigns, including individual tap and conversion records, but these do not include your name, email address, or account ID.</p>
+  <p><strong>Your choice:</strong> Ad Personalization is on by default. You can turn it off at any time in the Profile tab. When it is off, we stop attaching sponsored messages to your alerts.</p>
+
+  <h2>5. Advertiser Portal and Payments</h2>
+  <p>Businesses can create an advertiser account on getnorma.app to run sponsored messages. For advertiser accounts we collect the account email address and password, company name, website, logo URL, advertiser category, and campaign details (budgets, schedules, targeting, and creative).</p>
+  <p>Advertisers add funds through <strong>Stripe</strong>. When an advertiser first makes a deposit, we create a Stripe customer record with the account email, company name, and internal account IDs, and payment takes place on Stripe's hosted checkout page. Card details are entered on Stripe and are never sent to or stored by NORMA. We receive confirmation of the payment and its amount, and we keep the Stripe customer ID and the account's balance. We send advertisers campaign performance reports by email.</p>
+
+  <h2>6. Website Analytics and Cookies</h2>
+  <p>Our website uses first-party analytics only. There are no third-party analytics or advertising scripts on getnorma.app.</p>
+  <ul>
+    <li><strong>Page views:</strong> Each time you view a page, your browser sends an anonymous <code>page_view</code> event to our own endpoint (<code>/api/web-events</code>) containing the page path (never the query string or anchor) and the host name of the referring site. No cookie, user ID, or device identifier is attached.</li>
+    <li><strong>Button clicks:</strong> When you tap a download (App Store) button on a game, team, or sport page, we record an anonymous <code>seo_cta_click</code> event with the type of page, the game or team shown, and the page path.</li>
+    <li><strong>Invite links:</strong> When you open an invite link (getnorma.app/i/&lt;code&gt;), we record that the invite code was opened, and we store a one-way hash of your IP address and of your browser's user-agent string. When the NORMA app is opened for the first time without an invite code, it can be matched to an invite opened from the same IP address within the previous 24 hours, so the person who invited you gets credit. We do not store your IP address itself for this.</li>
+    <li><strong>Referral cookie:</strong> Opening an invite link also sets a first-party cookie named <code>norma_ref</code> that holds the invite code. It expires after 30 days.</li>
+    <li><strong>Sign-in cookies:</strong> If you sign in to the advertiser portal, our authentication provider (Supabase) sets cookies that keep you signed in. These are required for the portal to work.</li>
+  </ul>
+  <p>Our website is hosted on Vercel, which processes your IP address and request information to serve pages.</p>
+
+  <h2>7. Third-Party Services</h2>
+  <p>NORMA works with the following services:</p>
   <ul>
     <li><strong>Supabase:</strong> Authentication, database, and serverless functions (data stored in Supabase's infrastructure).</li>
-    <li><strong>ESPN:</strong> Live game scores (public API, no user data shared).</li>
-    <li><strong>SportsDataIO:</strong> Game schedules and scores (no user data shared).</li>
-    <li><strong>Sportradar:</strong> Play-by-play and game summaries (no user data shared).</li>
-    <li><strong>The Odds API:</strong> Betting odds from DraftKings, FanDuel, BetMGM (no user data shared).</li>
-    <li><strong>Kalshi / Polymarket:</strong> Prediction market data (user-provided API credentials, stored securely).</li>
+    <li><strong>Vercel:</strong> Hosting for getnorma.app and the advertiser portal.</li>
+    <li><strong>Google (Gmail API and Cloud Pub/Sub):</strong> Hosting and reading the bets@getnorma.app inbox for forwarded bet emails.</li>
+    <li><strong>Stripe:</strong> Payment processing for advertiser deposits.</li>
+    <li><strong>Resend:</strong> Sending email to advertisers, such as campaign performance reports.</li>
+    <li><strong>Apple and Google:</strong> Sign in with Apple or Google, if you choose it.</li>
     <li><strong>Expo Push Notifications:</strong> Delivering push notifications to your device.</li>
+    <li><strong>ESPN:</strong> Live game scores (public API, no user data shared).</li>
+    <li><strong>SportsDataIO:</strong> Game schedules (no user data shared).</li>
+    <li><strong>Sportradar:</strong> Play-by-play and game summaries (no user data shared).</li>
+    <li><strong>The Odds API:</strong> Betting odds (no user data shared).</li>
+    <li><strong>Kalshi / Polymarket:</strong> Reading your prediction market positions, using the credentials or wallet address you provide.</li>
   </ul>
 
-  <h2>4. Data Retention</h2>
-  <p>We retain your data for as long as your account is active. You can delete your account at any time from the Profile tab, which permanently removes all your data from our systems.</p>
+  <h2>8. Data Retention</h2>
+  <p>We retain your account data for as long as your account is active. You can delete your account at any time from the Profile tab. This deletes your account, profile, wagers, alerts, follows, connections, preferences, prediction market positions, and in-app usage events. Some records are kept for a limited time after that:</p>
+  <ul>
+    <li>Records of sponsored messages delivered (impressions) are kept for up to 13 months for advertiser billing and reporting, then deleted.</li>
+    <li>Forwarded-email import records keep the sender address and import result for de-duplication; the link to your account is removed when the account is deleted.</li>
+    <li>Website analytics events carry no user identifier, and invite-link records hold only hashed IP address and user-agent values.</li>
+  </ul>
+  <p>Advertiser account and payment records are kept for as long as the advertiser account exists and as needed for billing and accounting.</p>
 
-  <h2>5. Data Security</h2>
-  <p>Your data is protected by Supabase's row-level security policies, ensuring you can only access your own data. Authentication tokens are stored securely on-device using Expo SecureStore. API credentials for third-party services are protected by row-level security.</p>
+  <h2>9. Data Security</h2>
+  <p>Your data is protected by Supabase's row-level security policies, ensuring you can only access your own data. Authentication tokens are stored securely on-device using Expo SecureStore. Kalshi credentials are stored server-side and protected by row-level security. Payment card data is handled by Stripe and never reaches our systems.</p>
 
-  <h2>6. Your Rights</h2>
+  <h2>10. Your Rights</h2>
   <ul>
     <li><strong>Access:</strong> View your data in the app at any time.</li>
-    <li><strong>Deletion:</strong> Delete your account and all associated data from the Profile tab.</li>
+    <li><strong>Deletion:</strong> Delete your account and associated data from the Profile tab.</li>
+    <li><strong>Ad Personalization:</strong> Turn sponsored messages on or off in the Profile tab.</li>
     <li><strong>Portability:</strong> Contact us to request an export of your data.</li>
   </ul>
 
-  <h2>7. Children's Privacy</h2>
+  <h2>11. Children's Privacy</h2>
   <p>NORMA is intended for users 18 years of age or older. We do not knowingly collect data from children under 18.</p>
 
-  <h2>8. Changes to This Policy</h2>
-  <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated effective date.</p>
+  <h2>12. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last updated" date.</p>
 
-  <h2>9. Contact</h2>
-  <p>For questions about this Privacy Policy, contact us at <a href="mailto:privacy@norma-app.com">privacy@norma-app.com</a>.</p>
+  <h2>13. Contact</h2>
+  <p>For questions about this Privacy Policy, contact us at <a href="mailto:support@getnorma.app">support@getnorma.app</a>.</p>
 </body>
 </html>
