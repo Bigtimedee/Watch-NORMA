@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
@@ -303,3 +304,5 @@ export default async function AdminCrmDetailPage({
     </div>
   );
 }
+
+export const metadata = privateMeta("CRM Prospect | NORMA Admin", "NORMA admin: crm prospect.");

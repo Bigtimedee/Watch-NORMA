@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 
 // Estimated average commission rates per provider ($ per subscription confirmed)
@@ -174,3 +175,5 @@ export default async function AffiliatesPage() {
     </div>
   );
 }
+
+export const metadata = privateMeta("Affiliate Revenue | NORMA Admin", "NORMA admin: affiliate revenue.");

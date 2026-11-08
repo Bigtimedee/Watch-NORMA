@@ -135,6 +135,9 @@ export default function BiddingPage() {
               })}
             </tbody>
           </table>
+          {loading && (
+            <p className="px-6 py-8 text-center text-slate-400" role="status">Loading bids...</p>
+          )}
           {!loading && bids.length === 0 && (
             <p className="px-6 py-8 text-center text-slate-500">No bids configured.</p>
           )}

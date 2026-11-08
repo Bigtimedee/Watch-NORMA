@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -176,3 +177,5 @@ async function loadCrmSummary(): Promise<
     return { available: false };
   }
 }
+
+export const metadata = privateMeta("Admin Dashboard | NORMA Admin", "NORMA admin: admin dashboard.");

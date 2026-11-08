@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { FraudActions } from "./fraud-actions";
 
@@ -132,3 +133,5 @@ export default async function AdminFraudPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Fraud | NORMA Admin", "NORMA admin: fraud.");

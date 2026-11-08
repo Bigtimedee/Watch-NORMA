@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { privateMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = privateMeta("Advertiser Portal | NORMA", "Sign in or create an account to advertise on NORMA.");
 
 export default function AuthLandingPage() {
   return (

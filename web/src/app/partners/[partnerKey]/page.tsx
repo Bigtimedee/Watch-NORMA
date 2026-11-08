@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
+import { OG_IMAGE, SITE_URL } from "@/lib/seo";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 
 // ascAppId per eas.json is 6759508383; all other web pages + lib/constants
@@ -24,6 +26,30 @@ const VALUE_PROPS = [
     body: "Track all your active bets in one place. Watch your spread, total, and parlay legs update live as the game moves.",
   },
 ];
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ partnerKey: string }>;
+}): Promise<Metadata> {
+  const { partnerKey } = await params;
+  const { data: provider } = await createSupabaseAdmin()
+    .from("streaming_providers")
+    .select("name")
+    .eq("key", partnerKey)
+    .single();
+  if (!provider) return { title: "Page Not Found | NORMA", robots: { index: false, follow: true } };
+  const title = `Track your ${provider.name} bets with Watch NORMA | NORMA`;
+  const description = "The sports alert app built for bettors. Know when your spread is live, when to tune in, and when the game is over. Free download.";
+  const url = `${SITE_URL}/partners/${partnerKey}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: "NORMA", type: "website", images: [OG_IMAGE] },
+    twitter: { card: "summary_large_image", title, description, images: [OG_IMAGE.url] },
+  };
+}
 
 export default async function PartnerLandingPage({
   params,

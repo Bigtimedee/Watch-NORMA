@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { UserActions } from "./user-actions";
 
@@ -90,3 +91,5 @@ export default async function AdminUsersPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Users | NORMA Admin", "NORMA admin: users.");

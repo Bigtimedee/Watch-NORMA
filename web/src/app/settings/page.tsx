@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [saved, setSaved] = useState(false);
 
   // OAuth clients
@@ -46,21 +47,25 @@ export default function SettingsPage() {
   }, []);
 
   async function loadAdvertiser() {
-    const supabase = createSupabaseBrowser();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const supabase = createSupabaseBrowser();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data } = await supabase
-      .from("advertisers")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .single();
+      const { data } = await supabase
+        .from("advertisers")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .single();
 
-    if (data) {
-      setName(data.name ?? "");
-      setCategory(data.category ?? "");
-      setLogoUrl(data.logo_url ?? "");
-      setWebsiteUrl(data.website_url ?? "");
+      if (data) {
+        setName(data.name ?? "");
+        setCategory(data.category ?? "");
+        setLogoUrl(data.logo_url ?? "");
+        setWebsiteUrl(data.website_url ?? "");
+      }
+    } finally {
+      setLoadingProfile(false);
     }
   }
 
@@ -140,6 +145,9 @@ export default function SettingsPage() {
       <Nav />
       <main className="mx-auto max-w-2xl px-6 py-8">
         <h1 className="text-2xl font-bold text-white">Settings</h1>
+        {loadingProfile && (
+          <p className="mt-2 text-sm text-slate-400" role="status">Loading settings...</p>
+        )}
 
         <div className="mt-6 space-y-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
           <div>
@@ -172,7 +180,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button onClick={handleSave} disabled={saving}
+            <button onClick={handleSave} disabled={saving || loadingProfile}
               className="rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
               {saving ? "Saving..." : "Save Changes"}
             </button>

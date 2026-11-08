@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
@@ -218,3 +219,5 @@ export default async function AdminCrmPage({
     </div>
   );
 }
+
+export const metadata = privateMeta("CRM | NORMA Admin", "NORMA admin: crm.");

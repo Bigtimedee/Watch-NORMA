@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { requireAdmin } from "@/lib/admin";
 import { notFound } from "next/navigation";
 import type { CampaignApprovalStatus, CampaignStatus } from "@/lib/types";
@@ -225,3 +226,5 @@ export default async function AdminCampaignDetailPage({
     </>
   );
 }
+
+export const metadata = privateMeta("Campaign | NORMA Admin", "NORMA admin: campaign.");

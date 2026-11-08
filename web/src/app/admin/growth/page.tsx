@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { KFactorTile } from "./k-factor";
 import { SignupFunnel } from "./signup-funnel";
 import { requireAdmin } from "@/lib/admin";
@@ -302,3 +303,5 @@ export default async function AdminGrowthPage() {
     </>
   );
 }
+
+export const metadata = privateMeta("Growth | NORMA Admin", "NORMA admin: growth.");

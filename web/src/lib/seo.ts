@@ -8,6 +8,14 @@ export const APP_STORE_URL = "https://apps.apple.com/app/id6759508383";
 export const X_URL = "https://x.com/watchNORMA";
 export const LOGO_URL = `${SITE_URL}/logo.png`;
 
+/** Shared Open Graph / Twitter card image. Real file size is 1536x1024 (public/og-image.jpg). */
+export const OG_IMAGE = {
+  url: "/og-image.jpg",
+  width: 1536,
+  height: 1024,
+  alt: "NORMA: sports alerts that tell you when to tune in",
+};
+
 export type PageKey = "home" | "advertisers" | "demo" | "developers" | "status";
 
 /** path: route path used for the self-referencing canonical. */
@@ -58,7 +66,7 @@ export function pageMetadata(key: PageKey, extra: Metadata = {}): Metadata {
       url,
       siteName: "NORMA",
       type: "website",
-      images: [{ url: "/og-image.jpg", width: 1400, height: 930 }],
+      images: [OG_IMAGE],
       ...(extra.openGraph ?? {}),
     },
     twitter: {
@@ -93,3 +101,17 @@ export const websiteJsonLd = {
   url: SITE_URL,
   publisher: { "@id": `${SITE_URL}/#organization` },
 };
+
+/**
+ * Metadata for signed-in / internal pages (advertiser portal, admin, auth).
+ * Gives each page its own title and description and keeps it out of search.
+ */
+export function privateMeta(title: string, description: string): Metadata {
+  return {
+    title,
+    description,
+    robots: { index: false, follow: false },
+    openGraph: { title, description, siteName: "NORMA", type: "website", images: [OG_IMAGE] },
+    twitter: { card: "summary_large_image", title, description, images: [OG_IMAGE.url] },
+  };
+}

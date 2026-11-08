@@ -1,3 +1,4 @@
+import { privateMeta } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
@@ -188,3 +189,5 @@ export default async function DashboardCampaignsPage() {
     </div>
   );
 }
+
+export const metadata = privateMeta("Campaigns | NORMA Advertiser Portal", "Your NORMA ad campaigns.");
