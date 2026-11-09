@@ -119,7 +119,7 @@ Based on the repository, the app has the following screens and components:
 
 **Games Tab:**
 - `/(tabs)/games/index` — game list with date picker, sport filter, tab switcher (All/Live/Following)
-- `/(tabs)/games/[gameId]` — game detail with ScoreHeader, OddsDisplay, WatchNowButton, wager section (with bet slip scan and manual entry), MarketPrices (Kalshi + Polymarket positions), game info card
+- `/(tabs)/games/[gameId]` — game detail with ScoreHeader, OddsDisplay, WatchNowButton, an optional customer-player action that stays hidden while player routes are off, wager section (with bet slip scan and manual entry), MarketPrices (Kalshi + Polymarket positions), game info card
 
 **Alerts Tab:**
 - `/(tabs)/alerts/index` — alert feed with rich AlertCards, pull-to-refresh, real-time subscription for new alerts

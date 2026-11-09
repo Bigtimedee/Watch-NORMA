@@ -17,6 +17,7 @@ import { useBetSlipScanner, type ScanResult } from "../../../hooks/useBetSlipSca
 import { ScoreHeader } from "../../../components/ScoreHeader";
 import { FootballScoreboard } from "../../../components/FootballScoreboard";
 import { WatchNowButton } from "../../../components/WatchNowButton";
+import { PlayerRouteSecondaryAction } from "../../../components/PlayerRouteSecondaryAction";
 import { OddsDisplay } from "../../../components/OddsDisplay";
 import { WagerCard } from "../../../components/WagerCard";
 import { AddWagerSheet } from "../../../components/AddWagerSheet";
@@ -125,7 +126,12 @@ export default function GameDetailScreen() {
         <OddsDisplay gameId={gameId} />
 
         {/* Watch Now */}
-        {(isLive || game.broadcast) && <WatchNowButton game={game} />}
+        {(isLive || game.broadcast) && (
+          <>
+            <WatchNowButton game={game} />
+            <PlayerRouteSecondaryAction broadcast={game.broadcast} />
+          </>
+        )}
 
         {/* Your Wagers */}
         <View style={s.wagerSection}>

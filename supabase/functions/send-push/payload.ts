@@ -23,6 +23,9 @@ export function buildPushPayload(args: {
     ttl: 86400,
   };
 }
+// categoryId is intentionally absent. A player-route action is registered
+// on the device only after the encoding gate and flags allow it. This payload
+// must not carry a stream URL.
 export type ExpoTicket = { id: string | null; status: string | null; message: string | null; errorCode: string | null };
 export function parseExpoTicket(pushResult: unknown): ExpoTicket {
   const r = pushResult as any;

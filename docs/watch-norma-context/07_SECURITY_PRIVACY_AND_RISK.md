@@ -25,6 +25,7 @@ Core principles:
 | Watch behavior (deep link events) | `deep_link_events` table | Low — provider + method + timestamp |
 | Location / timezone | `profiles.timezone` | Low — timezone only, no GPS |
 | Push tokens | `profiles.push_token` | Medium — Expo push token, device-specific |
+| Customer stream addresses | Device Keychain via `expo-secure-store` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), account-scoped. Not in Postgres. | **High** — may be a personal or licensed stream address. NORMA does not accept reusable account passwords or obvious credential-bearing query/path fields in v1. That filter does not prove every saved address is non-secret. |
 | Ad interaction data | `impressions`, `conversions` tables | Medium — reveals engagement patterns |
 | Email content (wager parsing) | Processed transiently, not stored | **High** — forwarded sportsbook emails parsed and discarded |
 | Advertiser billing | `advertiser_wallets`, Stripe | **High** — financial data |
@@ -84,6 +85,7 @@ Core principles:
 | **Privacy disclosures** | Privacy policy exists (`docs/privacy-policy.html`). | Must accurately describe data collection, especially wager data, prediction positions, and email parsing. |
 | **Push notification consent** | iOS system prompt + in-app toggle. | iOS handles consent natively. Users can disable push in Profile settings. |
 | **Streaming provider terms** | Deep linking to streaming apps. | Deep links use public URL schemes. No scraping or unauthorized API access. |
+| **Customer player handoff** | Code exists and is off. Counsel has not reviewed it. | A saved HTTPS address would be disclosed to the iOS scheme handler and then to whatever app opens `strymtv://`. Custom schemes can be claimed by another app. NORMA cannot authenticate the recipient. No reusable account-password support in v1. No server copy of the address. See `docs/support/player-routes.md`. |
 | **Data-provider licensing** | ESPN (free/public), SportsDataIO (licensed), Sportradar (licensed), The Odds API (licensed). | API keys have usage terms and rate limits. Sportradar data may have redistribution restrictions. |
 | **GDPR / data deletion** | `delete-account` function performs full deletion across all tables. | Compliant with App Store and GDPR requirements for right-to-deletion. |
 | **Email processing** | Gmail API reads forwarded sportsbook emails. | Service account must have appropriate scopes. Email content is parsed and discarded, not stored verbatim. |
@@ -100,6 +102,7 @@ Core principles:
 | **Unauthorized account linking** | Kalshi connection requires valid API key + private key (verified via test request). Polymarket uses public wallet address (no auth risk). |
 | **Excessive data polling** | Sportradar rate budget tracked in `api_rate_log`. Orchestrator throttles when nearing limits. |
 | **Rate-limit violations** | Per-API rate tracking. Backoff on errors. Concurrency limits in orchestrator (max 5 PBP, max 3 summary). |
+| **Custom-scheme collision** | Player-route handoff does not call `canOpenURL` and does not claim the recipient is StrymTV. The shipped encoding gate refuses to build a launch URL. |
 | **Scraping** | No web-facing API exposes bulk game data. All client queries go through RLS-scoped Supabase. |
 | **Demo / screenshot seed in production** | Client queries exclude `games.id` ILIKE `demo-%` and alerts with `game_id` ILIKE `demo-%` or title ILIKE `%DEMO SCREENSHOT%`. `assertDemoSeedAllowed()` requires `ALLOW_DEMO_SEED=1` and refuses project ref `shijrazlzawjpobrpmnt`. `scripts/seed-demo-screenshot.ts` is a preflight only (no inserts). Pollers emit `espn-*` / `sdio-*` ids, never `demo-%`. Migration `20260905215500` adds insert/update triggers + consumer SELECT filters. Incident 2026-09-05; data purge was operational, not a delete migration. |
 

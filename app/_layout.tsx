@@ -16,6 +16,12 @@ import {
 } from "../lib/auth-recovery-state";
 import { recordAppOpen, maybeRequestReviewAfterAlertOpen } from "../lib/review-prompt";
 import { TapToStreamProvider, useTapToStream } from "../lib/tap-to-stream-context";
+import {
+  consumeShippedNotificationResponse,
+  shippedNotificationInput,
+  syncShippedPlayerRouteRuntime,
+  wipePlayerRoutesForAccount,
+} from "../lib/player-routes/runtime";
 import { SportProvider } from "../lib/sport-context";
 import { isGuestMode, subscribeGuestMode, migrateGuestFollows } from "../lib/guest";
 import { trackEvent } from "../lib/analytics";
@@ -53,6 +59,7 @@ function AuthGate() {
   const [guest, setGuest] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+  const accountRef = useRef<string | null>(null);
 
   useEffect(() => subscribePasswordRecovery(setRecoveryPending), []);
 
@@ -66,12 +73,19 @@ function AuthGate() {
     recordAppOpen();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      accountRef.current = session?.user?.id ?? null;
       setLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      const previousAccountId = accountRef.current;
+      const nextAccountId = session?.user?.id ?? null;
+      if (event === "SIGNED_OUT" && previousAccountId) {
+        void wipePlayerRoutesForAccount(previousAccountId);
+      }
+      accountRef.current = nextAccountId;
       setSession(session);
       if (event === "SIGNED_IN" && session) {
         // Spec B: Apple/Google paths miss the signup-metadata trigger; claim here.
@@ -172,37 +186,58 @@ function AuthGate() {
 
     registerPushToken();
     syncDeviceTimezone();
+    void syncShippedPlayerRouteRuntime(session.user.id);
+    void Notifications.getLastNotificationResponseAsync().then(async (last) => {
+      if (!last) return;
+      const player = await consumeShippedNotificationResponse(
+        shippedNotificationInput(last),
+        session.user.id
+      );
+      if (player.handled && player.navigateToGameId) {
+        router.push(`/games/${player.navigateToGameId}`);
+      }
+    }).catch(() => {});
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        const data = response.notification.request.content.data;
-        const gameId = data?.gameId;
-
-        // If push includes a streamProviderKey, trigger stream transition
-        if (data?.streamProviderKey && tapToStream) {
-          // Look up provider from cached query data
-          const providers: StreamingProvider[] | undefined =
-            queryClient.getQueryData(["streaming-providers", undefined]);
-          const provider = providers?.find(
-            (p) => p.key === data.streamProviderKey
+        void (async () => {
+          const player = await consumeShippedNotificationResponse(
+            shippedNotificationInput(response),
+            session.user.id
           );
-          if (provider) {
-            tapToStream.triggerStream(provider, { skipAnticipation: true });
-            if (gameId) setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
+          if (player.handled) {
+            if (player.navigateToGameId) router.push(`/games/${player.navigateToGameId}`);
             return;
           }
-        }
+          const data = response.notification.request.content.data;
+          const gameId = data?.gameId;
 
-        if (gameId) {
-          router.push(`/games/${gameId}`);
-          // Let the game screen render, then maybe ask for a review.
-          setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
-        }
+          // If push includes a streamProviderKey, trigger stream transition
+          if (data?.streamProviderKey && tapToStream) {
+            // Look up provider from cached query data
+            const providers: StreamingProvider[] | undefined =
+              queryClient.getQueryData(["streaming-providers", undefined]);
+            const provider = providers?.find(
+              (p) => p.key === data.streamProviderKey
+            );
+            if (provider) {
+              tapToStream.triggerStream(provider, { skipAnticipation: true });
+              if (gameId) setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
+              return;
+            }
+          }
+
+          if (gameId) {
+            router.push(`/games/${gameId}`);
+            // Let the game screen render, then maybe ask for a review.
+            setTimeout(() => void maybeRequestReviewAfterAlertOpen(), 2500);
+          }
+        })().catch(() => {});
       }
     );
 
     return () => subscription.remove();
-  }, [session, tapToStream]);
+  }, [session, tapToStream, router]);
 
   return <Slot />;
 }

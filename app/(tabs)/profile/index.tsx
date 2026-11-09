@@ -11,6 +11,11 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
+import { evaluatePlayerRouteFlags, readShippedFlagSnapshot } from "../../../lib/player-routes/flags";
+import {
+  shippedPlayerRouteRepository,
+  shouldShowPlayerRouteSettingsEntry,
+} from "../../../lib/player-routes/runtime";
 // The legal pages are served by the web app on getnorma.app (verified 200 on
 // 2026-11-08). The earlier github.io copies were stale. An App Store reviewer
 // follows these links.
@@ -24,6 +29,7 @@ export default function ProfileScreen() {
   const { data: preferences } = usePreferences();
   const updatePreferences = useUpdatePreferences();
   const [showPrefs, setShowPrefs] = useState(false);
+  const [showPlayerRoutes, setShowPlayerRoutes] = useState(false);
   const [referralData, setReferralData] = useState<{
     code: string;
     uses: number;
@@ -34,6 +40,31 @@ export default function ProfileScreen() {
 
   const adPersonalization =
     preferences?.notification_settings?.ad_personalization_enabled ?? true;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+      let summary = { hasDeletableData: false, reinstallLock: false };
+      if (session?.user?.id) {
+        summary = await shippedPlayerRouteRepository().summary(session.user.id);
+      }
+      if (!cancelled) {
+        setShowPlayerRoutes(
+          shouldShowPlayerRouteSettingsEntry({
+            configurationAllowed: decision.allowed,
+            hasRecords: summary.hasDeletableData,
+            reinstallLocked: summary.reinstallLock,
+          })
+        );
+      }
+    })().catch(() => {
+      if (!cancelled) setShowPlayerRoutes(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -275,6 +306,20 @@ export default function ProfileScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color="#64748b" />
             </Pressable>
+
+            {showPlayerRoutes ? (
+              <Pressable
+                style={[s.settingsRow, s.settingsRowBorder]}
+                onPress={() => router.push("/(tabs)/profile/player-routes")}
+                accessibilityLabel="Your own player"
+              >
+                <View style={s.settingsLeft}>
+                  <Ionicons name="play-outline" size={20} color="#f97316" />
+                  <Text style={s.settingsText}>Your own player</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#64748b" />
+              </Pressable>
+            ) : null}
 
             {/* Notifications toggle */}
             <View style={[s.settingsRow, s.settingsRowBorder]}>

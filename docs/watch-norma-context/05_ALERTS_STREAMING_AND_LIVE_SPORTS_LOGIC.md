@@ -176,7 +176,7 @@ Every alert stored in the database includes:
 | `suppressed_reason` | Why the alert was throttled (if applicable) |
 | `created_at` | Timestamp |
 
-The push notification payload includes the alert title, body (with sponsor text appended if present), badge count, and `data: { gameId }` for deep-link navigation.
+The push notification payload includes the alert title, body (with sponsor text appended if present), badge count, and `data: { gameId }` for deep-link navigation. It does not include a stream address or a player-route category. A future player action has to be registered on the device and must ignore any URL fields in `data`.
 
 ## Streaming Routing Rules
 
@@ -195,6 +195,8 @@ These are non-negotiable product rules:
 6. **If provider mapping is stale or unknown, do not fabricate certainty.** Stale broadcast data is better than wrong data, but neither should be presented as guaranteed.
 
 7. **Log all deep-link attempts.** Every deep-link attempt is recorded in `deep_link_events` with provider, method (scheme/universal/fallback), platform, and success status. The `deep-link-health-check` function aggregates these events to detect regressions.
+
+8. **A customer player route never replaces the carried provider.** When YouTube TV carries the game, the primary control stays "Watch on YouTube TV" for a connected YouTube TV user. `getBestWatchProvider()` is not given a player-route preference. The optional "Open your stream in StrymTV" action is secondary, exact-feed only, and hidden unless the build flags, cohort admission, encoding gate, opt-in, and a user-confirmed mapping are all open. Those gates ship closed. A user-confirmed mapping is not rights verification and not playback confirmation. `Linking.openURL` resolving means iOS accepted a handoff, not that StrymTV played the game, and not that StrymTV was the app that received the URL.
 
 ## Duplicate Alert Prevention
 

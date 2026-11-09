@@ -5,6 +5,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../lib/supabase";
 import { getAuthCallbackUrl } from "../lib/auth-callback";
 import { trackEvent } from "../lib/analytics";
+import { wipePlayerRoutesForAccount } from "../lib/player-routes/runtime";
 import type { Profile } from "../lib/types";
 import type { Session } from "@supabase/supabase-js";
 
@@ -147,13 +148,23 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = session?.user?.id ?? null;
+    const cleared = await wipePlayerRoutesForAccount(userId);
+    if (!cleared.ok) {
+      throw new Error("Could not clear player routes on this device.");
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  }, []);
+  }, [session]);
 
   const deleteAccount = useCallback(async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession) throw new Error("Not authenticated");
+
+    const cleared = await wipePlayerRoutesForAccount(currentSession.user.id);
+    if (!cleared.ok) {
+      throw new Error("Could not clear player routes on this device.");
+    }
 
     const { data, error } = await supabase.functions.invoke("delete-account", {
       headers: {
