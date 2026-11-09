@@ -288,7 +288,7 @@ Expected: `relrowsecurity = true`, `relforcerowsecurity = false` (so `service_ro
 
 `.github/workflows/ci.yml` runs on push to main and pull requests:
 
-1. **Client job:** `npm ci --legacy-peer-deps` → `tsc --noEmit` → `npm test -- --ci --coverage`
+1. **Client job:** `node --test` on the migration-workflow scripts → `npm ci --legacy-peer-deps` → `tsc --noEmit` → `npm test -- --ci --coverage`
 2. **Deno job:** Type-check key logic files → `deno test --allow-env --allow-net=none supabase/functions/`
 3. **Migrations job:** `supabase start` → `supabase stop` (verifies migrations apply cleanly against a throwaway local DB — does NOT push to production)
 4. **Deploy Edge Functions job** (added 2026-08-19, main branch push only): `supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"`. Gated on `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` GitHub secrets. If either is missing, the job emits a warning and skips (keeps the pipeline green but flags drift). Closes the drift described in `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.5.
@@ -298,7 +298,9 @@ Expected: `relrowsecurity = true`, `relforcerowsecurity = false` (so `service_ro
 
 **One-off LinkedIn secrets (manual dispatch only):** `.github/workflows/set-linkedin-secrets.yml` does **not** run on push or pull_request. After it is on `main`, use **Actions → Set LinkedIn Supabase secrets → Run workflow**. It uses repo secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` to run `npx supabase secrets set LINKEDIN_ORGANIZATION_ID=146336141 --project-ref "$SUPABASE_PROJECT_REF"` (company page https://www.linkedin.com/company/watch-norma/). That org-id secret is optional in code (`cmo-publish-linkedin` already defaults to `146336141`); the workflow pins it explicitly. Optionally paste `linkedin_access_token` in the dispatch form to also set the **required** `LINKEDIN_ACCESS_TOKEN` — do not put any LinkedIn token in the YAML. This job is not part of CI; PR checks on this file are not required. Delete the workflow after a successful run if you do not want it to linger.
 
-Database migrations remain a deliberate manual step (see `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.6). Adding `supabase db push` to CI today would immediately apply parked cron migrations that fail without corresponding `app.*` settings; do not add it until those settings are seeded.
+Database migrations remain a deliberate manual step (see `12_PRODUCTION_RECONCILIATION_2026_07.md` § 3.6 and `docs/operations/apply-migration.md`). Adding `supabase db push` to CI today would immediately apply parked cron migrations that fail without corresponding `app.*` settings; do not add it until those settings are seeded.
+
+**Apply migration (dispatch only):** `.github/workflows/apply-migration.yml` runs `scripts/apply-migration.mjs`. `check` is read-only. `apply` sends one file. On 2026-11-09, run [42720446058](https://github.com/Bigtimedee/Watch-NORMA/actions/runs/42720446058) failed with `read query failed 429: ThrottlerException: Too Many Requests` because preflight issued one Management API read per unapplied file (70 files) immediately after another apply. The migration SQL was not sent in that run. The script now batches catalog inspection into a few SELECTs, paces requests, retries 429s on reads, and does not re-send a write whose HTTP result is ambiguous. `actions/checkout` and `actions/setup-node` are v7 (Node 24). `supabase/setup-cli@v1` and `expo/expo-github-action@v8` still declare Node 20; CI keeps `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` for those two.
 
 **Optional future secret (name only):** `OWNER_AUTH_PASSWORD` — GitHub Actions secret for a possible owner-account sign-in health check. Not implemented in CI today. Do not commit the value or add a vault file.
 
