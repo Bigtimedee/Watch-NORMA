@@ -7,6 +7,8 @@
 #   mode=apply: refuses unless the target is the only unapplied file, or every
 #     other unapplied file's objects are confirmed present. Runs the file and the
 #     schema_migrations insert in one transaction, then verifies.
+#     allow_unverified_others=true (opt-in) turns that refusal into a warning
+#     for the named migration only; other files are listed and not applied.
 #   mode=live-moments-dry-run: calls cmo-live-moments with dry_run=true
 #     (todays_games and live) via pg_net + vault, like pg_cron. No writes, no posts.
 # Uses repo secrets SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.
@@ -30,6 +32,11 @@ on:
           - check
           - apply
           - live-moments-dry-run
+      allow_unverified_others:
+        description: "apply only: proceed for the named migration even if OTHER unapplied files are not confirmed present (they are listed as a warning and not applied)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -47,6 +54,7 @@ jobs:
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       MIGRATION: ${{ inputs.migration }}
       MODE: ${{ inputs.mode }}
+      ALLOW_UNVERIFIED_OTHERS: ${{ inputs.allow_unverified_others && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
