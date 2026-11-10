@@ -14,6 +14,7 @@ import {
   parseLmRunOptions,
   pickTodaysSport,
   planLiveMoments,
+  todaysGamesHead,
   todaysGamesKey,
   todaysGamesUrl,
 } from "./logic.ts";
@@ -355,4 +356,31 @@ Deno.test("run options: mode, dry_run, as_of honoured only in dry runs", () => {
   assertEquals(dry.dryRun, true);
   assertEquals(dry.asOf.toISOString(), "2026-11-01T00:00:00.000Z");
   assertEquals(parseLmRunOptions({ dry_run: "true" }, now).dryRun, true);
+});
+
+Deno.test("holiday slates: Thanksgiving + Black Friday lead with football, Rivalry Saturday headline", () => {
+  const THANKSGIVING = new Date("2026-11-26T13:30:00Z"); // 7:30 AM CST
+  const BLACK_FRIDAY = new Date("2026-11-27T13:30:00Z");
+  const RIVALRY_SAT = new Date("2026-11-28T13:30:00Z");
+  const slate = [
+    sched("t1", "nfl", "2026-11-26T17:30:00Z", "CBS"),
+    sched("t2", "nba", "2026-11-27T00:30:00Z", "ESPN"),
+    sched("bf1", "nfl", "2026-11-27T20:00:00Z", "Prime Video"),
+    sched("bf2", "nba", "2026-11-28T00:30:00Z", "NBA TV"),
+    sched("r1", "ncaaf", "2026-11-28T17:00:00Z", "FOX"),
+  ];
+  assertEquals(pickTodaysSport(slate, THANKSGIVING), "nfl");
+  assertEquals(pickTodaysSport(slate, BLACK_FRIDAY), "nfl");
+  assertEquals(pickTodaysSport(slate, RIVALRY_SAT), "ncaaf");
+  assertStringIncludes(buildTodaysGames(slate, THANKSGIVING, "twitter")!.text, "Thanksgiving NFL: what channel + start time");
+  assertStringIncludes(buildTodaysGames(slate, RIVALRY_SAT, "twitter")!.text, "Rivalry Saturday: what channel + start time");
+  // Black Friday with no football listed: falls back to NBA and the plain headline.
+  const noFootball = slate.filter((g) => g.sport === "nba");
+  assertEquals(pickTodaysSport(noFootball, BLACK_FRIDAY), "nba");
+  assertEquals(todaysGamesHead("nba", BLACK_FRIDAY), "NBA today: what channel + start time");
+  // An ordinary day keeps the weekday order and plain headline.
+  assertEquals(todaysGamesHead("nba", TUESDAY), "NBA today: what channel + start time");
+  for (const p of ["tiktok", "ig", "fb"]) {
+    assert(guardCopyForPlatform(p, buildTodaysGames(slate, THANKSGIVING, p)!.text).ok);
+  }
 });

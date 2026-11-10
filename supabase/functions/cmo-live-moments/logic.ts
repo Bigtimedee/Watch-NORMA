@@ -442,6 +442,42 @@ export const TODAYS_SPORT_PRIORITY: Readonly<Record<number, readonly LmSport[]>>
   6: ["ncaaf", "ncaam", "nba"],
 };
 
+/**
+ * Holiday / rivalry slates (ET dates). They change which sport leads Today's
+ * Games that day and give it a slate headline. The override only reorders
+ * the sports; a sport with no listable game in `games` is still skipped, and
+ * the headline is used only when the picked sport is one it names.
+ */
+export interface SpecialSlate {
+  order: readonly LmSport[];
+  heads: Partial<Record<LmSport, string>>;
+}
+export const SPECIAL_SLATES: Readonly<Record<string, SpecialSlate>> = {
+  // Thanksgiving Day 2026 (Thu Nov 26)
+  "2026-11-26": {
+    order: ["nfl", "ncaaf", "nba", "ncaam"],
+    heads: { nfl: "Thanksgiving NFL: what channel + start time", ncaaf: "Thanksgiving college football: what channel + start time" },
+  },
+  // Black Friday 2026 (Fri Nov 27): football leads instead of the usual Friday NBA
+  "2026-11-27": {
+    order: ["nfl", "ncaaf", "nba", "ncaam"],
+    heads: { nfl: "Black Friday football: what channel + start time", ncaaf: "Black Friday college football: what channel + start time" },
+  },
+  // Rivalry Saturday 2026 (Sat Nov 28)
+  "2026-11-28": {
+    order: ["ncaaf", "ncaam", "nba"],
+    heads: { ncaaf: "Rivalry Saturday: what channel + start time" },
+  },
+};
+
+export function specialSlate(at: Date): SpecialSlate | null {
+  return SPECIAL_SLATES[etDate(at)] ?? null;
+}
+
+export function todaysGamesHead(sport: LmSport, at: Date): string {
+  return specialSlate(at)?.heads[sport] ?? `${SPORT_LABEL[sport]} today: what channel + start time`;
+}
+
 export function etWeekday(at: Date): number {
   const w = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(at);
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(w);
@@ -474,7 +510,7 @@ export function isUpcomingOrLive(status: string): boolean {
 
 /** Pick the day's headline sport: first in the weekday priority list with a listable game. */
 export function pickTodaysSport(games: LmGame[], at: Date): LmSport | null {
-  const order = TODAYS_SPORT_PRIORITY[etWeekday(at)] ?? LIVE_MOMENT_SPORTS;
+  const order = specialSlate(at)?.order ?? TODAYS_SPORT_PRIORITY[etWeekday(at)] ?? LIVE_MOMENT_SPORTS;
   for (const s of order) {
     if (games.some((g) => g.sport === s && isListable(g))) return s;
   }
@@ -538,7 +574,7 @@ export function buildTodaysGames(
     .filter((g) => g.sport === sport && isListable(g))
     .sort((a, b) => todaysGameScore(b) - todaysGameScore(a) || Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at));
   const url = todaysGamesUrl(sport, platform);
-  const head = `${SPORT_LABEL[sport]} today: what channel + start time`;
+  const head = todaysGamesHead(sport, at);
   const compose = (gs: LmGame[]) => {
     const lines = [...gs].sort((a, b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at)).map(todaysGameLine);
     return `${head}\n${lines.join("\n")}\nAll games: ${url}`;
