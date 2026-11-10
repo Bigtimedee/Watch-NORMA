@@ -75,6 +75,19 @@ const METRICS = {
   guest_mode_sessions_yesterday: `select count(*)::bigint as v from public.web_events where event_name = 'guest_mode_started' and ${inDay("created_at")}`,
   social_posts_published_yesterday: `select count(*)::bigint as v from public.social_posts where status = 'published' and ${inDay("published_at")}`,
   social_posts_published_yesterday_by_platform: `select coalesce(jsonb_object_agg(platform, n), '{}'::jsonb) as v from (select platform, count(*)::bigint as n from public.social_posts where status = 'published' and ${inDay("published_at")} group by platform) s`,
+  // The CMO engine (cmo-generate / cmo-publish / cmo-live-moments) writes
+  // public.content_calendar, not public.social_posts, so these are the counts
+  // that show whether the day's planned posts went out.
+  content_calendar_published_yesterday_by_platform: `select coalesce(jsonb_object_agg(platform, n), '{}'::jsonb) as v from (select platform, count(*)::bigint as n from public.content_calendar where status = 'published' and ${inDay("published_at")} group by platform) s`,
+  content_calendar_due_yesterday_by_status: `select coalesce(jsonb_object_agg(status, n), '{}'::jsonb) as v from (select status, count(*)::bigint as n from public.content_calendar where ${inDay("scheduled_for")} group by status) s`,
+  content_calendar_crosspost_yesterday: `select jsonb_build_object(${["ig", "fb", "tiktok"]
+    .map(
+      (p) =>
+        `'${p}_posted', count(*) filter (where ${p}_post_id is not null and ${inDay(`${p}_attempted_at`)}), '${p}_failed', count(*) filter (where ${p}_post_id is null and ${p}_error is not null and ${p}_error <> 'ig_container_pending' and ${inDay(`${p}_attempted_at`)})`,
+    )
+    .join(", ")}) as v from public.content_calendar where ig_attempted_at >= ${D0} or fb_attempted_at >= ${D0} or tiktok_attempted_at >= ${D0}`,
+  content_calendar_stuck_publishing: `select count(*)::bigint as v from public.content_calendar where status = 'publishing' and updated_at < now() - interval '15 minutes'`,
+  live_moments_yesterday_by_outcome: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select kind || ':' || outcome as k, count(*)::bigint as n from public.social_live_moments where ${inDay("created_at")} group by kind, outcome) s`,
   social_metrics_daily_summary_latest: `select coalesce(jsonb_agg(to_jsonb(s) order by s.platform), '[]'::jsonb) as v from public.social_metrics_daily_summary s where s.date = (select max(date) from public.social_metrics_daily_summary)`,
   ad_campaigns_active: `select count(*)::bigint as v from public.campaigns where status = 'active'`,
   ad_impressions_yesterday: `select count(*)::bigint as v from public.impressions where ${inDay("delivered_at")}`,
@@ -205,6 +218,12 @@ const out = {
     referrals_redeemed: "referrals rows (a referred user claimed a code)",
     guest_mode_sessions_yesterday: "web_events guest_mode_started",
     social_metrics_daily_summary_latest: "all platform rows of public.social_metrics_daily_summary for its latest date",
+    social_posts_published_yesterday: "legacy public.social_posts pipeline only; the CMO engine posts are in content_calendar_*",
+    content_calendar_published_yesterday_by_platform: "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
+    content_calendar_due_yesterday_by_status: "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
+    content_calendar_crosspost_yesterday: "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
+    content_calendar_stuck_publishing: "rows left in status=publishing more than 15 minutes (a publish run died mid-flight), as of generated_at",
+    live_moments_yesterday_by_outcome: "social_live_moments ledger rows created on report_date, by kind:outcome",
     ad_spend_cents_yesterday: "sum of impressions.clearing_price_cents delivered on report_date",
   },
   metrics,
