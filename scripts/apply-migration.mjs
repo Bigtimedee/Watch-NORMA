@@ -16,7 +16,9 @@
  *        unapplied file's objects are confirmed present. Runs the file's SQL
  *        plus the schema_migrations insert in ONE transaction (BEGIN/COMMIT
  *        added unless the file already manages its own transaction), then
- *        verifies the objects the file declares.
+ *        verifies the objects the file declares. With
+ *        ALLOW_UNVERIFIED_OTHERS=true (opt-in), the other-files guard becomes
+ *        a warning and only the target is applied.
  * live-moments-dry-run: calls cmo-live-moments with {"dry_run":true} for
  *        mode todays_games and live, the same way pg_cron does (pg_net +
  *        vault Bearer 'New Secret 2026'), and prints the responses. The
@@ -32,6 +34,10 @@ const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const REF = process.env.SUPABASE_PROJECT_REF;
 const MODE = process.argv[2] || "check";
 const TARGET = process.argv[3] || "";
+// Opt-in only (workflow input allow_unverified_others). When "true", apply
+// proceeds for the named TARGET even if other unapplied files are not
+// confirmed present; they are listed as a warning and left untouched.
+const ALLOW_UNVERIFIED_OTHERS = process.env.ALLOW_UNVERIFIED_OTHERS === "true";
 const DIR = "supabase/migrations";
 const API = `https://api.supabase.com/v1/projects/${REF}/database/query`;
 
@@ -214,10 +220,14 @@ async function apply() {
   }
   const others = statuses.filter((s) => s.file !== TARGET);
   const blocking = others.filter((s) => s.verdict !== "all present");
-  if (blocking.length) {
+  if (blocking.length && !ALLOW_UNVERIFIED_OTHERS) {
     console.log(`\n::error::Refusing to apply. Other unapplied files are not confirmed present in the database:`);
     for (const s of blocking) console.log(`  - ${s.file}: ${s.verdict}`);
     process.exit(2);
+  }
+  if (blocking.length) {
+    console.log(`\n::warning::allow_unverified_others=true: applying ONLY ${TARGET}. These other unapplied files are not confirmed present and are NOT being applied:`);
+    for (const s of blocking) console.log(`  - ${s.file}: ${s.verdict}`);
   }
   if (others.length) console.log(`\nOther unapplied files are all confirmed present (recording is out of date, not schema): ${others.map((s) => s.file).join(", ")}`);
 
