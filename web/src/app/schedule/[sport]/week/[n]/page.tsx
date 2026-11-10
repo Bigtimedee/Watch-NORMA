@@ -30,6 +30,8 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     alternates: { canonical: url },
     openGraph: { title, description, url, siteName: "NORMA", type: "website", images: [OG_IMAGE] },
     twitter: { card: "summary_large_image", title, description, images: ["/og-image.jpg"] },
+    // Safari smart app banner, same as the team pages (plan 4.6.3: every social link has an install path).
+    other: { "apple-itunes-app": "app-id=6759508383" },
   };
 }
 
