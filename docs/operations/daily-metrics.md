@@ -45,3 +45,15 @@
 Reading it without a Supabase key:
 `https://raw.githubusercontent.com/Bigtimedee/Watch-NORMA/metrics/metrics/latest.json`
 (private repo: use the GitHub contents API with `ref=metrics`).
+
+## Posting-engine metrics (added 2026-11-10)
+
+`social_posts_published_yesterday` only counts the legacy `public.social_posts`
+pipeline. The CMO engine (cmo-generate, cmo-publish, cmo-live-moments,
+cmo-todays-games) writes `public.content_calendar`, so the scorecard reads:
+
+- `content_calendar_published_yesterday_by_platform`: X (`twitter`) and LinkedIn posts that went out.
+- `content_calendar_due_yesterday_by_status`: rows scheduled for the day, by current status. Anything still `failed`, `paused` or `publishing` did not go out.
+- `content_calendar_crosspost_yesterday`: IG / FB / TikTok cross-posts attempted that day, posted vs failed.
+- `content_calendar_stuck_publishing`: rows stuck in `publishing` over 15 minutes.
+- `live_moments_yesterday_by_outcome`: the `social_live_moments` ledger by `kind:outcome`.
