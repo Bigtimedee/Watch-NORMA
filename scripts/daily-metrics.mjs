@@ -15,7 +15,8 @@
  *   - Uses the Management API read-only query endpoint
  *     (POST /v1/projects/{ref}/database/query/read-only). If that endpoint is
  *     unavailable it falls back to /database/query, but only for statements
- *     that pass assertSelectOnly() below. Nothing here writes to the database.
+ *     that pass the SELECT-only guard. Reads are paced and retried on 429.
+ *     Nothing here writes to the database.
  *   - Output is aggregates only: counts and sums. No emails, names, user ids.
  *   - A metric whose table/column is missing (or whose query errors) is
  *     recorded as null, with the reason under `nulls`.
@@ -25,12 +26,11 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createManagementQuery, ManagementQueryError } from "./lib/management-query.mjs";
 
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const REF = process.env.SUPABASE_PROJECT_REF || "shijrazlzawjpobrpmnt";
 const OUT = process.argv[2] || "metrics-out";
-const API = `https://api.supabase.com/v1/projects/${REF}/database/query`;
-
 if (!TOKEN) {
   console.error("::error::SUPABASE_ACCESS_TOKEN is not set.");
   process.exit(1);
@@ -89,42 +89,13 @@ const NOT_TRACKED = {
     "not tracked: no notification-open event or column exists; see push_alerts_read_yesterday (pushed alerts marked read in-app) as a proxy",
 };
 
-function assertSelectOnly(sql) {
-  const s = sql.trim().toLowerCase();
-  if (!/^(select|with)\b/.test(s)) throw new Error("refusing non-SELECT statement");
-  if (s.includes(";")) throw new Error("refusing multi-statement SQL");
-  if (/\b(insert|update|delete|merge|truncate|drop|alter|create|grant|revoke|copy|call|do|vacuum|refresh|lock|set|reset|comment)\b/.test(s.replace(/'[^']*'/g, "''"))) {
-    throw new Error("refusing SQL with a write/DDL keyword");
-  }
-}
-
-let readOnlyEndpoint = true;
-let endpointUsed = "read-only";
-
-async function post(url, sql) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: sql }),
-  });
-  const text = await res.text();
-  return { status: res.status, text };
-}
-
-async function runQuery(sql) {
-  assertSelectOnly(sql);
-  if (readOnlyEndpoint) {
-    const r = await post(`${API}/read-only`, sql);
-    if (r.status === 404 || r.status === 405) {
-      console.log(`::warning::read-only endpoint returned ${r.status}; falling back to /database/query (SELECT-only enforced client-side).`);
-      readOnlyEndpoint = false;
-      endpointUsed = "query (select-only guard)";
-    } else {
-      return r;
-    }
-  }
-  return post(API, sql);
-}
+const api = createManagementQuery({
+  token: TOKEN,
+  projectRef: REF,
+  // One read per metric, plus bounded 429 retries. Not a per-row scan.
+  readBudget: 160,
+  onWarning: (msg) => console.log(`::warning::${msg}`),
+});
 
 function clean(msg) {
   // Keep Postgres' message only; never echo tokens or headers.
@@ -153,20 +124,10 @@ let failures = 0;
 
 for (const [key, sql] of Object.entries(METRICS)) {
   try {
-    const r = await runQuery(sql);
-    if (r.status === 401 || r.status === 403) {
-      throw Object.assign(new Error(`Management API auth failed (${r.status})`), { fatal: true });
-    }
-    if (r.status < 200 || r.status >= 300) {
-      metrics[key] = null;
-      nulls[key] = `query error ${r.status}: ${clean(r.text)}`;
-      failures++;
-      continue;
-    }
-    const rows = JSON.parse(r.text);
+    const rows = await api.read(sql);
     metrics[key] = toValue(Array.isArray(rows) && rows[0] ? rows[0].v : null);
   } catch (e) {
-    if (e.fatal) {
+    if (e instanceof ManagementQueryError && e.code === "auth") {
       console.error(`::error::${e.message}. Check the SUPABASE_ACCESS_TOKEN repo secret.`);
       process.exit(1);
     }
@@ -193,7 +154,7 @@ const out = {
   timezone: "America/Chicago",
   generated_at: now.toISOString(),
   project_ref: REF,
-  query_endpoint: endpointUsed,
+  query_endpoint: api.route,
   definitions: {
     window: "*_yesterday = report_date 00:00-24:00 America/Chicago; wau = 7 CT days ending report_date; mau = 30 CT days ending report_date",
     users_total: "auth.users rows",
