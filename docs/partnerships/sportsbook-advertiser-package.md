@@ -30,7 +30,7 @@ Delivery and CTR metrics are published after campaigns reach real volume.
 
 ## 3. Audience Profile
 
-Active sports bettors tracking DraftKings, FanDuel, and BetMGM wagers in-app. Prediction market participants on Kalshi and Polymarket. Team followers across NBA, MLB, and NCAA. The audience self-selects via financial stakes — there is no interest-graph inference. NORMA users have already put money on the line before the ad is served.
+Active sports bettors tracking DraftKings, FanDuel, and BetMGM wagers in-app. Prediction market participants on Kalshi and Polymarket. Team followers across the NFL, college football, the NBA, MLB and NCAA basketball. The audience self-selects via financial stakes — there is no interest-graph inference. NORMA users have already put money on the line before the ad is served.
 
 ---
 

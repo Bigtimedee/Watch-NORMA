@@ -7,7 +7,7 @@ NORMA operates a real-time, second-price (Vickrey) ad auction engine purpose-bui
 The engine runs an 11-step auction pipeline in under 50ms, incorporating dynamic floor pricing, category exclusivity, budget pacing, and Thompson Sampling creative optimization. Every component is designed to maximize revenue per notification while preserving user experience through fatigue controls, frequency caps, and intelligent throttling.
 
 **What makes it different from incumbents:**
-- **Inventory is a push notification**, not a banner or interstitial — 95%+ viewability vs. ~50% industry average
+- **Inventory is a push notification**, not a banner or interstitial, shown on the lock screen and in the notification center (viewability is not yet measured; delivery metrics are published once campaigns reach real volume)
 - **Contextual pricing**: floor prices adjust in real time based on the sporting moment (tournament, late-game, overtime)
 - **Second-price auction** incentivizes truthful bidding — advertisers always bid their true value
 - **Thompson Sampling** continuously optimizes which creative variant is shown, without manual A/B test management
@@ -20,7 +20,7 @@ The engine runs an 11-step auction pipeline in under 50ms, incorporating dynamic
 NORMA's ad inventory is a **push notification**. When a scoreable moment occurs during a live game (close game, lead change, final minutes, overtime), NORMA sends a notification to relevant users. Advertising is embedded within these high-attention moments.
 
 Key properties of the ad unit:
-- **Viewability**: Push notifications appear on the lock screen and notification center — 95%+ viewability rate
+- **Placement**: Push notifications appear on the lock screen and notification center (viewability not yet measured)
 - **Engagement**: Users who open the notification have actively chosen to engage — no accidental clicks
 - **Contextual relevance**: Ads are delivered alongside live game moments the user cares about
 - **Scarcity**: Limited inventory (max 3 ads per user per day) creates natural price pressure
@@ -276,7 +276,6 @@ This ensures campaigns don't exhaust their budget during early games and miss hi
 | Feature | NORMA | Google Ads | Meta Ads | The Trade Desk |
 |---------|-------|------------|----------|----------------|
 | **Ad unit** | Push notification | Display/Search/Video | Feed/Stories/Reels | Display/Video/CTV |
-| **Viewability** | 95%+ | ~50% display | ~70% feed | ~60% display |
 | **Auction type** | Second-price (Vickrey) | First-price | First-price | First-price |
 | **Bidding incentive** | Truthful bidding | Bid shading required | Bid shading required | Bid shading required |
 | **Contextual pricing** | Real-time moment-based | Keyword/audience | Interest/behavior | Audience segments |
@@ -290,8 +289,8 @@ This ensures campaigns don't exhaust their budget during early games and miss hi
 
 1. **Scarcity drives value**: Limited inventory (live sports moments only) creates natural price pressure — no race to the bottom
 2. **Truthful bidding**: Second-price auction means advertisers don't need bid shading algorithms — they just bid their true value
-3. **95%+ viewability**: Push notifications are seen, not scrolled past
-4. **Zero fraud surface**: No bots viewing push notifications — every impression is a real device, real user
+3. **Lock-screen placement**: Push notifications arrive on the lock screen rather than in a scrolling feed (viewability not yet measured)
+4. **Fraud checks built in**: delivery runs through the engine's fraud checks (admin view: /admin/fraud); fraud rates are not yet published
 5. **Built-in exclusivity**: Category exclusivity prevents competitor ads from appearing together
 
 ---
