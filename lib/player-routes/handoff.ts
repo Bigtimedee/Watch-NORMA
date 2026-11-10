@@ -41,6 +41,8 @@ export async function attemptStrymTvHandoff(
     contract: VerifiedEncodingContract | null;
     platform: string;
     open: (launchUrl: string) => Promise<boolean>;
+    /** Fresh remote decision immediately before a launch URL is built. */
+    confirmAllowed?: () => Promise<boolean>;
   }
 ): Promise<HandoffResult> {
   if (!productionHandoffPermitted(deps.gate) || !contractUsable(deps.contract)) {
@@ -49,6 +51,15 @@ export async function attemptStrymTvHandoff(
   const validated = validateStreamUrl(streamUrl);
   if (!validated.ok) return { outcome: "invalid_stream", handoffAccepted: false };
   if (deps.platform !== "ios") return { outcome: "handoff_rejected", handoffAccepted: false };
+  if (deps.confirmAllowed) {
+    let allowed = false;
+    try {
+      allowed = await deps.confirmAllowed();
+    } catch {
+      allowed = false;
+    }
+    if (!allowed) return { outcome: "handoff_rejected", handoffAccepted: false };
+  }
   const launchUrl = embedStreamUrl(validated.url, deps.contract.embed);
   try {
     const accepted = await deps.open(launchUrl);

@@ -1,6 +1,12 @@
 # Support: customer player routes
 
-The player-route feature is experimental and not available to customers. Profile hides "Your own player" unless a build flag admits the account or this device already has saved routes or a reinstall lock. The current App Store build does not admit anyone, and it will not open StrymTV.
+The player-route feature is experimental. Production `player_route_control.killed` is true and `strymtv_enabled` is false, and the app still refuses to build a StrymTV launch URL until an iPhone encoding trial is recorded. Profile hides "Your own player" unless the remote snapshot allows configuration or this device already has saved routes or a reinstall lock.
+
+## Remote disable
+
+An admin sets the kill flag at `/admin/player-routes`. That overrides a local opt-in, a cohort, and a cached allow. Phones pick it up on the next foreground, within 60 seconds while the app is open, or when someone tries to open StrymTV. A phone that is offline cannot open StrymTV. NORMA does not push the disable into an app that is not refreshing. YouTube TV is unchanged.
+
+If the control row cannot be read, StrymTV stays hidden. Already-delivered notification buttons open NORMA and then the normal game screen.
 
 ## What NORMA stores
 

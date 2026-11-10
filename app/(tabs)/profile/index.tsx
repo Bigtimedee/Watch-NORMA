@@ -11,10 +11,10 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useWagerStats } from "../../../hooks/useWagers";
 import { PreferencesSheet } from "../../../components/PreferencesSheet";
 import { usePreferences, useUpdatePreferences } from "../../../hooks/usePreferences";
-import { evaluatePlayerRouteFlags, readShippedFlagSnapshot } from "../../../lib/player-routes/flags";
 import {
   shippedPlayerRouteRepository,
   shouldShowPlayerRouteSettingsEntry,
+  refreshPlayerRouteControl,
 } from "../../../lib/player-routes/runtime";
 // The legal pages are served by the web app on getnorma.app (verified 200 on
 // 2026-11-08). The earlier github.io copies were stale. An App Store reviewer
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+      const decision = await refreshPlayerRouteControl();
       let summary = { hasDeletableData: false, reinstallLock: false };
       if (session?.user?.id) {
         summary = await shippedPlayerRouteRepository().summary(session.user.id);

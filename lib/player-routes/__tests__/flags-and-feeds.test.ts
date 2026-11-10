@@ -13,8 +13,10 @@ const openRemote = (fetchedAtMs: number): PlayerRouteFlagSnapshot => ({
 });
 
 describe("player route flags", () => {
-  it("ships off and does not pretend a remote kill switch exists", () => {
-    expect(PLAYER_ROUTE_REMOTE_CONTROL.wired).toBe(false);
+  it("ships a build snapshot that is off, and reads the remote kill switch", () => {
+    expect(PLAYER_ROUTE_REMOTE_CONTROL.wired).toBe(true);
+    expect(PLAYER_ROUTE_REMOTE_CONTROL.trustMs).toBe(60_000);
+    expect(PLAYER_ROUTE_REMOTE_CONTROL.trustMs).toBeLessThanOrEqual(15 * 60 * 1000);
     const decision = evaluatePlayerRouteFlags(SHIPPED_PLAYER_ROUTE_FLAGS, Date.now());
     expect(decision).toEqual({ allowed: false, reason: "global_disabled" });
   });
@@ -28,7 +30,7 @@ describe("player route flags", () => {
 
   it("requires the kill switch to be off, both enables, and a named cohort", () => {
     const now = 5_000;
-    expect(evaluatePlayerRouteFlags({ ...openRemote(now), killSwitch: true }, now).reason).toBe("kill_switch");
+    expect(evaluatePlayerRouteFlags({ ...openRemote(now), killSwitch: true, fetchedAtMs: now - 10 * 60 * 1000 }, now).reason).toBe("kill_switch");
     expect(evaluatePlayerRouteFlags({ ...openRemote(now), strymtvEnabled: false }, now).reason).toBe("player_disabled");
     expect(evaluatePlayerRouteFlags({ ...openRemote(now), cohortAllowlist: [] }, now).reason).toBe("cohort_not_admitted");
     expect(evaluatePlayerRouteFlags({ ...openRemote(now), cohortId: "other" }, now).reason).toBe("cohort_not_admitted");

@@ -21,6 +21,7 @@ import {
   shippedNotificationInput,
   syncShippedPlayerRouteRuntime,
   wipePlayerRoutesForAccount,
+  notePlayerRouteControlForeground,
 } from "../lib/player-routes/runtime";
 import { SportProvider } from "../lib/sport-context";
 import { isGuestMode, subscribeGuestMode, migrateGuestFollows } from "../lib/guest";
@@ -167,6 +168,7 @@ function AuthGate() {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === "active") {
         Notifications.setBadgeCountAsync(0);
+        notePlayerRouteControlForeground();
       }
       appState.current = nextState;
     });
@@ -187,6 +189,7 @@ function AuthGate() {
     registerPushToken();
     syncDeviceTimezone();
     void syncShippedPlayerRouteRuntime(session.user.id);
+    notePlayerRouteControlForeground();
     void Notifications.getLastNotificationResponseAsync().then(async (last) => {
       if (!last) return;
       const player = await consumeShippedNotificationResponse(

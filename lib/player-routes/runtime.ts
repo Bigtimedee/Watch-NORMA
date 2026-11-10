@@ -2,8 +2,9 @@ import { Platform, Linking } from "react-native";
 import * as Notifications from "expo-notifications";
 import { supabase } from "../supabase";
 import { SHIPPED_STRYMTV_CONTRACT, STRYMTV_ENCODING_GATE, productionHandoffPermitted } from "./encoding-gate";
-import { evaluatePlayerRouteFlags, readShippedFlagSnapshot } from "./flags";
+import { type FlagDecision } from "./flags";
 import { publishShippedPlayerRouteDiagnostic } from "./diagnostics";
+import { createPlayerRouteControl } from "./remote-control";
 import {
   handlePlayerRouteNotification,
   shouldRegisterPlayerNotificationCategory,
@@ -14,6 +15,43 @@ import { resolveOfferForBroadcast, type PlayerRouteSecondaryOffer } from "./reso
 import { createAsyncInstallMarker, createExpoSecureStorage } from "./secure-storage";
 import { createPlayerRouteRepository, type PlayerRouteRepository } from "./store";
 import { isAccountId } from "./store-types";
+
+const playerRouteControl = createPlayerRouteControl({
+  fetchPayload: fetchPlayerRouteControlPayload,
+  cohortId: () => null,
+});
+
+async function fetchPlayerRouteControlPayload(): Promise<unknown> {
+  const { data, error } = await supabase
+    .from("player_route_control")
+    .select("schema_version,killed,strymtv_enabled,cohort_allowlist,ttl_seconds,updated_at")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error("Player route control is unavailable.");
+  }
+  return data;
+}
+
+export function refreshPlayerRouteControl(): Promise<FlagDecision> {
+  return playerRouteControl.refresh();
+}
+
+export async function confirmStrymHandoffAllowed(): Promise<boolean> {
+  const decision = await playerRouteControl.beforeHandoff();
+  return decision.allowed && !playerRouteControl.isKilled();
+}
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Foreground refresh. The interval is 60 seconds and does not run a handoff. */
+export function notePlayerRouteControlForeground(): void {
+  void playerRouteControl.refresh();
+  if (refreshTimer) return;
+  refreshTimer = setInterval(() => {
+    void playerRouteControl.refresh();
+  }, 60_000);
+}
 
 let repository: PlayerRouteRepository | null = null;
 
@@ -51,6 +89,7 @@ export function shippedPlayerRouteRepository(): PlayerRouteRepository {
       newId: createDeviceLocalId,
       platform: () => Platform.OS,
       open: openExternal,
+      confirmAllowed: confirmStrymHandoffAllowed,
     });
   }
   return repository;
@@ -84,7 +123,7 @@ export async function loadPlayerRouteSecondaryOffer(
   broadcast: string | null,
   accountId: string | null
 ): Promise<PlayerRouteSecondaryOffer | null> {
-  const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+  const decision = await refreshPlayerRouteControl();
   const encodingGateOpen = productionHandoffPermitted(STRYMTV_ENCODING_GATE);
   if (!accountId || !decision.allowed || !encodingGateOpen) return null;
   const loaded = await shippedPlayerRouteRepository().load(accountId);
@@ -108,7 +147,7 @@ export async function syncShippedPlayerRouteRuntime(accountId: string): Promise<
       return;
     }
     await shippedPlayerRouteRepository().reconcileInstall();
-    const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+    const decision = await refreshPlayerRouteControl();
     const loaded = await shippedPlayerRouteRepository().load(accountId);
     const confirmed = loaded.routes.filter(
       (route) => route.enabled && route.userConfirmedAt && !route.quarantined && !loaded.reinstallLock
@@ -137,7 +176,7 @@ export async function consumeShippedNotificationResponse(
   input: PlayerRouteNotificationInput,
   accountId: string | null
 ): Promise<{ handled: boolean; navigateToGameId: string | null; outcome: string }> {
-  const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+  const decision = await refreshPlayerRouteControl();
   const repo = shippedPlayerRouteRepository();
   const result = await handlePlayerRouteNotification(input, {
     getAccountId: async () => accountId,
@@ -146,6 +185,7 @@ export async function consumeShippedNotificationResponse(
     loadRoutes: async (id) => repo.load(id),
     readStreamUrl: (id, routeId) => repo.readStreamUrl(id, routeId),
     open: openExternal,
+    confirmAllowed: confirmStrymHandoffAllowed,
     contract: SHIPPED_STRYMTV_CONTRACT,
     gate: STRYMTV_ENCODING_GATE,
     platform: Platform.OS,

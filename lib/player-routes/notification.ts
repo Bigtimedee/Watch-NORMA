@@ -158,6 +158,7 @@ export interface HandlePlayerRouteDeps {
   }>;
   readStreamUrl: (accountId: string, routeId: string) => Promise<string | null>;
   open: (launchUrl: string) => Promise<boolean>;
+  confirmAllowed?: () => Promise<boolean>;
   contract: VerifiedEncodingContract | null;
   gate: EncodingGate;
   platform: string;
@@ -200,6 +201,7 @@ export async function handlePlayerRouteNotification(
     contract: deps.contract,
     platform: deps.platform,
     open: deps.open,
+    confirmAllowed: deps.confirmAllowed,
   });
   if (handoff.handoffAccepted) {
     return { handled: true, navigateToGameId: null, outcome: "handoff_accepted" };

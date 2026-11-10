@@ -1,20 +1,30 @@
 /**
- * Player-route flags.
+ * Player-route flag decisions.
  *
- * Watch-NORMA has no remote feature-flag service. The shipped snapshot is an
- * explicit build-time off switch. `evaluatePlayerRouteFlags` also implements
- * the 15-minute freshness rule for a future remote snapshot. Nothing here
- * fetches or writes server config, and the build snapshot is not a server
- * kill switch.
+ * The live switch is public.player_route_control, read by
+ * lib/player-routes/remote-control.ts. This module only evaluates a snapshot.
+ * A kill is applied before freshness, cohort, and the enable flags.
  */
 
-export const PLAYER_ROUTE_FLAG_FRESHNESS_MS = 15 * 60 * 1000;
+/** Absolute ceiling accepted from the server TTL. Clients trust less than this. */
+export const PLAYER_ROUTE_MAX_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Longest a successful allow may be reused. Handoff does not reuse it:
+ * it refreshes again immediately before open. This is not an instant
+ * offline disable.
+ */
+export const PLAYER_ROUTE_MAX_TRUST_MS = 60 * 1000;
+
+export const PLAYER_ROUTE_FLAG_FRESHNESS_MS = PLAYER_ROUTE_MAX_TRUST_MS;
 
 export const PLAYER_ROUTE_REMOTE_CONTROL = {
-  wired: false as const,
-  freshnessMs: PLAYER_ROUTE_FLAG_FRESHNESS_MS,
-  missingWork:
-    "No remote feature-flag service exists. Cohort assignment, a server kill switch, and a 15-minute refresh are not wired. The pure evaluator fail-closes an unavailable or expired remote snapshot, but this build never loads one.",
+  wired: true as const,
+  table: "player_route_control",
+  trustMs: PLAYER_ROUTE_MAX_TRUST_MS,
+  maxTtlMs: PLAYER_ROUTE_MAX_TTL_MS,
+  propagation:
+    "Disable applies on the next foreground, the 60-second foreground refresh, or the refresh immediately before a handoff. An offline device cannot open StrymTV. Already-open screens are not pushed a disable until one of those refreshes.",
 };
 
 export interface PlayerRouteFlagSnapshot {
@@ -63,18 +73,19 @@ export function evaluatePlayerRouteFlags(
   if (snapshot.source === "unavailable") {
     return { allowed: false, reason: "config_unavailable" };
   }
+  if (snapshot.killSwitch) return { allowed: false, reason: "kill_switch" };
   if (snapshot.source === "remote") {
     const fetched = snapshot.fetchedAtMs;
+    const windowMs = Math.min(freshnessMs, PLAYER_ROUTE_MAX_TTL_MS);
     if (
       fetched == null ||
       !Number.isFinite(fetched) ||
       nowMs < fetched ||
-      nowMs - fetched > freshnessMs
+      nowMs - fetched > windowMs
     ) {
       return { allowed: false, reason: "config_expired" };
     }
   }
-  if (snapshot.killSwitch) return { allowed: false, reason: "kill_switch" };
   if (!snapshot.globalEnabled) return { allowed: false, reason: "global_disabled" };
   if (!snapshot.strymtvEnabled) return { allowed: false, reason: "player_disabled" };
   const cohort = snapshot.cohortId;

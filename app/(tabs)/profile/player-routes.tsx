@@ -15,8 +15,7 @@ import {
   validationMessage,
 } from "../../../lib/player-routes/copy";
 import { STRYMTV_ENCODING_GATE, productionHandoffPermitted } from "../../../lib/player-routes/encoding-gate";
-import { evaluatePlayerRouteFlags, readShippedFlagSnapshot } from "../../../lib/player-routes/flags";
-import { shippedPlayerRouteRepository } from "../../../lib/player-routes/runtime";
+import { refreshPlayerRouteControl, shippedPlayerRouteRepository } from "../../../lib/player-routes/runtime";
 import type { ValidationReason } from "../../../lib/player-routes/url-validation";
 
 const VALIDATION_REASONS = new Set<ValidationReason>([
@@ -56,9 +55,11 @@ export default function PlayerRoutesScreen() {
   const { session } = useAuth();
   const accountId = session?.user?.id ?? null;
   const [model, setModel] = useState<PlayerRouteSettingsModel | null>(null);
+  const [allowed, setAllowed] = useState(false);
 
   const reload = useCallback(async () => {
-    const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
+    const decision = await refreshPlayerRouteControl();
+    setAllowed(decision.allowed);
     const repo = shippedPlayerRouteRepository();
     const loaded = accountId ? await repo.load(accountId) : null;
     setModel({
@@ -91,7 +92,6 @@ export default function PlayerRoutesScreen() {
   }
 
   const repo = shippedPlayerRouteRepository();
-  const decision = evaluatePlayerRouteFlags(readShippedFlagSnapshot(), Date.now());
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#0f172a" }} edges={["top"]}>
@@ -104,16 +104,16 @@ export default function PlayerRoutesScreen() {
       <PlayerRouteSettingsForm
         model={model}
         onOptIn={async () => {
-          const result = await repo.setOptIn(accountId, true, decision.allowed);
+          const result = await repo.setOptIn(accountId, true, allowed);
           await reload();
           return result.ok ? null : messageFor(result.reason);
         }}
         onDisableOptIn={async () => {
-          await repo.setOptIn(accountId, false, decision.allowed);
+          await repo.setOptIn(accountId, false, allowed);
           await reload();
         }}
         onSave={async (input) => {
-          const result = await repo.saveRoute(accountId, input, decision.allowed);
+          const result = await repo.saveRoute(accountId, input, allowed);
           await reload();
           return result.ok ? null : messageFor(result.reason);
         }}

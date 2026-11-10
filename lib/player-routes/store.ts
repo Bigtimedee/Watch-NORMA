@@ -195,6 +195,7 @@ export function createPlayerRouteRepository(deps: {
   newId: () => string;
   platform: () => string;
   open: (launchUrl: string) => Promise<boolean>;
+  confirmAllowed?: () => Promise<boolean>;
 }): PlayerRouteRepository {
   const { secure } = deps;
 
@@ -495,6 +496,7 @@ export function createPlayerRouteRepository(deps: {
         contract: deps.contract,
         platform: deps.platform(),
         open: deps.open,
+        confirmAllowed: deps.confirmAllowed,
       });
     },
 
