@@ -86,6 +86,9 @@ const METRICS = {
         `'${p}_posted', count(*) filter (where ${p}_post_id is not null and ${inDay(`${p}_attempted_at`)}), '${p}_failed', count(*) filter (where ${p}_post_id is null and ${p}_error is not null and ${p}_error <> 'ig_container_pending' and ${inDay(`${p}_attempted_at`)})`,
     )
     .join(", ")}) as v from public.content_calendar where ig_attempted_at >= ${D0} or fb_attempted_at >= ${D0} or tiktok_attempted_at >= ${D0}`,
+  content_calendar_crosspost_errors_yesterday: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select k, count(*)::bigint as n from (${["ig", "fb", "tiktok"]
+    .map((p) => `select '${p}: ' || left(regexp_replace(${p}_error, '\\s+', ' ', 'g'), 140) as k from public.content_calendar where ${p}_post_id is null and ${p}_error is not null and ${p}_error <> 'ig_container_pending' and ${inDay(`${p}_attempted_at`)}`)
+    .join(" union all ")}) e group by k) s`,
   content_calendar_stuck_publishing: `select count(*)::bigint as v from public.content_calendar where status = 'publishing' and updated_at < now() - interval '15 minutes'`,
   live_moments_yesterday_by_outcome: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select kind || ':' || outcome as k, count(*)::bigint as n from public.social_live_moments where ${inDay("created_at")} group by kind, outcome) s`,
   social_metrics_daily_summary_latest: `select coalesce(jsonb_agg(to_jsonb(s) order by s.platform), '[]'::jsonb) as v from public.social_metrics_daily_summary s where s.date = (select max(date) from public.social_metrics_daily_summary)`,
@@ -222,6 +225,7 @@ const out = {
     content_calendar_published_yesterday_by_platform: "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
     content_calendar_due_yesterday_by_status: "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
     content_calendar_crosspost_yesterday: "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
+    content_calendar_crosspost_errors_yesterday: "failed IG/FB/TikTok cross-posts on report_date grouped by the saved error text (first 140 chars), to diagnose failures",
     content_calendar_stuck_publishing: "rows left in status=publishing more than 15 minutes (a publish run died mid-flight), as of generated_at",
     live_moments_yesterday_by_outcome: "social_live_moments ledger rows created on report_date, by kind:outcome",
     ad_spend_cents_yesterday: "sum of impressions.clearing_price_cents delivered on report_date",
