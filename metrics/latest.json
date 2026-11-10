@@ -2,7 +2,7 @@
   "schema_version": 1,
   "report_date": "2026-11-09",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-10T13:56:37.159Z",
+  "generated_at": "2026-11-10T14:02:36.721Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -20,6 +20,7 @@
     "content_calendar_published_yesterday_by_platform": "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
     "content_calendar_due_yesterday_by_status": "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
     "content_calendar_crosspost_yesterday": "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
+    "content_calendar_crosspost_errors_yesterday": "failed IG/FB/TikTok cross-posts on report_date grouped by the saved error text (first 140 chars), to diagnose failures",
     "content_calendar_stuck_publishing": "rows left in status=publishing more than 15 minutes (a publish run died mid-flight), as of generated_at",
     "live_moments_yesterday_by_outcome": "social_live_moments ledger rows created on report_date, by kind:outcome",
     "ad_spend_cents_yesterday": "sum of impressions.clearing_price_cents delivered on report_date"
@@ -57,6 +58,10 @@
       "ig_posted": 0,
       "tiktok_failed": 0,
       "tiktok_posted": 0
+    },
+    "content_calendar_crosspost_errors_yesterday": {
+      "fb: betting_terms_blocked: wager": 3,
+      "ig: betting_terms_blocked: wager": 3
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
