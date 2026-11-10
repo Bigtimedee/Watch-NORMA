@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isSport, SPORT_LABEL, absolute, isoWeek, isoWeekStart } from "@/lib/sports";
 import { Hub } from "../../hub";
+import { OG_IMAGE } from "@/lib/seo";
 
 export const revalidate = 900;
 type Params = { sport: string; n: string };
@@ -20,10 +21,15 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   if (!isSport(sport) || !range(n)) return { robots: { index: false } };
   const from = range(n)!.from;
   const label = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "long", day: "numeric" }).format(from);
+  const title = `${SPORT_LABEL[sport]} Schedule, Week of ${label}: TV Channels | NORMA`;
+  const description = `Every ${SPORT_LABEL[sport]} game the week of ${label} with TV channel and start time.`;
+  const url = absolute(`/schedule/${sport}/week/${Number(n)}`);
   return {
-    title: `${SPORT_LABEL[sport]} Schedule, Week of ${label}: TV Channels | NORMA`,
-    description: `Every ${SPORT_LABEL[sport]} game the week of ${label} with TV channel and start time.`,
-    alternates: { canonical: absolute(`/schedule/${sport}/week/${Number(n)}`) },
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: "NORMA", type: "website", images: [OG_IMAGE] },
+    twitter: { card: "summary_large_image", title, description, images: ["/og-image.jpg"] },
   };
 }
 
