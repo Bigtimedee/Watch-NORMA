@@ -14,6 +14,8 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),
   setItemAsync: jest.fn().mockResolvedValue(undefined),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: "WHEN_UNLOCKED_THIS_DEVICE_ONLY",
+  WHEN_UNLOCKED: "WHEN_UNLOCKED",
 }));
 
 jest.mock("expo-router", () => ({
@@ -38,6 +40,11 @@ jest.mock("expo-notifications", () => ({
   setNotificationHandler: jest.fn(),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  setNotificationCategoryAsync: jest.fn(async () => ({})),
+  deleteNotificationCategoryAsync: jest.fn(async () => true),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+  setBadgeCountAsync: jest.fn(),
+  DEFAULT_ACTION_IDENTIFIER: "expo.modules.notifications.actions.DEFAULT",
 }));
 
 jest.mock("expo-constants", () => ({

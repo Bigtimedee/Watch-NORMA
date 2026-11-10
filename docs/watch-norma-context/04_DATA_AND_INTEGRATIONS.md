@@ -111,6 +111,14 @@ Games from ESPN/SportsDataIO include a `broadcast` field (e.g., "ESPN", "TNT", "
 - **Stale broadcast data.** Broadcast assignments can change close to game time. The system relies on the most recent poll data.
 - **Universal link accuracy.** Provider universal links have been a recurring issue (see migrations 036, 052–054 for YouTube TV fixes). The `deep-link-health-check` function monitors for regressions by analyzing `deep_link_events`.
 
+### Customer player routes (StrymTV) — not a provider
+
+StrymTV (App Store id 1497450933, iTelli Apps, LLC, bundle `com.SBTApps.StrymTVApp`) is a separate player app. It is not a row in `provider_registry` and it is not a streaming service NORMA carries. The only public hook found is the vendor text `strymtv://player/VIDEO LINK`. No API, SDK, EPG, channel-id launch, or Universal Link was established. A 404 on the vendor domain's association files does not prove no Universal Link exists on another host.
+
+`lib/player-routes/` can map one exact US-national broadcast token to a customer-owned HTTPS HLS (`.m3u8`) address and, only after every gate below is open, offer a secondary "Open your stream in StrymTV" action. YouTube TV remains the default whenever `isCarriedOnYouTubeTV` is true. There is no preference that overrides that default. Streaming-exclusive broadcasts keep their official routes. Unknown, mixed, or regional broadcast strings do not guess a feed.
+
+The feature ships disabled. The remote row `public.player_route_control` is seeded with `killed = true` and `strymtv_enabled = false`. A failed read also hides StrymTV. `LSApplicationQueriesSchemes` is unchanged (35 entries, `strymtv` not added). Apple's current `canOpenURL` documentation describes a 50-entry limit for apps linked on or after iOS 15 and a 25-entry limit for apps linked on or after iOS 27. That is an SDK-applicability question for a later build audit. `UIApplication.open` is not constrained by the query list, so this feature does not add a scheme query. Encoding, cold/warm start, notification-to-playback, ads, and actual playback have not been tested on an iPhone.
+
 ## Sportsbook Integrations
 
 ### Current State: Tier C (Manual Tracking)

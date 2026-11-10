@@ -20,6 +20,7 @@ const adminNavItems = [
   { href: "/admin/auction-engine", label: "Auction Engine" },
   { href: "/admin/auction-engine/live", label: "Live Monitor" },
   { href: "/admin/growth", label: "Growth" },
+  { href: "/admin/player-routes", label: "StrymTV" },
 ];
 
 export function AdminNav() {
