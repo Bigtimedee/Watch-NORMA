@@ -110,6 +110,11 @@ jobs:
   deploy-functions:
     name: Deploy Edge Functions
     runs-on: ubuntu-latest
+    # One deploy at a time, in push order, so a retrying older run can't
+    # overwrite a newer deploy mid-flight.
+    concurrency:
+      group: deploy-edge-functions
+      cancel-in-progress: false
     needs: [client, deno, migrations]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
@@ -128,7 +133,20 @@ jobs:
           echo "::warning::Edge Functions were NOT deployed. Repo and production will drift."
       - name: Deploy all Edge Functions
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
-        run: supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --yes
+        # Retries cover transient CDN/registry hiccups (e.g. esm.sh briefly
+        # serving a module whose hash differs from deno.lock, run 42829965716).
+        run: |
+          for attempt in 1 2 3; do
+            if supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --yes; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Deploy attempt $attempt failed; retrying in $((attempt * 30))s."
+              sleep $((attempt * 30))
+            fi
+          done
+          echo "::error::Edge Function deploy failed after 3 attempts."
+          exit 1
       - name: List deployed functions
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_REF != ''
         run: supabase functions list --remote="$SUPABASE_PROJECT_REF"
