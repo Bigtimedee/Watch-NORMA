@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "report_date": "2026-11-12",
+  "timezone": "America/Chicago",
+  "generated_at": "2026-11-13T12:16:24.187Z",
+  "project_ref": "shijrazlzawjpobrpmnt",
+  "query_endpoint": "read-only",
+  "definitions": {
+    "window": "*_yesterday = report_date 00:00-24:00 America/Chicago; wau = 7 CT days ending report_date; mau = 30 CT days ending report_date",
+    "users_total": "auth.users rows",
+    "new_signups_yesterday": "profiles created on report_date",
+    "auth_sign_ins_yesterday": "auth.users whose last_sign_in_at falls on report_date",
+    "dau_wau_mau": "distinct signed-in users with an app_events or deep_link_events row in the window (tracked actions only, so a floor)",
+    "push_sent_yesterday": "delivery_log channel=push status=sent",
+    "push_alerts_read_yesterday": "alerts created on report_date with push_sent and read=true (open proxy)",
+    "referrals_redeemed": "referrals rows (a referred user claimed a code)",
+    "guest_mode_sessions_yesterday": "web_events guest_mode_started",
+    "social_metrics_daily_summary_latest": "all platform rows of public.social_metrics_daily_summary for its latest date",
+    "social_posts_published_yesterday": "legacy public.social_posts pipeline only; the CMO engine posts are in content_calendar_*",
+    "content_calendar_published_yesterday_by_platform": "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
+    "content_calendar_due_yesterday_by_status": "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
+    "content_calendar_crosspost_yesterday": "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
+    "content_calendar_crosspost_errors_yesterday": "failed IG/FB/TikTok cross-posts on report_date grouped by the saved error text (first 140 chars), to diagnose failures",
+    "content_calendar_published_yesterday_by_source": "published content_calendar rows on report_date grouped by generator (model: in generation_prompt, else its first segment) / theme (else content_type)",
+    "content_calendar_stuck_publishing": "rows left in status=publishing more than 15 minutes (a publish run died mid-flight), as of generated_at",
+    "live_moments_yesterday_by_outcome": "social_live_moments ledger rows created on report_date, by kind:outcome",
+    "ad_spend_cents_yesterday": "sum of impressions.clearing_price_cents delivered on report_date"
+  },
+  "metrics": {
+    "users_total": 38,
+    "profiles_total": 37,
+    "new_signups_yesterday": 0,
+    "auth_sign_ins_yesterday": 0,
+    "dau": 2,
+    "wau": 5,
+    "mau": 8,
+    "push_sent_yesterday": 5,
+    "push_failed_yesterday": 0,
+    "push_alerts_read_yesterday": 0,
+    "referral_codes_total": 8,
+    "referral_codes_created_yesterday": 0,
+    "referral_link_clicks_yesterday": 0,
+    "referrals_redeemed_yesterday": 0,
+    "referrals_redeemed_total": 0,
+    "referrals_qualified_yesterday": 0,
+    "guest_mode_sessions_yesterday": 0,
+    "social_posts_published_yesterday": 0,
+    "social_posts_published_yesterday_by_platform": {},
+    "content_calendar_published_yesterday_by_platform": {
+      "twitter": 5
+    },
+    "content_calendar_due_yesterday_by_status": {
+      "paused": 6,
+      "published": 5
+    },
+    "content_calendar_crosspost_yesterday": {
+      "fb_failed": 0,
+      "fb_posted": 0,
+      "ig_failed": 0,
+      "ig_posted": 0,
+      "tiktok_failed": 0,
+      "tiktok_posted": 0
+    },
+    "content_calendar_crosspost_errors_yesterday": {},
+    "content_calendar_published_yesterday_by_source": {
+      "todays_games:todays_games:2026-11-12 / todays_games": 1,
+      "live_moment:live_moment:espn-nba-4019099 / live_moment": 2,
+      "live_moment:live_moment:espn-ncaaf-40186 / live_moment": 1,
+      "live_moment:live_moment:espn-nfl-4018730 / live_moment": 1
+    },
+    "content_calendar_stuck_publishing": 0,
+    "live_moments_yesterday_by_outcome": {
+      "live_moment:queued": 4,
+      "todays_games:queued": 1
+    },
+    "social_metrics_daily_summary_latest": [
+      {
+        "date": "2026-11-13",
+        "likes": 0,
+        "views": null,
+        "follows": null,
+        "replies": 0,
+        "reposts": null,
+        "platform": "fb",
+        "impressions": null,
+        "link_clicks": null,
+        "posts_tracked": 12,
+        "follower_count": 0,
+        "follower_delta": 0
+      },
+      {
+        "date": "2026-11-13",
+        "likes": 5,
+        "views": null,
+        "follows": null,
+        "replies": 0,
+        "reposts": null,
+        "platform": "ig",
+        "impressions": null,
+        "link_clicks": null,
+        "posts_tracked": 12,
+        "follower_count": 36,
+        "follower_delta": 0
+      },
+      {
+        "date": "2026-11-13",
+        "likes": 32,
+        "views": 3192,
+        "follows": null,
+        "replies": 29,
+        "reposts": 0,
+        "platform": "x",
+        "impressions": 3192,
+        "link_clicks": 6,
+        "posts_tracked": 44,
+        "follower_count": 20,
+        "follower_delta": 2
+      }
+    ],
+    "ad_campaigns_active": 0,
+    "ad_impressions_yesterday": 0,
+    "ad_clicks_yesterday": 0,
+    "ad_spend_cents_yesterday": 0,
+    "advertiser_accounts_total": 1,
+    "push_opened_yesterday": null
+  },
+  "nulls": {
+    "push_opened_yesterday": "not tracked: no notification-open event or column exists; see push_alerts_read_yesterday (pushed alerts marked read in-app) as a proxy"
+  }
+}
