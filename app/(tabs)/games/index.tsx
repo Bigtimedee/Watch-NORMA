@@ -281,7 +281,8 @@ const s = StyleSheet.create({
   tabActive: { backgroundColor: "#f97316" },
   tabInactive: { backgroundColor: "#1e293b" },
   tabText: { fontSize: 14, fontWeight: "600" },
-  tabTextActive: { color: "#ffffff" },
+  // Slate on the brand orange fill. White on #f97316 is 2.80:1.
+  tabTextActive: { color: "#0f172a" },
   tabTextInactive: { color: "#94a3b8" },
   loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
   loadingText: { color: "#94a3b8", marginTop: 16 },
@@ -294,7 +295,7 @@ const s = StyleSheet.create({
     borderRadius: 9999,
     backgroundColor: "#f97316",
   },
-  retryText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
+  retryText: { color: "#0f172a", fontSize: 14, fontWeight: "600" },
   // A horizontal ScrollView in a column layout stretches to fill leftover space
   // and is then squeezed when a sibling claims it. With the games list empty the
   // pills rendered oversized; once the list filled (build 26) the row collapsed
@@ -318,6 +319,6 @@ const s = StyleSheet.create({
   sportPillActive: { backgroundColor: "#f97316" },
   sportPillInactive: { backgroundColor: "#1e293b" },
   sportPillText: { fontSize: 13, fontWeight: "600" },
-  sportPillTextActive: { color: "#ffffff" },
+  sportPillTextActive: { color: "#0f172a" },
   sportPillTextInactive: { color: "#94a3b8" },
 });

@@ -164,7 +164,7 @@ export default function DatePicker({ selectedOffset, onSelectOffset }: DatePicke
                     <Text
                       style={[
                         s.pillTodayLabel,
-                        isSelected ? s.textWhite : s.textOrange,
+                        isSelected ? s.textOnOrange : s.textOrange,
                       ]}
                     >
                       TODAY
@@ -172,7 +172,7 @@ export default function DatePicker({ selectedOffset, onSelectOffset }: DatePicke
                     <Text
                       style={[
                         s.pillDate,
-                        isSelected ? s.textWhiteDim : s.textOrangeDim,
+                        isSelected ? s.textOnOrange : s.textOrange,
                       ]}
                     >
                       {shortDate}
@@ -202,7 +202,7 @@ export default function DatePicker({ selectedOffset, onSelectOffset }: DatePicke
                             ? s.textPastDateSelected
                             : s.textPastDate
                           : isSelected
-                          ? s.textWhiteDim
+                          ? s.textWhite
                           : s.textFutureDate,
                       ]}
                     >
@@ -235,7 +235,8 @@ const s = StyleSheet.create({
   labelPast: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#475569",
+    // Was #475569 (2.36:1 on #0f172a). Keep the slate hue; only lift contrast.
+    color: "#94a3b8",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
@@ -344,16 +345,19 @@ const s = StyleSheet.create({
   // Fix: rgba() used throughout instead of 8-digit hex (#rrggbbaa).
   // Fix: past text brightened for contrast on #1e293b background.
   textWhite: { color: "#ffffff" },
-  textWhiteDim: { color: "rgba(255, 255, 255, 0.67)" },
+  // Selected today sits on #f97316. White is 2.80:1 and 67% white is 1.99:1.
+  textOnOrange: { color: "#0f172a" },
+  // Also the unselected today date. Solid #f97316 on #431407 is 5.58:1;
+  // the previous 60% orange date was 2.47:1.
   textOrange: { color: "#f97316" },
-  textOrangeDim: { color: "rgba(234, 88, 12, 0.60)" },
   // Brightened: was #64748b (too dim on #1e293b), now #94a3b8
   textPast: { color: "#94a3b8" },
   textPastSelected: { color: "#cbd5e1" },
-  // Brightened: was #475569 (very dark on #1e293b), now #7a8fa6
-  textPastDate: { color: "#7a8fa6" },
-  textPastDateSelected: { color: "#94a3b8" },
+  // #7a8fa6 was 4.39:1 on #1e293b. Match the weekday slate, keep weight lighter.
+  textPastDate: { color: "#94a3b8" },
+  // #94a3b8 was 4.04:1 on the selected past pill (#334155).
+  textPastDateSelected: { color: "#cbd5e1" },
   textFuture: { color: "#60a5fa" },
-  // Fix: was #3b82f699 (8-digit hex), now rgba()
-  textFutureDate: { color: "rgba(59, 130, 246, 0.60)" },
+  // Solid #3b82f6 is 4.75:1 on #0c1a2e. 60% blue was 2.52:1.
+  textFutureDate: { color: "#3b82f6" },
 });
