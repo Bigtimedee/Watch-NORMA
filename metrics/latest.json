@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-16",
+  "report_date": "2026-11-17",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-17T20:39:09.710Z",
+  "generated_at": "2026-11-18T12:16:44.582Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -31,10 +31,10 @@
     "profiles_total": 37,
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 0,
-    "dau": 1,
+    "dau": 2,
     "wau": 4,
     "mau": 8,
-    "push_sent_yesterday": 1,
+    "push_sent_yesterday": 3,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -47,37 +47,41 @@
     "social_posts_published_yesterday": 0,
     "social_posts_published_yesterday_by_platform": {},
     "content_calendar_published_yesterday_by_platform": {
-      "twitter": 4
+      "twitter": 6
     },
     "content_calendar_due_yesterday_by_status": {
-      "paused": 4,
-      "published": 4
+      "paused": 3,
+      "published": 6
     },
     "content_calendar_crosspost_yesterday": {
-      "fb_failed": 2,
+      "fb_failed": 3,
       "fb_posted": 0,
-      "ig_failed": 2,
+      "ig_failed": 3,
       "ig_posted": 0,
       "tiktok_failed": 0,
       "tiktok_posted": 0
     },
     "content_calendar_crosspost_errors_yesterday": {
       "fb: betting_terms_blocked: wager": 2,
-      "ig: betting_terms_blocked: wager": 2
+      "ig: betting_terms_blocked: wager": 2,
+      "fb: betting_terms_blocked: bet, wager": 1,
+      "ig: betting_terms_blocked: bet, wager": 1
     },
     "content_calendar_published_yesterday_by_source": {
-      "no_generation_prompt / post": 2,
-      "todays_games:todays_games:2026-11-16 / todays_games": 1,
-      "live_moment:live_moment:espn-nfl-4018730 / live_moment": 1
+      "no_generation_prompt / post": 3,
+      "todays_games:todays_games:2026-11-17 / todays_games": 1,
+      "live_moment:live_moment:espn-nba-4019100 / live_moment": 1,
+      "live_moment:live_moment:espn-ncaaf-40186 / live_moment": 1
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 1,
+      "live_moment:queued": 2,
+      "live_moment:skipped": 1,
       "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-17",
+        "date": "2026-11-18",
         "likes": 0,
         "views": null,
         "follows": null,
@@ -91,7 +95,7 @@
         "follower_delta": 0
       },
       {
-        "date": "2026-11-17",
+        "date": "2026-11-18",
         "likes": 5,
         "views": null,
         "follows": null,
@@ -105,16 +109,16 @@
         "follower_delta": 0
       },
       {
-        "date": "2026-11-17",
-        "likes": 47,
-        "views": 6577,
+        "date": "2026-11-18",
+        "likes": 48,
+        "views": 6786,
         "follows": null,
-        "replies": 38,
+        "replies": 40,
         "reposts": 0,
         "platform": "x",
-        "impressions": 6577,
+        "impressions": 6786,
         "link_clicks": 13,
-        "posts_tracked": 73,
+        "posts_tracked": 78,
         "follower_count": 21,
         "follower_delta": 0
       }
