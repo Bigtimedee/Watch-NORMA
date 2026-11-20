@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-18",
+  "report_date": "2026-11-19",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-19T20:14:38.288Z",
+  "generated_at": "2026-11-20T12:16:21.916Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -34,7 +34,7 @@
     "dau": 2,
     "wau": 4,
     "mau": 8,
-    "push_sent_yesterday": 2,
+    "push_sent_yesterday": 3,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -47,11 +47,11 @@
     "social_posts_published_yesterday": 0,
     "social_posts_published_yesterday_by_platform": {},
     "content_calendar_published_yesterday_by_platform": {
-      "twitter": 7
+      "twitter": 6
     },
     "content_calendar_due_yesterday_by_status": {
-      "paused": 4,
-      "published": 7
+      "paused": 3,
+      "published": 6
     },
     "content_calendar_crosspost_yesterday": {
       "fb_failed": 0,
@@ -63,33 +63,32 @@
     },
     "content_calendar_crosspost_errors_yesterday": {},
     "content_calendar_published_yesterday_by_source": {
-      "todays_games:todays_games:2026-11-18 / todays_games": 1,
-      "live_moment:live_moment:espn-nba-4019100 / live_moment": 2,
-      "live_moment:live_moment:sdio-73793:close / live_moment": 1,
-      "live_moment:live_moment:sdio-79667:close / live_moment": 1,
-      "live_moment:live_moment:sdio-79667:overt / live_moment": 1,
-      "live_moment:live_moment:sdio-79668:close / live_moment": 1
+      "todays_games:todays_games:2026-11-19 / todays_games": 1,
+      "live_moment:live_moment:espn-nba-4019100 / live_moment": 1,
+      "live_moment:live_moment:espn-ncaaf-40186 / live_moment": 1,
+      "live_moment:live_moment:sdio-73806:close / live_moment": 1,
+      "live_moment:live_moment:sdio-73806:overt / live_moment": 1,
+      "live_moment:live_moment:sdio-79673:close / live_moment": 1
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 6,
-      "live_moment:skipped": 1,
+      "live_moment:queued": 5,
       "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-19",
+        "date": "2026-11-20",
         "likes": 48,
-        "views": 7664,
+        "views": 8316,
         "follows": null,
-        "replies": 39,
+        "replies": 38,
         "reposts": 0,
         "platform": "x",
-        "impressions": 7664,
-        "link_clicks": 13,
-        "posts_tracked": 84,
-        "follower_count": 21,
-        "follower_delta": 0
+        "impressions": 8316,
+        "link_clicks": 16,
+        "posts_tracked": 89,
+        "follower_count": 20,
+        "follower_delta": -1
       }
     ],
     "ad_campaigns_active": 0,
