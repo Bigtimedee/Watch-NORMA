@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-20",
+  "report_date": "2026-11-21",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-21T18:53:36.272Z",
+  "generated_at": "2026-11-22T12:15:45.177Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -30,11 +30,11 @@
     "users_total": 38,
     "profiles_total": 37,
     "new_signups_yesterday": 0,
-    "auth_sign_ins_yesterday": 1,
-    "dau": 1,
+    "auth_sign_ins_yesterday": 0,
+    "dau": 3,
     "wau": 4,
     "mau": 8,
-    "push_sent_yesterday": 1,
+    "push_sent_yesterday": 3,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -43,48 +43,54 @@
     "referrals_redeemed_yesterday": 0,
     "referrals_redeemed_total": 0,
     "referrals_qualified_yesterday": 0,
-    "guest_mode_sessions_yesterday": 0,
+    "guest_mode_sessions_yesterday": 2,
     "social_posts_published_yesterday": 0,
     "social_posts_published_yesterday_by_platform": {},
     "content_calendar_published_yesterday_by_platform": {
-      "twitter": 5
+      "twitter": 14
     },
     "content_calendar_due_yesterday_by_status": {
+      "failed": 2,
       "paused": 3,
-      "published": 5
+      "published": 14
     },
     "content_calendar_crosspost_yesterday": {
-      "fb_failed": 0,
+      "fb_failed": 3,
       "fb_posted": 0,
-      "ig_failed": 0,
+      "ig_failed": 3,
       "ig_posted": 0,
       "tiktok_failed": 0,
       "tiktok_posted": 0
     },
-    "content_calendar_crosspost_errors_yesterday": {},
+    "content_calendar_crosspost_errors_yesterday": {
+      "fb: betting_terms_blocked: wager": 3,
+      "ig: betting_terms_blocked: wager": 3
+    },
     "content_calendar_published_yesterday_by_source": {
-      "todays_games:todays_games:2026-11-20 / todays_games": 1,
-      "live_moment:live_moment:espn-nba-4019093 / live_moment": 3,
+      "no_generation_prompt / post": 3,
+      "todays_games:todays_games:2026-11-21 / todays_games": 1,
+      "live_moment:live_moment:espn-nba-4019100 / live_moment": 1,
+      "live_moment:live_moment:espn-ncaaf-40185 / live_moment": 8,
       "live_moment:live_moment:espn-ncaaf-40186 / live_moment": 1
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 4,
+      "live_moment:queued": 12,
       "todays_games:queued": 1,
-      "live_moment:rate_capped": 1
+      "live_moment:rate_capped": 5
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-21",
-        "likes": 49,
-        "views": 8739,
+        "date": "2026-11-22",
+        "likes": null,
+        "views": null,
         "follows": null,
-        "replies": 38,
-        "reposts": 1,
+        "replies": null,
+        "reposts": null,
         "platform": "x",
-        "impressions": 8739,
-        "link_clicks": 18,
-        "posts_tracked": 94,
+        "impressions": null,
+        "link_clicks": null,
+        "posts_tracked": 0,
         "follower_count": 20,
         "follower_delta": 0
       }
