@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-21",
+  "report_date": "2026-11-22",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-22T19:14:11.054Z",
+  "generated_at": "2026-11-23T12:15:35.621Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -31,10 +31,10 @@
     "profiles_total": 37,
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 0,
-    "dau": 3,
-    "wau": 4,
+    "dau": 2,
+    "wau": 3,
     "mau": 8,
-    "push_sent_yesterday": 3,
+    "push_sent_yesterday": 1,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -43,45 +43,33 @@
     "referrals_redeemed_yesterday": 0,
     "referrals_redeemed_total": 0,
     "referrals_qualified_yesterday": 0,
-    "guest_mode_sessions_yesterday": 2,
+    "guest_mode_sessions_yesterday": 0,
     "social_posts_published_yesterday": 0,
     "social_posts_published_yesterday_by_platform": {},
-    "content_calendar_published_yesterday_by_platform": {
-      "twitter": 14
-    },
+    "content_calendar_published_yesterday_by_platform": {},
     "content_calendar_due_yesterday_by_status": {
-      "failed": 2,
-      "paused": 3,
-      "published": 14
+      "failed": 11,
+      "paused": 6
     },
     "content_calendar_crosspost_yesterday": {
-      "fb_failed": 3,
+      "fb_failed": 0,
       "fb_posted": 0,
-      "ig_failed": 3,
+      "ig_failed": 0,
       "ig_posted": 0,
       "tiktok_failed": 0,
       "tiktok_posted": 0
     },
-    "content_calendar_crosspost_errors_yesterday": {
-      "fb: betting_terms_blocked: wager": 3,
-      "ig: betting_terms_blocked: wager": 3
-    },
-    "content_calendar_published_yesterday_by_source": {
-      "no_generation_prompt / post": 3,
-      "todays_games:todays_games:2026-11-21 / todays_games": 1,
-      "live_moment:live_moment:espn-nba-4019100 / live_moment": 1,
-      "live_moment:live_moment:espn-ncaaf-40185 / live_moment": 8,
-      "live_moment:live_moment:espn-ncaaf-40186 / live_moment": 1
-    },
+    "content_calendar_crosspost_errors_yesterday": {},
+    "content_calendar_published_yesterday_by_source": {},
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 12,
-      "todays_games:queued": 1,
-      "live_moment:rate_capped": 5
+      "live_moment:queued": 10,
+      "live_moment:skipped": 3,
+      "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-22",
+        "date": "2026-11-23",
         "likes": null,
         "views": null,
         "follows": null,
