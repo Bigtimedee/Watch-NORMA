@@ -2,7 +2,7 @@
   "schema_version": 1,
   "report_date": "2026-11-24",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-25T12:22:28.168Z",
+  "generated_at": "2026-11-25T21:22:29.426Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -63,7 +63,7 @@
     "content_calendar_crosspost_errors_yesterday": {},
     "content_calendar_published_yesterday_by_source": {},
     "content_calendar_failed_reasons_recent": {
-      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 16
+      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 15
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
