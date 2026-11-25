@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-23",
+  "report_date": "2026-11-24",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-24T22:06:22.047Z",
+  "generated_at": "2026-11-25T12:16:38.184Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -31,10 +31,10 @@
     "profiles_total": 37,
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 0,
-    "dau": 2,
+    "dau": 3,
     "wau": 3,
     "mau": 8,
-    "push_sent_yesterday": 4,
+    "push_sent_yesterday": 7,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -48,8 +48,8 @@
     "social_posts_published_yesterday_by_platform": {},
     "content_calendar_published_yesterday_by_platform": {},
     "content_calendar_due_yesterday_by_status": {
-      "failed": 5,
-      "paused": 6
+      "failed": 4,
+      "paused": 3
     },
     "content_calendar_crosspost_yesterday": {
       "fb_failed": 0,
@@ -63,12 +63,12 @@
     "content_calendar_published_yesterday_by_source": {},
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 4,
+      "live_moment:queued": 3,
       "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-24",
+        "date": "2026-11-25",
         "likes": null,
         "views": null,
         "follows": null,
@@ -78,8 +78,8 @@
         "impressions": null,
         "link_clicks": null,
         "posts_tracked": 0,
-        "follower_count": 20,
-        "follower_delta": 0
+        "follower_count": 21,
+        "follower_delta": 1
       }
     ],
     "ad_campaigns_active": 0,
