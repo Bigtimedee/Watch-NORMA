@@ -2,7 +2,7 @@
   "schema_version": 1,
   "report_date": "2026-11-24",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-25T12:16:38.184Z",
+  "generated_at": "2026-11-25T12:22:28.168Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -17,6 +17,7 @@
     "guest_mode_sessions_yesterday": "web_events guest_mode_started",
     "social_metrics_daily_summary_latest": "all platform rows of public.social_metrics_daily_summary for its latest date",
     "social_posts_published_yesterday": "legacy public.social_posts pipeline only; the CMO engine posts are in content_calendar_*",
+    "content_calendar_failed_reasons_recent": "AUTO-FAIL reason text (first 160 chars) for content_calendar rows status=failed scheduled in the last 3 days, with counts",
     "content_calendar_published_yesterday_by_platform": "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
     "content_calendar_due_yesterday_by_status": "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
     "content_calendar_crosspost_yesterday": "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
@@ -61,6 +62,9 @@
     },
     "content_calendar_crosspost_errors_yesterday": {},
     "content_calendar_published_yesterday_by_source": {},
+    "content_calendar_failed_reasons_recent": {
+      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 16
+    },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
       "live_moment:queued": 3,
