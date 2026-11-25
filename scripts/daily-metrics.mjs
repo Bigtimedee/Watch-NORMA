@@ -90,6 +90,7 @@ const METRICS = {
     .map((p) => `select '${p}: ' || left(regexp_replace(${p}_error, '\\s+', ' ', 'g'), 140) as k from public.content_calendar where ${p}_post_id is null and ${p}_error is not null and ${p}_error <> 'ig_container_pending' and ${inDay(`${p}_attempted_at`)}`)
     .join(" union all ")}) e group by k) s`,
   content_calendar_published_yesterday_by_source: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select coalesce(substring(generation_prompt from 'model:([^ |]+)'), case when generation_prompt is null then 'no_generation_prompt' else left(split_part(generation_prompt, '|', 1), 40) end) || ' / ' || coalesce(substring(generation_prompt from 'theme:([^ |]+)'), content_type) as k, count(*)::bigint as n from public.content_calendar where status = 'published' and ${inDay("published_at")} group by 1) s`,
+  content_calendar_failed_reasons_recent: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select left(regexp_replace(substring(human_notes from '\\[AUTO-FAIL [^]]*\\] (.*)$'), '\\s+', ' ', 'g'), 160) as k, count(*)::bigint as n from public.content_calendar where status = 'failed' and scheduled_for >= now() - interval '3 days' group by 1) s`,
   content_calendar_stuck_publishing: `select count(*)::bigint as v from public.content_calendar where status = 'publishing' and updated_at < now() - interval '15 minutes'`,
   live_moments_yesterday_by_outcome: `select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) as v from (select kind || ':' || outcome as k, count(*)::bigint as n from public.social_live_moments where ${inDay("created_at")} group by kind, outcome) s`,
   social_metrics_daily_summary_latest: `select coalesce(jsonb_agg(to_jsonb(s) order by s.platform), '[]'::jsonb) as v from public.social_metrics_daily_summary s where s.date = (select max(date) from public.social_metrics_daily_summary)`,
@@ -223,6 +224,7 @@ const out = {
     guest_mode_sessions_yesterday: "web_events guest_mode_started",
     social_metrics_daily_summary_latest: "all platform rows of public.social_metrics_daily_summary for its latest date",
     social_posts_published_yesterday: "legacy public.social_posts pipeline only; the CMO engine posts are in content_calendar_*",
+    content_calendar_failed_reasons_recent: "AUTO-FAIL reason text (first 160 chars) for content_calendar rows status=failed scheduled in the last 3 days, with counts",
     content_calendar_published_yesterday_by_platform: "content_calendar rows status=published with published_at on report_date, by platform (twitter = X; linkedin)",
     content_calendar_due_yesterday_by_status: "content_calendar rows with scheduled_for on report_date, by current status (failed/paused/publishing = did not go out)",
     content_calendar_crosspost_yesterday: "IG/FB/TikTok cross-posts attempted on report_date: posted (post id saved) vs failed (error saved; IG container still pending is not a failure)",
