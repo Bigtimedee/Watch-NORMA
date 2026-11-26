@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-24",
+  "report_date": "2026-11-25",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-25T21:22:29.426Z",
+  "generated_at": "2026-11-26T12:16:23.232Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -32,10 +32,10 @@
     "profiles_total": 37,
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 0,
-    "dau": 3,
+    "dau": 2,
     "wau": 3,
-    "mau": 8,
-    "push_sent_yesterday": 7,
+    "mau": 6,
+    "push_sent_yesterday": 6,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -49,8 +49,8 @@
     "social_posts_published_yesterday_by_platform": {},
     "content_calendar_published_yesterday_by_platform": {},
     "content_calendar_due_yesterday_by_status": {
-      "failed": 4,
-      "paused": 3
+      "failed": 8,
+      "paused": 4
     },
     "content_calendar_crosspost_yesterday": {
       "fb_failed": 0,
@@ -63,16 +63,17 @@
     "content_calendar_crosspost_errors_yesterday": {},
     "content_calendar_published_yesterday_by_source": {},
     "content_calendar_failed_reasons_recent": {
-      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 15
+      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 17
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
-      "live_moment:queued": 3,
+      "live_moment:queued": 7,
+      "live_moment:skipped": 1,
       "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-25",
+        "date": "2026-11-26",
         "likes": null,
         "views": null,
         "follows": null,
@@ -83,7 +84,7 @@
         "link_clicks": null,
         "posts_tracked": 0,
         "follower_count": 21,
-        "follower_delta": 1
+        "follower_delta": 0
       }
     ],
     "ad_campaigns_active": 0,
