@@ -6,7 +6,10 @@
 - **Reads only.** Queries go through the Supabase Management API read-only endpoint
   (`POST /v1/projects/{ref}/database/query/read-only`); if that endpoint is unavailable
   the script falls back to `/database/query` and refuses anything that is not a single
-  `SELECT`/`WITH` statement. It never writes to the database.
+  `SELECT`/`WITH` statement. Reads are paced and retried when the API returns 429.
+  It never writes to the database. The workflow shares the
+  `supabase-management-query` concurrency group with Apply migration so the two
+  jobs do not call that API at the same time.
 - **Auth:** repo secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` (the pair the
   Edge Function deploy already uses). No service-role key.
 - **Output:** the orphan branch `metrics` (never merged into `main`):

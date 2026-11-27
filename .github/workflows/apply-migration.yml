@@ -9,6 +9,9 @@
 #     schema_migrations insert in one transaction, then verifies.
 #     allow_unverified_others=true (opt-in) turns that refusal into a warning
 #     for the named migration only; other files are listed and not applied.
+#   Catalog inspection is a few batched SELECTs, not one HTTP call per file.
+#   Reads retry 429/transient failures. A write whose response is lost is
+#   reconciled and is not sent again. See docs/operations/apply-migration.md.
 #   mode=live-moments-dry-run: calls cmo-live-moments with dry_run=true
 #     (todays_games and live) via pg_net + vault, like pg_cron. No writes, no posts.
 # Uses repo secrets SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF.
@@ -41,8 +44,11 @@ on:
 permissions:
   contents: read
 
+# Shared with daily-metrics.yml so the two Management API database-query
+# jobs cannot burst the same token at once. Never cancel an in-progress
+# apply: the write may already have been accepted.
 concurrency:
-  group: apply-migration
+  group: supabase-management-query
   cancel-in-progress: false
 
 jobs:
@@ -56,8 +62,8 @@ jobs:
       MODE: ${{ inputs.mode }}
       ALLOW_UNVERIFIED_OTHERS: ${{ inputs.allow_unverified_others && 'true' || 'false' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Require GitHub repo secrets
