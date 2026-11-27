@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "report_date": "2026-11-25",
+  "report_date": "2026-11-26",
   "timezone": "America/Chicago",
-  "generated_at": "2026-11-26T21:09:38.064Z",
+  "generated_at": "2026-11-27T12:16:20.725Z",
   "project_ref": "shijrazlzawjpobrpmnt",
   "query_endpoint": "read-only",
   "definitions": {
@@ -33,9 +33,9 @@
     "new_signups_yesterday": 0,
     "auth_sign_ins_yesterday": 0,
     "dau": 2,
-    "wau": 3,
+    "wau": 4,
     "mau": 6,
-    "push_sent_yesterday": 6,
+    "push_sent_yesterday": 0,
     "push_failed_yesterday": 0,
     "push_alerts_read_yesterday": 0,
     "referral_codes_total": 8,
@@ -50,7 +50,7 @@
     "content_calendar_published_yesterday_by_platform": {},
     "content_calendar_due_yesterday_by_status": {
       "failed": 8,
-      "paused": 4
+      "paused": 3
     },
     "content_calendar_crosspost_yesterday": {
       "fb_failed": 0,
@@ -63,17 +63,16 @@
     "content_calendar_crosspost_errors_yesterday": {},
     "content_calendar_published_yesterday_by_source": {},
     "content_calendar_failed_reasons_recent": {
-      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 19
+      "Twitter API error 402: {\"detail\":\"credits depleted\",\"status\":402,\"title\":\"Payment Required\",\"type\":\"https://api.x.com/2/problems/credits-depleted\"}": 21
     },
     "content_calendar_stuck_publishing": 0,
     "live_moments_yesterday_by_outcome": {
       "live_moment:queued": 7,
-      "live_moment:skipped": 1,
       "todays_games:queued": 1
     },
     "social_metrics_daily_summary_latest": [
       {
-        "date": "2026-11-26",
+        "date": "2026-11-27",
         "likes": null,
         "views": null,
         "follows": null,
@@ -83,8 +82,8 @@
         "impressions": null,
         "link_clicks": null,
         "posts_tracked": 0,
-        "follower_count": 21,
-        "follower_delta": 0
+        "follower_count": 20,
+        "follower_delta": -1
       }
     ],
     "ad_campaigns_active": 0,
