@@ -149,7 +149,8 @@ const s = StyleSheet.create({
   statusFinal: { backgroundColor: "#475569" },
   statusScheduled: { backgroundColor: "#334155" },
   statusText: { fontSize: 12, fontWeight: "700" },
-  statusTextLive: { color: "#f87171" },
+  // #f87171 on the live tint is 4.38:1. #fca5a5 keeps the red cue at 6.38:1.
+  statusTextLive: { color: "#fca5a5" },
   statusTextDefault: { color: "#cbd5e1" },
   teamRow: {
     flexDirection: "row",
@@ -176,5 +177,6 @@ const s = StyleSheet.create({
   score: { fontSize: 24, fontWeight: "700" },
   scoreActive: { color: "#ffffff" },
   scoreInactive: { color: "#64748b" },
-  venue: { color: "#64748b", fontSize: 12, marginTop: 8 },
+  // #64748b is 3.07:1 on the card. Broadcast already uses #94a3b8 (5.71:1).
+  venue: { color: "#94a3b8", fontSize: 12, marginTop: 8 },
 });
